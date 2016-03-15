@@ -164,7 +164,15 @@ contributors: Domenic Denicola
         1. Let _Z_ be the *this* value.
         1. If Type(_Z_) is not Object, throw a *TypeError* exception.
         1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
-        1. TODO
+        1. If IsCallable(_callback_) is *false*, throw a *TypeError* exception.
+        1. Let _C_ be ? Get(_Z_, `"constructor")`.
+        1. If Type(_C_) is not Object, throw a *TypeError* exception.
+        1. If _C_ does not have a [[CurrentZone]] internal slot, throw a *TypeError* exception.
+        1. Let _beforeZone_ be the value of _C_'s [[CurrentZone]] internal slot.
+        1. Set _C_'s [[CurrentZone]] internal slot to _Z_.
+        1. Let _status_ be Call(_callback_, *undefined*, « »).
+        1. Set _C_'s [[CurrentZone]] internal slot to _beforeZone_.
+        1. Return _status_.
       </emu-alg>
     </emu-clause>
 
