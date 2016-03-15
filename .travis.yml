@@ -1,0 +1,8 @@
+script: bash ./deploy.sh
+env:
+  global:
+  - GH_REF: github.com/domenic/zones.git
+  - secure: TODO
+language: node_js
+node_js:
+- stable

@@ -1,0 +1,19 @@
+{
+  "name": "zones-proposal",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Zones proposal for JavaScript",
+  "scripts": {
+    "spec": "mkdir -p out && ecmarkup spec.html out/index.html"
+  },
+  "repository": "domenic/zones",
+  "keywords": [
+    "zone",
+    "tc39",
+    "javascript",
+    "ecmascript",
+    "spec"
+  ],
+  "author": "Domenic Denicola <d@domenic.me> (https://domenic.me/)",
+  "license": "CC0-1.0"
+}
