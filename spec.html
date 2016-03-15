@@ -9,3 +9,162 @@ contributors: Domenic Denicola
 <script src="https://bterlson.github.io/ecmarkup/ecmarkup.js" defer></script>
 <link rel="stylesheet" href="https://bterlson.github.io/ecmarkup/elements.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/solarized_light.min.css">
+
+<emu-clause id="sec-zone-objects">
+  <h1>Zone Objects</h1>
+
+  <p>A Zone is an object that represents a logical asynchronous context.</p>
+
+  <emu-clause id="sec-zone-abstract-operations">
+    <h1>Zone Abstract Operations</h1>
+
+    <p>None yet...</p>
+  </emu-clause>
+
+  <emu-clause id="sec-zone-constructor">
+    <h1>The Zone Constructor</h1>
+
+    <p>The Zone constructor is the <dfn>%Zone%</dfn> intrinsic object and the initial value of the `Zone` property of the global object. When called as a constructor it creates and initializes a new Zone object. `Zone` is not intended to be called as a function and will throw an exception when called in that manner.</p>
+
+    <p>The `Zone` constructor is designed to be subclassable. It may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `Zone` behaviour must include a `super` call to the `Zone` constructor to create and initialize the subclass instance with the internal state necessary to support the `Zone` and `Zone.prototype` built-in methods.</p>
+
+    <emu-clause id="sec-zone">
+      <h1>Zone ( _options_ )</h1>
+
+      <p>When the `Zone` function is called with argument _options_, the following steps are taken:</p>
+
+      <emu-alg>
+        1. If NewTarget is *undefined*, throw a *TypeError* exception.
+        1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]] »).
+        1. TODO.
+        1. Return _zone_.
+      </emu-alg>
+    </emu-clause>
+  </emu-clause>
+
+  <emu-clause id="sec-properties-of-the-zone-constructor">
+    <h1>Properties of the Zone Constructor</h1>
+
+    <p>The value of the [[Prototype]] internal slot of the `Zone` constructor is the intrinsic object %FunctionPrototype%. The `Zone` constructor is initially created with the internal slots described in <emu-xref href="#table-zone-constructor-slots"></emu-xref>.</p>
+
+    <emu-table id="table-zone-constructor-slots" caption="Internal Slots of the Zone Constructor">
+      <table>
+        <thead>
+          <tr>
+            <th>Internal Slot</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>[[CurrentZone]]</td>
+            <td>A `Zone` object representing the current zone.</td>
+          </tr>
+        </tbody>
+      </table>
+    </emu-table>
+
+    <emu-clause id="set-get-zone.current">
+      <h1>get Zone.current</h1>
+
+      <p>`Zone.current` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps:</p>
+
+      <emu-alg>
+        1. Let _Z_ be the *this* value.
+        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
+        1. If _Z_ does not have a [[CurrentZone]] internal slot, throw a *TypeError* exception.
+        1. Return the value of _Z_'s [[CurrentZone]] internal slot.
+      </emu-alg>
+    </emu-clause>
+  </emu-clause>
+
+  <emu-clause id="sec-properties-of-the-zone-prototype-object">
+    <h1>Properties of the Zone Prototype Object</h1>
+
+    <p>The Zone prototype object is the intrinsic object <dfn>%ZonePrototype%</dfn>. The value of the [[Prototype]] internal slot of the Zone prototype object is the intrinsic object %ObjectPrototype%. The Zone prototype object is an ordinary object. It does not have any of the internal slots of Zone instances.</p>
+
+    <emu-clause id="sec-get-zone.prototype.parent">
+      <h1>get Zone.prototype.parent</h1>
+
+      <p>`Zone.prototype.parent` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps:</p>
+
+      <emu-alg>
+        1. Let _Z_ be the *this* value.
+        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
+        1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
+        1. Return the value of _Z_'s [[ParentZone]] internal slot.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-zone.prototype.fork">
+      <h1>Zone.prototype.fork ( _options_ )</h1>
+
+      <p>When the `fork` method is called with argument _options_, the following steps are taken:</p>
+
+      <emu-alg>
+        1. Let _Z_ be the *this* value.
+        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
+        1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
+        1. TODO
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-zone.prototype.run">
+      <h1>Zone.prototype.run ( _callback_ )</h1>
+
+      <p>When the `run` method is called with argument _callback_, the following steps are taken:</p>
+
+      <emu-alg>
+        1. Let _Z_ be the *this* value.
+        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
+        1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
+        1. TODO
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-zone.prototype.wrap">
+      <h1>Zone.prototype.wrap ( _callback_ )</h1>
+
+      <p>When the `wrap` method is called with argument _callback_, the following steps are taken:</p>
+
+      <emu-alg>
+        1. Let _Z_ be the *this* value.
+        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
+        1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
+        1. TODO
+      </emu-alg>
+    </emu-clause>
+  </emu-clause>
+
+  <emu-clause id="sec-properties-of-zone-instances">
+    <h1>Properties of Zone Instances</h1>
+    <p>Zone instances are ordinary objects that inherit properties from the Zone prototype object (the intrinsic, %ZonePrototype%). Zone instances are initially created with the internal slots described in <emu-xref href="#table-zone-slots"></emu-xref>.</p>
+
+    <emu-table id="table-zone-slots" caption="Internal Slots of Zone Instances">
+      <table>
+        <thead>
+          <tr>
+            <th>Internal Slot</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>[[ParentZone]]</td>
+            <td>The zone in which this zone was created.</td>
+          </tr>
+        </tbody>
+      </table>
+    </emu-table>
+
+    <p>Each Zone instance has the following own property:</p>
+
+    <emu-clause id="sec-properties-of-zone-instances-name">
+      <h1>name</h1>
+
+      <p>The value of the `name` property is an integer that indicates the name of the zone, supplied at construction time. It is used for debugging and tooling purposes and does not affect the zone's behavior.</p>
+
+      <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
+    </emu-clause>
+  </emu-clause>
+</emu-clause>

@@ -64,8 +64,8 @@ class Zone {
   get parent();
 
   fork({ name });
-  wrap(callback);
   run(callback);
+  wrap(callback);
 
   static get current();
 }

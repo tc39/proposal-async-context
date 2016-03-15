@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Zones proposal for JavaScript",
   "scripts": {
-    "spec": "mkdir -p out && ecmarkup spec.html out/index.html"
+    "spec": "ecmarkup spec.html out/index.html"
   },
   "repository": "domenic/zones",
   "keywords": [
