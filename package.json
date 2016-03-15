@@ -15,5 +15,8 @@
     "spec"
   ],
   "author": "Domenic Denicola <d@domenic.me> (https://domenic.me/)",
-  "license": "CC0-1.0"
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "ecmarkup": "^3.1.1"
+  }
 }

@@ -1,8 +1,7 @@
 script: bash ./deploy.sh
 env:
   global:
-  - GH_REF: github.com/domenic/zones.git
-  - secure: TODO
+  - ENCRYPTION_LABEL: 5ebd09854806
 language: node_js
 node_js:
 - stable
