@@ -58,7 +58,7 @@ We represent zones with a `Zone` object, which has the following API:
 
 ```js
 class Zone {
-  constructor({ name });
+  constructor({ name, parent });
 
   name;
   get parent();

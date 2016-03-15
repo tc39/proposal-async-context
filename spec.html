@@ -35,10 +35,28 @@ contributors: Domenic Denicola
 
       <emu-alg>
         1. If NewTarget is *undefined*, throw a *TypeError* exception.
+        1. Let _name_ be `"(unnamed zone)"`.
+        1. Let _parent_ be *null*.
+        1. If _options_ is *undefined*, set _options_ to ObjectCreate(%ObjectPrototype%).
+        1. Perform ? RequireObjectCoercible(_options_).
+        1. Let _nameOption_ be ? GetV(_options_, `"name"`).
+        1. If _nameOption_ is not *undefined*, set _name_ to ? ToString(_nameOption_).
+        1. Let _parentOption_ be ? GetV(_options_, `"parent"`).
+        1. If _parentOption_ is not *undefined*, set _parent_ to _parentOption_.
+        1. If _parent_ is not *null* and does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
         1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]] »).
-        1. TODO.
+        1. Set _zone_'s [[ParentZone]] internal slot to _parent_.
+        1. Perform ! DefinePropertyOrThrow(_zone_, `"name"`, PropertyDescriptor {[[Value]]: _name_, [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: true }).
         1. Return _zone_.
       </emu-alg>
+
+      <emu-note>
+        <p>The `Zone` constructor is not typically used directly. Instead, `anotherZone.fork({ name })` is used to create a new zone that is the child of an existing one. A particular common pattern is `Zone.current.fork({ name })`.</p>
+      </emu-note>
+
+      <emu-note>
+        <p>(Spec review note) This is intended to mimic the signature `constructor({ name = "(unnamed zone)", parent = null } = {}) { ... }`.</p>
+      </emu-note>
     </emu-clause>
   </emu-clause>
 
@@ -105,8 +123,24 @@ contributors: Domenic Denicola
         1. Let _Z_ be the *this* value.
         1. If Type(_Z_) is not Object, throw a *TypeError* exception.
         1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
-        1. TODO
+        1. Let _name_ be *null*.
+        1. If _options_ is *undefined*, set _options_ to ObjectCreate(%ObjectPrototype%).
+        1. Perform ? RequireObjectCoercible(_options_).
+        1. Let _nameOption_ be ? GetV(_options_, `"name"`).
+        1. If _nameOption_ is *undefined*,
+          1. Let _parentName_ be ? ToString(? Get(_Z_, `"name"`)).
+          1. Set _name_ to the result of concatenating _parentName_ and the string `" child"`.
+        1. Otherwise, set _name_ to ? ToString(_nameOption_).
+        1. Let _constructorOptions_ be ObjectCreate(%ObjectPrototype%).
+        1. Peform ! CreateDataProperty(_constructorOptions_, `"parent"`, _Z_).
+        1. Perform ! CreateDataProperty(_options_, `"name"`, _name_).
+        1. Let _C_ be ? Get(_Z_, `"constructor"`).
+        1. Return ? Construct(_C_, « _options_ »)
       </emu-alg>
+
+      <emu-note>
+        <p>(Spec review note) This is intended to mimic the function signature `fork({ name = ToString(this.name) + " child" } = {}) { ... }`.</p>
+      </emu-note>
     </emu-clause>
 
     <emu-clause id="sec-zone.prototype.run">
