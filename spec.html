@@ -222,3 +222,25 @@ contributors: Domenic Denicola
     </emu-clause>
   </emu-clause>
 </emu-clause>
+
+<emu-clause id="monkeypatch-promises">
+  <h1>Revisions to Promise Objects</h1>
+
+  <emu-clause id="monkeypatch-promisereaction-records">
+    <h1>PromiseReaction Records</h1>
+
+    <p>TODO: add a field for the zone so we can store it.</p>
+  </emu-clause>
+
+  <emu-clause id="monkeypatch-perform-promise-then">
+    <h1>PerformPromiseThen</h1>
+
+    <p>TODO: basically wrap the callbacks, except by storing the zone in the PromiseReaction instead of by generating a new function object.</p>
+  </emu-clause>
+
+  <emu-clause id="monkeypatch-promisereactionjob">
+    <h1>PromiseReactionJob</h1>
+
+    <p>TODO: use stored field to set zone before running the handler (and of course restore the old zone afterward).</p>
+  </emu-clause>
+</emu-clause>
