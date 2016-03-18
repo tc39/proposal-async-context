@@ -39,6 +39,10 @@ contributors: Domenic Denicola
 
       <emu-alg>
         1. If NewTarget is *undefined*, throw a *TypeError* exception.
+        1. Let _newTargetRealm_ be ? GetFunctionRealm(NewTarget).
+        1. Let _functionRealm_ be ? GetFunctionRealm(the active function object).
+        1. Let _currentRealm_ be the current Realm Record.
+        1. If _newTargetRealm_, _functionRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
         1. Let _name_ be `"(unnamed zone)"`.
         1. Let _parent_ be *null*.
         1. If _options_ is *undefined*, set _options_ to ! ObjectCreate(%ObjectPrototype%).
@@ -48,8 +52,9 @@ contributors: Domenic Denicola
         1. Let _parentOption_ be ? GetV(_options_, `"parent"`).
         1. If _parentOption_ is not *undefined*, set _parent_ to _parentOption_.
         1. If _parent_ is not *null* and does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
-        1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]] »).
+        1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]], [[Realm]] »).
         1. Set _zone_'s [[ParentZone]] internal slot to _parent_.
+        1. Set _zone_'s [[Realm]] internal slot to _currentRealm_.
         1. Perform ! DefinePropertyOrThrow(_zone_, `"name"`, PropertyDescriptor {[[Value]]: _name_, [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: true }).
         1. Return _zone_.
       </emu-alg>
@@ -67,44 +72,49 @@ contributors: Domenic Denicola
   <emu-clause id="sec-properties-of-the-zone-constructor">
     <h1>Properties of the Zone Constructor</h1>
 
-    <p>The value of the [[Prototype]] internal slot of the `Zone` constructor is the intrinsic object %FunctionPrototype%. The `Zone` constructor is initially created with the internal slots described in <emu-xref href="#table-zone-constructor-slots"></emu-xref>.</p>
+    <p>The value of the [[Prototype]] internal slot of the `Zone` constructor is the intrinsic object %FunctionPrototype%.</p>
 
-    <emu-table id="table-zone-constructor-slots" caption="Internal Slots of the Zone Constructor">
-      <table>
-        <thead>
-          <tr>
-            <th>Internal Slot</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>[[CurrentZone]]</td>
-            <td>A `Zone` object representing the current zone.</td>
-          </tr>
-        </tbody>
-      </table>
-    </emu-table>
+    <p>The Zone constructor has the following properties:</p>
 
-    <p>At realm initialization time, the following steps must be run to set up the `Zone` constructor's internal slots:</p>
+    <emu-clause id="sec-zone.prototype">
+      <h1>Zone.prototype</h1>
 
-    <emu-alg>
-      1. Let _options_ be ! ObjectCreate(%ObjectPrototype%).
-      1. Perform ! CreateDataProperty(_options_, `"name"`, `"(root zone)"`).
-      1. Set the value of %Zone%'s [[CurrentZone]] internal slot to ! Construct(%Zone%, « _options_ »).
-    </emu-alg>
+      <p>The initial value of `Zone.prototype` is the intrinsic object %ZonePrototype%.</p>
 
-    <emu-clause id="set-get-zone.current">
+      <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+    </emu-clause>
+
+    <emu-clause id="sec-get-zone.current">
       <h1>get Zone.current</h1>
 
       <p>`Zone.current` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps:</p>
 
       <emu-alg>
-        1. Let _Z_ be the *this* value.
-        1. If Type(_Z_) is not Object, throw a *TypeError* exception.
-        1. If _Z_ does not have a [[CurrentZone]] internal slot, throw a *TypeError* exception.
-        1. Return the value of _Z_'s [[CurrentZone]] internal slot.
+        1. Let _C_ be the *this* value.
+        1. If IsCallable(_C_) is *false*, throw a *TypeError* exception.
+        1. Let _thisRealm_ be ? GetFunctionRealm(_C_).
+        1. Let _f_ be the active function object.
+        1. Let _functionRealm_ be ? GetFunctionRealm(_f_).
+        1. Let _currentRealm_ be the current Realm Record.
+        1. If _thisRealm_, _functionRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
+        1. Return _thisRealm_.[[CurrentZone]].
       </emu-alg>
+
+      <emu-example>
+        <p>This getter is intentionally restricted to prevent running  the current zone of another realm. Assume the following code runs in a realm <var>realm1</var> whose global object is `global1`, but has access to the global objects of two other realms, <var>realm2</var> and <var>realm3</var>, via `global2` and `global3`. Then:</p>
+
+<pre><code class="lang-javascript">global1.Zone.current; // succeeds: <var>currentRealm</var> = <var>thisRealm</var> = <var>functionRealm</var> = <var>realm1</var>
+global2.Zone.current; // throws: <var>currentRealm</var> = <var>realm1</var>; <var>thisRealm</var> = <var>functionRealm</var> = <var>realm2</var>
+
+const getter1 = Object.getOwnPropertyDescriptor(global1.Zone, "current").get;
+const getter2 = Object.getOwnPropertyDescriptor(global2.Zone, "current").get;
+const getter3 = Object.getOwnPropertyDescriptor(global3.Zone, "current").get;
+
+getter1.call(global2.Zone); // throws: <var>currentRealm</var> = <var>functionRealm</var> = <var>realm1</var>; <var>thisRealm</var> = <var>realm2</var>
+getter2.call(global1.Zone); // throws: <var>currentRealm</var> = <var>thisRealm</var> = <var>realm1</var>; <var>functionRealm</var> = <var>realm2</var>
+getter2.call(global3.Zone); // throws: <var>currentRealm</var> = <var>realm1</var>; <var>functionRealm</var> = <var>realm2</var>; <var>thisRealm</var> = <var>realm3</var>
+</code></pre>
+      </emu-example>
     </emu-clause>
   </emu-clause>
 
@@ -165,13 +175,15 @@ contributors: Domenic Denicola
         1. If Type(_Z_) is not Object, throw a *TypeError* exception.
         1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
         1. If IsCallable(_callback_) is *false*, throw a *TypeError* exception.
-        1. Let _C_ be ? Get(_Z_, `"constructor")`.
-        1. If Type(_C_) is not Object, throw a *TypeError* exception.
-        1. If _C_ does not have a [[CurrentZone]] internal slot, throw a *TypeError* exception.
-        1. Let _beforeZone_ be the value of _C_'s [[CurrentZone]] internal slot.
-        1. Set _C_'s [[CurrentZone]] internal slot to _Z_.
+        1. Let _thisRealm_ be the value of _Z_'s [[Realm]] internal slot.
+        1. Let _functionRealm_ be ? GetFunctionRealm(the active function object).
+        1. Let _callbackRealm_ be ? GetFunctionRealm(_callback_).
+        1. Let _currentRealm_ be the current Realm Record.
+        1. If _thisRealm_, _functionRealm_, _callbackRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
+        1. Let _beforeZone_ be _thisRealm_.[[CurrentZone]].
+        1. Set _thisRealm_.[[CurrentZone]] to _Z_.
         1. Let _status_ be Call(_callback_, *undefined*, « »).
-        1. Set _C_'s [[CurrentZone]] internal slot to _beforeZone_.
+        1. Set _thisRealm_.[[CurrentZone]] to _beforeZone_.
         1. Return _status_.
       </emu-alg>
     </emu-clause>
@@ -207,6 +219,10 @@ contributors: Domenic Denicola
             <td>[[ParentZone]]</td>
             <td>The zone in which this zone was created.</td>
           </tr>
+          <tr>
+            <td>[[Realm]]</td>
+            <td>The realm of the `Zone` constructor that created this instance.</td>
+          </tr>
         </tbody>
       </table>
     </emu-table>
@@ -220,6 +236,49 @@ contributors: Domenic Denicola
 
       <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
     </emu-clause>
+  </emu-clause>
+</emu-clause>
+
+<emu-clause id="monkeypatch-realms">
+  <h1>Revisions to Realms</h1>
+
+  <p>The table for Realm Record fields gets a new entry:</p>
+
+  <ins>
+  <emu-table id="table-monkeypatch-realm-record-fields" caption="Realm Record Fields">
+    <table>
+      <thead>
+        <tr>
+          <th>Field Name</th>
+          <th>Value</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><ins>[[CurrentZone]]</ins></td>
+          <td><ins>A `Zone` object</ins></td>
+          <td><ins>The current zone for this realm</ins></td>
+        </tr>
+      </tbody>
+    </table>
+  </emu-table>
+
+  <emu-clause id="monkeypatch-createrealm">
+    <h1>CreateRealm ( )</h1>
+
+    <p>The abstract operation CreateRealm with no arguments performs the following steps:</p>
+    <emu-alg>
+      1. Let _realmRec_ be a new Realm Record.
+      1. Perform CreateIntrinsics(_realmRec_).
+      1. Set _realmRec_.[[GlobalObject]] to *undefined*.
+      1. Set _realmRec_.[[GlobalEnv]] to *undefined*.
+      1. Set _realmRec_.[[TemplateMap]] to a new empty List.
+      1. <ins>Let _options_ be ! ObjectCreate(%ObjectPrototype%).</ins>
+      1. <ins>Perform ! CreateDataProperty(_options_, `"name"`, `"(root zone)"`).</ins>
+      1. <ins>Set _realmRec_.[[CurrentZone]] to ! Construct(%Zone%, « _options_ »).</ins>
+      1. Return _realmRec_.
+    </emu-alg>
   </emu-clause>
 </emu-clause>
 
