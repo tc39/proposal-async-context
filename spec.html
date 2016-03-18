@@ -287,18 +287,80 @@ contributors: Domenic Denicola
   <emu-clause id="monkeypatch-promisereaction-records">
     <h1>PromiseReaction Records</h1>
 
-    <p>TODO: add a field for the zone so we can store it.</p>
+    <p>The table for PromiseReaction Record fields gets a new entry:</p>
+
+    <ins>
+    <emu-table id="table-monkeypatch-realm-record-fields" caption="Realm Record Fields">
+      <table>
+        <thead>
+          <tr>
+            <th>Field Name</th>
+            <th>Value</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><ins>[[Zone]]</ins></td>
+            <td><ins>A `Zone` object</ins></td>
+            <td><ins>The zone associated with this promise reaction</ins></td>
+          </tr>
+        </tbody>
+      </table>
+    </emu-table>
   </emu-clause>
 
-  <emu-clause id="monkeypatch-perform-promise-then">
-    <h1>PerformPromiseThen</h1>
+  <emu-clause id="monkeypatch-perform-promise-then" aoid="PerformPromiseThen">
+    <h1>PerformPromiseThen ( _promise_, _onFulfilled_, _onRejected_, _resultCapability_ )</h1>
 
-    <p>TODO: basically wrap the callbacks, except by storing the zone in the PromiseReaction instead of by generating a new function object.</p>
+    <p>The abstract operation PerformPromiseThen performs the &ldquo;then&rdquo; operation on _promise_ using _onFulfilled_ and _onRejected_ as its settlement actions. The result is _resultCapability_'s promise.</p>
+
+    <emu-alg>
+      1. Assert: IsPromise(_promise_) is *true*.
+      1. Assert: _resultCapability_ is a PromiseCapability record.
+      1. If IsCallable(_onFulfilled_) is *false*, then
+        1. Let _onFulfilled_ be `"Identity"`.
+      1. If IsCallable(_onRejected_) is *false*, then
+        1. Let _onRejected_ be `"Thrower"`.
+      1. <ins>Let _currentZone_ be the value of the current Realm Record's [[CurrentZone]] field.</ins>
+      1. Let _fulfillReaction_ be the PromiseReaction { [[Capabilities]]: _resultCapability_, [[Handler]]: _onFulfilled_<ins>, [[Zone]]: _currentZone_</ins> }.
+      1. Let _rejectReaction_ be the PromiseReaction { [[Capabilities]]: _resultCapability_, [[Handler]]: _onRejected_<ins>, [[Zone]]: _currentZone_</ins> }.
+      1. If the value of _promise_'s [[PromiseState]] internal slot is `"pending"`, then
+        1. Append _fulfillReaction_ as the last element of the List that is the value of _promise_'s [[PromiseFulfillReactions]] internal slot.
+        1. Append _rejectReaction_ as the last element of the List that is the value of _promise_'s [[PromiseRejectReactions]] internal slot.
+      1. Else if the value of _promise_'s [[PromiseState]] internal slot is `"fulfilled"`, then
+        1. Let _value_ be the value of _promise_'s [[PromiseResult]] internal slot.
+        1. Perform EnqueueJob(`"PromiseJobs"`, PromiseReactionJob, &laquo; _fulfillReaction_, _value_ &raquo;).
+      1. Else,
+        1. Assert: The value of _promise_'s [[PromiseState]] internal slot is `"rejected"`.
+        1. Let _reason_ be the value of _promise_'s [[PromiseResult]] internal slot.
+        1. If the value of _promise_'s [[PromiseIsHandled]] internal slot is *false*, perform HostPromiseRejectionTracker(_promise_, `"handle"`).
+        1. Perform EnqueueJob(`"PromiseJobs"`, PromiseReactionJob, &laquo; _rejectReaction_, _reason_ &raquo;).
+      1. Set _promise_'s [[PromiseIsHandled]] internal slot to *true*.
+      1. Return _resultCapability_.[[Promise]].
+    </emu-alg>
   </emu-clause>
 
   <emu-clause id="monkeypatch-promisereactionjob">
-    <h1>PromiseReactionJob</h1>
+    <h1>PromiseReactionJob ( _reaction_, _argument_ )</h1>
 
-    <p>TODO: use stored field to set zone before running the handler (and of course restore the old zone afterward).</p>
+    <p>The job PromiseReactionJob with parameters _reaction_ and _argument_ applies the appropriate handler to the incoming value, and uses the handler's return value to resolve or reject the derived promise associated with that handler.</p>
+
+    <emu-alg>
+      1. Assert: _reaction_ is a PromiseReaction Record.
+      1. Let _promiseCapability_ be _reaction_.[[Capabilities]].
+      1. Let _handler_ be _reaction_.[[Handler]].
+      1. If _handler_ is `"Identity"`, let _handlerResult_ be NormalCompletion(_argument_).
+      1. Else if _handler_ is `"Thrower"`, let _handlerResult_ be Completion{[[Type]]: ~throw~, [[Value]]: _argument_, [[Target]]: ~empty~}.
+      1. <del>Else, let _handlerResult_ be Call(_handler_, *undefined*, &laquo; _argument_ &raquo;).</del>
+      1. <ins>Else,</ins>
+        1. <ins>Let _zone_ be _reaction_.[[Zone]].</ins>
+        1. <ins>Let _handlerResult_ be CallInZone(_zone_, _handler_, *undefined*, &laquo; _argument_ &raquo;).</ins>
+      1. If _handlerResult_ is an abrupt completion, then
+        1. Let _status_ be Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _handlerResult_.[[Value]] &raquo;).
+        1. NextJob Completion(_status_).
+      1. Let _status_ be Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _handlerResult_.[[Value]] &raquo;).
+      1. NextJob Completion(_status_).
+    </emu-alg>
   </emu-clause>
 </emu-clause>
