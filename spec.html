@@ -170,8 +170,33 @@ contributors: Domenic Denicola
         1. Let _Z_ be the *this* value.
         1. If Type(_Z_) is not Object, throw a *TypeError* exception.
         1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
-        1. TODO
+        1. Let _wrapped_ be a new built-in function object as defined in <emu-xref href="#sec-zone.prototype.wrap-wrapper-functions" title></emu-xref>.
+        1. Set the [[Zone]] internal slot of _wrapped_ to _Z_.
+        1. Set the [[Callback]] internal slot of _wrapped_ to _callback_.
+        1. Return _wrapped_.
       </emu-alg>
+
+      <emu-clause id="sec-zone.prototype.wrap-wrapper-functions">
+        <h1>Zone.prototype.wrap Wrapper Functions</h1>
+
+        <p>A Zone.prototype.wrap wrapper function is an anonymous built-in function that is created by the Zone.prototype.wrap method. Each Zone.prototype.wrap wrapper function has [[Zone]] and [[Callback]] internal slots.</p>
+
+        <p>When a Zone.prototype.wrap wrapper function _F_ is called with *this* value _thisArg_ and arguments _argumentsList_, the following steps are taken:</p>
+
+        <emu-alg>
+          1. Assert: _F_ has [[Zone]] and [[Callback]] internal slots.
+          1. Let _Z_ be the value of _F_'s [[Zone]] internal slot.
+          1. Assert: _Z_ has a [[ParentZone]] internal slot.
+          1. Let _callback_ be the value of _F_'s [[Callback]] internal slot.
+          1. Assert: IsCallable(_callback_) is *true*.
+          1. Let _thisRealm_ be the value of _Z_'s [[Realm]] internal slot.
+          1. Let _beforeZone_ be _thisRealm_.[[CurrentZone]].
+          1. Set _thisRealm_.[[CurrentZone]] to _Z_.
+          1. Let _status_ be Call(_callback_, _thisArg_, _argumentsList_).
+          1. Set _thisRealm_.[[CurrentZone]] to _beforeZone_.
+          1. Return _status_.
+        </emu-alg>
+      </emu-clause>
     </emu-clause>
   </emu-clause>
 
