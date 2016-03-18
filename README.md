@@ -50,7 +50,7 @@ Zones are meant specifically as a building block to reify this notion of "logica
 - Timing the total time spent in a zone, for analytics or in-the-field profiling
 - Handling all uncaught exceptions or unhandled promise rejections within a zone, instead of letting them propagate to the top level
 
-To be clear, none of these use cases are solved out of the box by this base zones proposal. We instead provide the JavaScript-level primitive to allow host environments, frameworks, and developers to solve them.
+To be clear, none of these use cases are solved out of the box by this base zones proposal. We instead provide the JavaScript-level primitive to allow host environments, frameworks, and developers to solve them. See the ["Zone Solutions"](Zone Solutions.md) document for concrete examples of how this could work.
 
 # Proposed Solution
 
