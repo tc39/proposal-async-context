@@ -39,10 +39,7 @@ contributors: Domenic Denicola
 
       <emu-alg>
         1. If NewTarget is *undefined*, throw a *TypeError* exception.
-        1. Let _newTargetRealm_ be ? GetFunctionRealm(NewTarget).
         1. Let _functionRealm_ be ? GetFunctionRealm(the active function object).
-        1. Let _currentRealm_ be the current Realm Record.
-        1. If _newTargetRealm_, _functionRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
         1. Let _name_ be `"(unnamed zone)"`.
         1. Let _parent_ be *null*.
         1. If _options_ is *undefined*, set _options_ to ! ObjectCreate(%ObjectPrototype%).
@@ -93,28 +90,8 @@ contributors: Domenic Denicola
         1. Let _C_ be the *this* value.
         1. If IsCallable(_C_) is *false*, throw a *TypeError* exception.
         1. Let _thisRealm_ be ? GetFunctionRealm(_C_).
-        1. Let _f_ be the active function object.
-        1. Let _functionRealm_ be ? GetFunctionRealm(_f_).
-        1. Let _currentRealm_ be the current Realm Record.
-        1. If _thisRealm_, _functionRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
         1. Return _thisRealm_.[[CurrentZone]].
       </emu-alg>
-
-      <emu-example>
-        <p>This getter is intentionally restricted to prevent running  the current zone of another realm. Assume the following code runs in a realm <var>realm1</var> whose global object is `global1`, but has access to the global objects of two other realms, <var>realm2</var> and <var>realm3</var>, via `global2` and `global3`. Then:</p>
-
-<pre><code class="lang-javascript">global1.Zone.current; // succeeds: <var>currentRealm</var> = <var>thisRealm</var> = <var>functionRealm</var> = <var>realm1</var>
-global2.Zone.current; // throws: <var>currentRealm</var> = <var>realm1</var>; <var>thisRealm</var> = <var>functionRealm</var> = <var>realm2</var>
-
-const getter1 = Object.getOwnPropertyDescriptor(global1.Zone, "current").get;
-const getter2 = Object.getOwnPropertyDescriptor(global2.Zone, "current").get;
-const getter3 = Object.getOwnPropertyDescriptor(global3.Zone, "current").get;
-
-getter1.call(global2.Zone); // throws: <var>currentRealm</var> = <var>functionRealm</var> = <var>realm1</var>; <var>thisRealm</var> = <var>realm2</var>
-getter2.call(global1.Zone); // throws: <var>currentRealm</var> = <var>thisRealm</var> = <var>realm1</var>; <var>functionRealm</var> = <var>realm2</var>
-getter2.call(global3.Zone); // throws: <var>currentRealm</var> = <var>realm1</var>; <var>functionRealm</var> = <var>realm2</var>; <var>thisRealm</var> = <var>realm3</var>
-</code></pre>
-      </emu-example>
     </emu-clause>
   </emu-clause>
 
@@ -176,10 +153,6 @@ getter2.call(global3.Zone); // throws: <var>currentRealm</var> = <var>realm1</va
         1. If _Z_ does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
         1. If IsCallable(_callback_) is *false*, throw a *TypeError* exception.
         1. Let _thisRealm_ be the value of _Z_'s [[Realm]] internal slot.
-        1. Let _functionRealm_ be ? GetFunctionRealm(the active function object).
-        1. Let _callbackRealm_ be ? GetFunctionRealm(_callback_).
-        1. Let _currentRealm_ be the current Realm Record.
-        1. If _thisRealm_, _functionRealm_, _callbackRealm_, and _currentRealm_ are not all equal, throw a *TypeError* exception.
         1. Let _beforeZone_ be _thisRealm_.[[CurrentZone]].
         1. Set _thisRealm_.[[CurrentZone]] to _Z_.
         1. Let _status_ be Call(_callback_, *undefined*, « »).
