@@ -60,10 +60,11 @@ contributors: Domenic Denicola
         1. Let _parentOption_ be ? GetV(_options_, `"parent"`).
         1. If _parentOption_ is not *undefined*, set _parent_ to _parentOption_.
         1. If _parent_ is not *null* and does not have a [[ParentZone]] internal slot, throw a *TypeError* exception.
-        1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]], [[Realm]] »).
+        1. Let _zone_ be ? OrdinaryCreateFromConstructor(NewTarget, `"%ZonePrototype"`, « [[ParentZone]], [[Realm]], [[HostDefined]] »).
         1. Set _zone_'s [[ParentZone]] internal slot to _parent_.
         1. Set _zone_'s [[Realm]] internal slot to _currentRealm_.
         1. Perform ! DefinePropertyOrThrow(_zone_, `"name"`, PropertyDescriptor {[[Value]]: _name_, [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: true }).
+        1. Perform ? HostSetupZone(_zone_, _options_).
         1. Return _zone_.
       </emu-alg>
 
@@ -74,6 +75,18 @@ contributors: Domenic Denicola
       <emu-note>
         <p>(Spec review note) This is intended to mimic the signature `constructor({ name = "(unnamed zone)", parent = null } = {}) { ... }`.</p>
       </emu-note>
+
+      <emu-clause id="sec-host-setup-zone" aoid="HostSetupZone">
+        <h1>HostSetupZone ( _zone_, _options_ )</h1>
+
+        <p>HostSetupZone is an implementation-defined abstract operation that allows host environments to set up `Zone` objects based on the developer-supplied _options_ value. Host environments may wish to, for example, store values passed as properties of _options_ in the [[HostDefined]] internal slot of the _zone_ object.</p>
+
+        <p>An implementation of HostSetupZone may complete normally or abruptly. Any abrupt completions will be propagated to its callers. The default implementation of HostSetupZone is to unconditionally return an empty normal completion.</p>
+
+        <emu-note>
+          <p>_zone_ will be guaranteed to be a `Zone` object, and _options_ will be guaranteed to have passed RequireObjectCoercible. Implementations are encouraged to follow the pattern of the `Zone` constructor in using GetV on _options_ and providing default values if and only if the option is *undefined*.</p>
+        </emu-note>
+      </emu-clause>
     </emu-clause>
   </emu-clause>
 
@@ -221,6 +234,10 @@ contributors: Domenic Denicola
           <tr>
             <td>[[Realm]]</td>
             <td>The realm of the `Zone` constructor that created this instance.</td>
+          </tr>
+          <tr>
+            <td>[[HostDefined]]</td>
+            <td>Field reserved for use by host environments that need to associate additional information with a zone.</td>
           </tr>
         </tbody>
       </table>
