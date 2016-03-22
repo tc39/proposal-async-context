@@ -141,29 +141,6 @@ There are many complex use cases around how to use zones in the context of sched
 
 Our very specific use case here is to monitor the number of outstanding timer tasks, i.e. `setTimeout` and `setInterval`, scheduled within the current zone. When this number changes, we can notify the zone. This could be used by a UI framework to ensure that all timers that are spawned from within an event handler have completed their work, before the framework goes through the work of updating the DOM.
 
-Our HostSetupZone definition is then:
-
-1. Let _outstandingTimersChanged_ be ? GetV(_options_, `"outstandingTimersChanged"`).
-1. If _outstandingTimersChanged_ is not *undefined*, and IsCallable(_outstandingTimersChanged_) is **false**, throw a **TypeError** exception.
-1. Set the value of _zone_'s [[HostDefined]] internal slot to Record { [[OutstandingTimersChanged]]: _outstandingTimersChanged_, [[OutstandingTimersCount]]: 0 }.
-
-We also define ChangeOutstandingTimersCount(_delta_) as follows:
-
-1. Let _currentZone_ be the current Realm Record's [[CurrentZone]] field.
-1. Let _outstandingTimersChanged_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersChanged]] field.
-1. If _outstandingTimersChanged_ is **undefined**, return.
-1. Let _currentCount_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field.
-1. Set the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field to _currentCount_ + _delta_.
-1. Queue a microtask perform the following steps:
-  1. Let _newCount_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field. (NOTE: this could have changed and might not be _currentCount_ + _delta_ anymore.)
-  1. Invoke _outstandingTimersChanged_ with **undefined** this value and an arguments list containing the number _newCount_.
-
-We then modify:
-
-- `setTimeout` and `setInterval` to call ChangeOutstandingTimersCount(+1) on invocation
-- `setTimeout`'s queued task to to call ChangeOutstandingTimersCount(-1) once the task finishes
-- `clearTimeout` and `clearInterval to call ChangeOutstandingTimersCount(-1) when they actually clear a timer
-
 As a rough example of how this might work, consider the following:
 
 ```js
@@ -204,3 +181,26 @@ framework.addEventListener(myButton, "click", () => {
 This code would ensure that `synchronizeModelsWithViews` only happens after 150 milliseconds have passed, i.e. after all asynchronous (timer-related) work spawned from the event handler has finished. The framework uses this as a sign that things have settled down enough that it's time to take the potentially-expensive step of serializing the model state to the DOM.
 
 As noted, this is just an illustrative example. A more robust solution would need to account for more than just timers (more flexibility), and might be able to reduce the number of calls from the browser into framework code by e.g. calling back only when the count reaches zero (less power). But hopefully it gives you the idea!
+
+Accomplishing this is not very difficult with zones. Our HostSetupZone definition is:
+
+1. Let _outstandingTimersChanged_ be ? GetV(_options_, `"outstandingTimersChanged"`).
+1. If _outstandingTimersChanged_ is not *undefined*, and IsCallable(_outstandingTimersChanged_) is **false**, throw a **TypeError** exception.
+1. Set the value of _zone_'s [[HostDefined]] internal slot to Record { [[OutstandingTimersChanged]]: _outstandingTimersChanged_, [[OutstandingTimersCount]]: 0 }.
+
+We also define ChangeOutstandingTimersCount(_delta_) as follows:
+
+1. Let _currentZone_ be the current Realm Record's [[CurrentZone]] field.
+1. Let _outstandingTimersChanged_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersChanged]] field.
+1. If _outstandingTimersChanged_ is **undefined**, return.
+1. Let _currentCount_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field.
+1. Set the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field to _currentCount_ + _delta_.
+1. Queue a microtask perform the following steps:
+  1. Let _newCount_ be the value of _currentZone_'s [[HostDefined]] internal slot's [[OutstandingTimersCount]] field. (NOTE: this could have changed and might not be _currentCount_ + _delta_ anymore.)
+  1. Invoke _outstandingTimersChanged_ with **undefined** this value and an arguments list containing the number _newCount_.
+
+We then modify:
+
+- `setTimeout` and `setInterval` to call ChangeOutstandingTimersCount(+1) on invocation
+- `setTimeout`'s queued task to to call ChangeOutstandingTimersCount(-1) once the task finishes
+- `clearTimeout` and `clearInterval to call ChangeOutstandingTimersCount(-1) when they actually clear a timer
