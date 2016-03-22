@@ -90,15 +90,19 @@ A more structured version of zone-local storage tries to impose these two proper
 To accomplish this, we build a subclass of `Zone` that takes care of these details for us:
 
 ```js
+const zoneProps = new WeakMap();
+
 class ZoneWithStorage extends Zone {
   constructor(options, props = Object.create(null)) {
     super(options);
-    this._props = Object.assign({}, props); // or: use WeakMaps for integrity
+    zoneProps.set(this, Object.assign({}, props));
   }
 
   get(key) {
-    if (key in this._props) {
-      return this._props[key];
+    const props = zoneProps.get(this);
+
+    if (key in props) {
+      return props[key];
     }
 
     if (this.parent instanceof ZoneWithStorage) {
