@@ -203,4 +203,4 @@ We then modify:
 
 - `setTimeout` and `setInterval` to call ChangeOutstandingTimersCount(+1) on invocation
 - `setTimeout`'s queued task to to call ChangeOutstandingTimersCount(-1) once the task finishes
-- `clearTimeout` and `clearInterval to call ChangeOutstandingTimersCount(-1) when they actually clear a timer
+- `clearTimeout` and `clearInterval` to call ChangeOutstandingTimersCount(-1) when they actually clear a timer

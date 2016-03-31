@@ -39,10 +39,6 @@ contributors: Domenic Denicola
 
     <p>The `Zone` constructor is designed to be subclassable. It may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `Zone` behaviour must include a `super` call to the `Zone` constructor to create and initialize the subclass instance with the internal state necessary to support the `Zone` and `Zone.prototype` built-in methods.</p>
 
-    <emu-note>
-      <p>(Spec review note) I'm not sure if you can subclass classes that have internal slots on their constructors. Which is fine with me; just would need to revise the above. Might also want to make some things not go through `.constructor` in that case, and perhaps prohibit subclassing by checking NewTarget.</p>
-    </emu-note>
-
     <emu-clause id="sec-zone">
       <h1>Zone ( _options_ )</h1>
 
