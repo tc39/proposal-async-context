@@ -4,10 +4,13 @@
   "version": "1.0.0",
   "description": "Zones proposal for JavaScript",
   "scripts": {
-    "spec": "ecmarkup spec.html out/index.html"
+    "build": "mkdir -p build && ecmarkup spec.html build/index.html"
   },
-  "repository": "domenic/zones",
+  "repository": "legendecas/zones",
   "keywords": [
+    "async",
+    "context",
+    "async-context",
     "zone",
     "tc39",
     "javascript",

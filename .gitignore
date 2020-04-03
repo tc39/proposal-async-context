@@ -1,5 +1,5 @@
 /node_modules/
-/out/
+/build/
 
 npm-debug.log
 deploy_key
