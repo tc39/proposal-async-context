@@ -1,14 +1,42 @@
-# Zones for JavaScript
+# Async Tasks Tracking for JavaScript
 
-[Spec](https://domenic.github.io/zones)
-
-# Status
-
-This proposal is in stage 0 of [the TC39 process](https://tc39.github.io/process-document/), and is getting formalized and fleshed out in preparation for further advancement. It was originally [presented at the January 2016 TC39 meeting](https://github.com/tc39/tc39-notes/blob/master/es7/2016-01/2016-01-26.md#5i-zones).
+Status: This proposal has not been presented to TC39 yet.
 
 # Motivation
 
-Zones are meant to help with the problems of writing asynchronous code. They are designed as a primitive for context propagation across multiple logically-connected async operations. As a simple example, consider the following code:
+Ergonomic async tasks tracking in JavaScript. There are multiple implementations in different platforms
+like `async_hooks` in Node.js and Zones.js in Angular that provides async task tracking. These modules
+works well in its very own platform, yet they are not in quite same with each other. Library owners have
+to adopt both two, or more, to keep a persistent async context across async tasks execution.
+
+Tracked async tasks are useful for debugging, testing, and profiling. With async tasks tracked, we can
+determine what tasks have been scheduled during a specific sync run, and do something additional on
+schedule changes, e.g. asserting there is no outstanding async task on end of a test case. Except for
+merely tasks tracking, it is also critical to have persist async locals that will be propagated along
+with the async task chains, which additional datum can be stored in and fetched from without awareness
+or change of the task original code, e.g. `AsyncLocalStorage` in Node.js.
+
+While monkey-patching is quite straightforward solution to track async tasks, there is no way to patch
+mechanism like async/await. Also, monkey-patching only works if all third-party libraries with custom
+scheduling call a corresponding task awareness registration like `Zones.run`/`AsyncResource.runInAsyncScope`.
+Furthermore, for those custom scheduling third-party libraries, we need to get library owners to think in
+terms of async context propagation.
+
+In a summary, we would like to have an async task tracking specification right in ECMAScript to be in place
+for platform environments to take advantage of it, and a standard JavaScript API to enable third-party
+libraries to work on different environments seamlessly.
+
+Priorities (not necessarily in order):
+1. **Must** be able to automatically link continuate async tasks.
+1. **Must** expose visibility into the task scheduling and processing of host environment.
+    1. **May** scoped to the current async task chain.
+1. **Must** provide a way to get/set async local values.
+
+Non-goals:
+1. Error handling & bubbling through async stacks:
+2. Async task interception: this can cause confusion if some imported library can take application owner
+unaware actions to change how the application code running pattern. At this very first proposal, we'd like
+to stand away with this feature.
 
 ```js
 window.onload = e => {
@@ -54,6 +82,10 @@ To be clear, none of these use cases are solved out of the box by this base zone
 
 # Proposed Solution
 
+# Prior Arts
+
+
+## Zones
 We represent zones with a `Zone` object, which has the following API:
 
 ```js
@@ -89,7 +121,7 @@ window.onload = loadZone.wrap(e => { ... });
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
 
-## Manually using zones, for illustrative purposes only
+### Manually using zones, for illustrative purposes only
 
 For illustrative purposes only, let's look at how we would use these fundamental building blocks to propagate async context in our above example. As we will shortly explain, you would never actually write this code.
 
@@ -126,10 +158,17 @@ function processBody(body) {
 
 As you can see, there's a pretty obvious pattern: every callback which could potentially be called asynchronously, gets wrapped with `Zone.current.wrap(cb)`.
 
-## Language integration
+### Language integration
 
 With this example in mind, the benefit of language integration becomes more clear:
 
 1. We can automatically "wrap" the `onFulfilled` and `onRejected` callbacks passed to promise handlers, with a slight update to the promise parts of the spec. Thus, all asynchronous operations that are possible purely within the JavaScript spec correctly propagate zones. (This also applies to the upcoming `async`/`await` proposal; we would save/restore the current zone before/after an `await`.)
 1. We provide a strong foundational hook for all asynchronous host environment APIs that do not use promises, such as the web's `EventTarget` and `MutationObserver`, or Node.js's `EventEmitter` and errback-pattern, to wrap the relevant callbacks and thus also propagate zones correctly.
 1. Finally, we provide the hooks for developers to directly wrap their callbacks if necessary, using `Zone.current.wrap` and `Zone.current.run`. This will typically be used by framework developers with complex scheduling needs.
+
+
+## Node.js `domain` module
+
+## Node.js `async_hooks`
+
+This is what the proposal evolved from. `async_hooks` in Node.js enabled async resources tracking for APM vendors. On which Node.js also implemented `AsyncLocalStorage`.
