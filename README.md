@@ -31,7 +31,7 @@ Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuate async tasks.
 1. **Must** expose visibility into the task scheduling and processing of host environment.
     1. **May** scoped to the current async task chain.
-1. **Must** provide a way to get/set async local values.
+1. **Must** provide a way to provide reentrancy with async local storage.
 
 Non-goals:
 1. Error handling & bubbling through async stacks:
@@ -131,13 +131,24 @@ class AsyncTask {
 
 ### Using `Zone` for async local storage
 
+<!--
+TODO: what's the recommended pattern to enter/attach a zone?
+
+Since async local storage is namespaced in the example: we don't have a global zones effective by default.
+Users of async local storage have to declare their own store with their own zones.
+Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
+-->
+
 ```js
-const zone = Zone(() => ({ startTime: Date.now() }));
+const zone = Zone(
+  /** initialValueGetter */() => ({ startTime: Date.now() }),
+);
 function trackStart() {
+  // (a)
   zone.attach();
 }
-
 function trackEnd() {
+  // (b)
   const dur = Date.now() - zone.getStore().startTime;
   console.log('onload duration:', dur);
   zone.detach();
@@ -151,30 +162,20 @@ window.onload = e => {
     // (2)
 
     return processBody(res.body).then(data => {
-      // (5)
+      // (3)
 
       const dialog = html`<dialog>Here's some cool data: ${data}
                           <button>OK, cool</button></dialog>`;
       dialog.show();
 
-      trackEnd()
-
-      dialog.querySelector("button").onclick = () => {
-        // (6)
-        dialog.close();
-      };
+      trackEnd();
     });
   });
 };
-
-function processBody(body) {
-  // (3)
-  return body.json().then(obj => {
-    // (4)
-    return obj.data;
-  });
-}
 ```
+
+In the example above, `trackStart` and `trackEnd` don't share same lexical scope, and they are capable of
+reentrance.
 
 # Prior Arts
 
