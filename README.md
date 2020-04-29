@@ -30,8 +30,8 @@ libraries to work on different environments seamlessly.
 Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuate async tasks.
 1. **Must** expose visibility into the task scheduling and processing of host environment.
-    1. **May** scoped to the current async task chain.
-1. **Must** provide a way to provide reentrancy with async local storage.
+1. **Should** be scoped to the current async task chain.
+1. **Must** provide a way to provide reentrancy with namespaced async local storage.
 
 Non-goals:
 1. Error handling & bubbling through async stacks:
