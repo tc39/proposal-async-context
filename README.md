@@ -4,10 +4,11 @@ Status: This proposal has not been presented to TC39 yet.
 
 # Motivation
 
-Ergonomic async tasks tracking in JavaScript. There are multiple implementations in different platforms
-like `async_hooks` in Node.js and Zones.js in Angular that provides async task tracking. These modules
-works well in its very own platform, yet they are not in quite same with each other. Library owners have
-to adopt both two, or more, to keep a persistent async context across async tasks execution.
+Provide a mechanism to ergonomically track async tasks in JavaScript. There are multiple implementations
+in different platforms like `async_hooks` in Node.js and `zones.js` in Angular that provides async task
+tracking. These modules works well in its very own platform, yet they are not in quite same with each other.
+Library owners have to adopt both two, or more, to keep a persistent async context across async
+tasks execution.
 
 Tracked async tasks are useful for debugging, testing, and profiling. With async tasks tracked, we can
 determine what tasks have been scheduled during a specific sync run, and do something additional on
@@ -18,7 +19,7 @@ or change of the task original code, e.g. `AsyncLocalStorage` in Node.js.
 
 While monkey-patching is quite straightforward solution to track async tasks, there is no way to patch
 mechanism like async/await. Also, monkey-patching only works if all third-party libraries with custom
-scheduling call a corresponding task awareness registration like `Zones.run`/`AsyncResource.runInAsyncScope`.
+scheduling call a corresponding task awareness registration like `Zone.run`/`AsyncResource.runInAsyncScope`.
 Furthermore, for those custom scheduling third-party libraries, we need to get library owners to think in
 terms of async context propagation.
 
@@ -37,6 +38,12 @@ Non-goals:
 2. Async task interception: this can cause confusion if some imported library can take application owner
 unaware actions to change how the application code running pattern. At this very first proposal, we'd like
 to stand away with this feature.
+
+# Strawperson usage
+
+Zones are meant to help with the problems of tracking asynchronous code. They are designed as a primitive for
+context propagation across multiple logically-connected async operations. As a simple example, consider the
+following code:
 
 ```js
 window.onload = e => {
@@ -82,11 +89,97 @@ To be clear, none of these use cases are solved out of the box by this base zone
 
 # Proposed Solution
 
+```js
+class AsyncZone {
+  constructor(asyncZoneSpec, initialStoreGetter);
+
+  attach(): this;
+  detach(): this;
+
+  inEffectiveZone(): boolean;
+
+  getStore(): any;
+}
+
+interface AsyncZoneSpec {
+  scheduledAsyncTask(task);
+  beforeAsyncTaskExecute(task);
+  afterAsyncTaskExecute(task);
+}
+```
+
+<!--
+TODO: how do we determine a task is not going to be used anymore?
+
+Fundamentally if an object is going to be finalized, it can not be used afterward.
+If an async task says it is disposed, `runInAsyncScope` throws once disposed.
+-->
+
+For library owners, `AsyncTask`s are preferred to schedule a new async task.
+
+```js
+class AsyncTask {
+  static scheduleAsyncTask(name): AsyncTask;
+
+  get name;
+
+  runInAsyncScope(callback[, thisArg, ...args]);
+  [@@dispose]();
+}
+```
+
+
+### Using `Zone` for async local storage
+
+```js
+const zone = Zone(() => ({ startTime: Date.now() }));
+function trackStart() {
+  zone.attach();
+}
+
+function trackEnd() {
+  const dur = Date.now() - zone.getStore().startTime;
+  console.log('onload duration:', dur);
+  zone.detach();
+}
+
+window.onload = e => {
+  // (1)
+  trackStart()
+
+  fetch("https://example.com").then(res => {
+    // (2)
+
+    return processBody(res.body).then(data => {
+      // (5)
+
+      const dialog = html`<dialog>Here's some cool data: ${data}
+                          <button>OK, cool</button></dialog>`;
+      dialog.show();
+
+      trackEnd()
+
+      dialog.querySelector("button").onclick = () => {
+        // (6)
+        dialog.close();
+      };
+    });
+  });
+};
+
+function processBody(body) {
+  // (3)
+  return body.json().then(obj => {
+    // (4)
+    return obj.data;
+  });
+}
+```
+
 # Prior Arts
 
-
 ## Zones
-We represent zones with a `Zone` object, which has the following API:
+Zones proposed a `Zone` object, which has the following API:
 
 ```js
 class Zone {
