@@ -30,14 +30,16 @@ libraries to work on different environments seamlessly.
 Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuate async tasks.
 1. **Must** expose visibility into the task scheduling and processing of host environment.
-1. **Should** be scoped to the current async task chain.
+    1. **Must** not collide or introduce implicit behavior on multiple tracking instance on same async task chain.
+    1. **Should** be scoped to the an async task chain.
 1. **Must** provide a way to provide reentrancy with namespaced async local storage.
 
 Non-goals:
 1. Error handling & bubbling through async stacks:
 2. Async task interception: this can cause confusion if some imported library can take application owner
 unaware actions to change how the application code running pattern. At this very first proposal, we'd like
-to stand away with this feature.
+to stand away with this feature. If there are multiple tracking instance on same async task chain,
+interception can cause collision and implicit behavior if these instances do not cooperate well.
 
 # Strawperson usage
 
