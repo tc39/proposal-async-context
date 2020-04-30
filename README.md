@@ -217,52 +217,6 @@ window.onload = loadZone.wrap(e => { ... });
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
 
-### Manually using zones, for illustrative purposes only
-
-For illustrative purposes only, let's look at how we would use these fundamental building blocks to propagate async context in our above example. As we will shortly explain, you would never actually write this code.
-
-```js
-window.onload = Zone.current.wrap(e => {
-  // (1)
-
-  fetch("https://example.com").then(Zone.current.wrap(res => {
-    // (2)
-
-    return processBody(res.body).then(Zone.current.wrap(data => {
-      // (5)
-
-      const dialog = html`<dialog>Here's some cool data: ${data}
-                          <button>OK, cool</button></dialog>`;
-      dialog.show();
-
-      dialog.querySelector("button").onclick = Zone.current.wrap(() => {
-        // (6)
-        dialog.close();
-      });
-    }));
-  }));
-});
-
-function processBody(body) {
-  // (3)
-  return body.json().then(Zone.current.wrap(obj => {
-    // (4)
-    return obj.data;
-  }));
-}
-```
-
-As you can see, there's a pretty obvious pattern: every callback which could potentially be called asynchronously, gets wrapped with `Zone.current.wrap(cb)`.
-
-### Language integration
-
-With this example in mind, the benefit of language integration becomes more clear:
-
-1. We can automatically "wrap" the `onFulfilled` and `onRejected` callbacks passed to promise handlers, with a slight update to the promise parts of the spec. Thus, all asynchronous operations that are possible purely within the JavaScript spec correctly propagate zones. (This also applies to the upcoming `async`/`await` proposal; we would save/restore the current zone before/after an `await`.)
-1. We provide a strong foundational hook for all asynchronous host environment APIs that do not use promises, such as the web's `EventTarget` and `MutationObserver`, or Node.js's `EventEmitter` and errback-pattern, to wrap the relevant callbacks and thus also propagate zones correctly.
-1. Finally, we provide the hooks for developers to directly wrap their callbacks if necessary, using `Zone.current.wrap` and `Zone.current.run`. This will typically be used by framework developers with complex scheduling needs.
-
-
 ## Node.js `domain` module
 
 ## Node.js `async_hooks`
