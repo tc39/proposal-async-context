@@ -6,9 +6,9 @@ Status: This proposal has not been presented to TC39 yet.
 
 Provide a mechanism to ergonomically track async tasks in JavaScript. There are multiple implementations
 in different platforms like `async_hooks` in Node.js and `zones.js` in Angular that provides async task
-tracking. These modules works well in its very own platform, yet they are not in quite same with each other.
-Library owners have to adopt both two, or more, to keep a persistent async context across async
-tasks execution.
+tracking. These modules works well on their own platform/impl, however they are not in quite same with
+each other. Library owners have to adopt both two, or more, to keep a persistent async context across
+async tasks execution.
 
 Tracked async tasks are useful for debugging, testing, and profiling. With async tasks tracked, we can
 determine what tasks have been scheduled during a specific sync run, and do something additional on
@@ -37,9 +37,9 @@ Priorities (not necessarily in order):
 Non-goals:
 1. Error handling & bubbling through async stacks:
 2. Async task interception: this can cause confusion if some imported library can take application owner
-unaware actions to change how the application code running pattern. At this very first proposal, we'd like
-to stand away with this feature. If there are multiple tracking instance on same async task chain,
-interception can cause collision and implicit behavior if these instances do not cooperate well.
+unaware actions to change how the application code running pattern. If there are multiple tracking instance
+on same async task chain,interception can cause collision and implicit behavior if these instances do not
+cooperate well. Thus at this very initial proposal, we'd like to stand away with this feature.
 
 # Strawperson usage
 
@@ -78,16 +78,19 @@ function processBody(body) {
 }
 ```
 
-At all six marked points, the "async context" is the same: we're in an "async stack" originating from the `load` event on `window`. Note how `(3)` and `(4)` are outside the lexical context, but is still part of the same "async stack". And note how the promise chain does not suffice to capture this notion of async stack, as shown by `(6)`.
+At all six marked points, the "async context" is the same: we're in an "async stack" originating from the
+`load` event on `window`. Note how `(3)` and `(4)` are outside the lexical context, but is still part of the
+same "async stack". And note how the promise chain does not suffice to capture this notion of async stack, as
+shown by `(6)`.
 
-Zones are meant specifically as a building block to reify this notion of "logical async context". The core new mechanism of this proposal is associating each async operation with a zone. On top of this, other work, perhaps outside of JavaScript proper, can build on this powerful base association. Such work can accomplish things like:
+Async contexts are meant specifically as a building block to reify this notion of "logical async context".
+Still, in this proposal, we are not exposing this logical concept, but a side router to monitor what happened
+around the async context changes. On top of this, in this proposal, and other work, perhaps outside of
+JavaScript, can build on this base association. Such work can accomplish things like:
 
-- Associating "zone-local data" with the zone, analogous to thread-local storage in other languages, which is accessible to any async operation inside the zone.
-- Automatically tracking outstanding async operations within a given zone, to perform cleanup or rendering or test assertion steps afterward
-- Timing the total time spent in a zone, for analytics or in-the-field profiling
-- Handling all uncaught exceptions or unhandled promise rejections within a zone, instead of letting them propagate to the top level
-
-To be clear, none of these use cases are solved out of the box by this base zones proposal. We instead provide the JavaScript-level primitive to allow host environments, frameworks, and developers to solve them. See the ["Zone Solutions"](Zone Solutions.md) document for concrete examples of how this could work.
+- Associating "async local data" with the zone, analogous to thread-local storage in other languages, which is accessible to any async operation inside the zone.
+- Automatically tracking outstanding async operations within a given zone, to perform cleanup or rendering or test assertion steps afterwards.
+- Timing the total time spent in a zone, for analytics or in-the-field profiling.
 
 # Proposed Solution
 
@@ -176,8 +179,8 @@ window.onload = e => {
 };
 ```
 
-In the example above, `trackStart` and `trackEnd` don't share same lexical scope, and they are capable of
-reentrance.
+In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
+and they are capable of reentrance thus capable of concurrent multi-tracking.
 
 # Prior Arts
 
