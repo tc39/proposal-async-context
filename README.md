@@ -28,20 +28,20 @@ for platform environments to take advantage of it, and a standard JavaScript API
 libraries to work on different environments seamlessly.
 
 Priorities (not necessarily in order):
-1. **Must** be able to automatically link continuate async tasks.
-1. **Must** expose visibility into the task scheduling and processing of host environment.
+1. **Must** be able to automatically link continuous async tasks.
+1. **Must** expose visibility into the async task scheduling and processing.
     1. **Must** not collide or introduce implicit behavior on multiple tracking instance on same async task chain.
-    1. **Should** be scoped to the an async task chain.
-1. **Must** provide a way to provide reentrancy with namespaced async local storage.
+    1. **Should** be able to be scoped to the an async task chain.
+1. **Must** provide a way to enable logical reentrancy.
 
 Non-goals:
-1. Error handling & bubbling through async stacks:
+1. Error handling & bubbling through async stacks.
 2. Async task interception: this can cause confusion if some imported library can take application owner
 unaware actions to change how the application code running pattern. If there are multiple tracking instance
 on same async task chain,interception can cause collision and implicit behavior if these instances do not
 cooperate well. Thus at this very initial proposal, we'd like to stand away with this feature.
 
-# Strawperson usage
+---
 
 Zones are meant to help with the problems of tracking asynchronous code. They are designed as a primitive for
 context propagation across multiple logically-connected async operations. As a simple example, consider the
@@ -83,20 +83,20 @@ At all six marked points, the "async context" is the same: we're in an "async st
 same "async stack". And note how the promise chain does not suffice to capture this notion of async stack, as
 shown by `(6)`.
 
-Async contexts are meant specifically as a building block to reify this notion of "logical async context".
-Still, in this proposal, we are not exposing this logical concept, but a side router to monitor what happened
-around the async context changes. On top of this, in this proposal, and other work, perhaps outside of
-JavaScript, can build on this base association. Such work can accomplish things like:
+Zones are meant specifically as a building block to reify this notion of "logical async context".
+However, in this proposal, we are not manipulating of the logical concept in zones, but a side router
+to monitor what happened around the async context changes. On top of this, in this proposal, and other work,
+perhaps outside of JavaScript, can build on this base association. Such work can accomplish things like:
 
 - Associating "async local data" with the zone, analogous to thread-local storage in other languages, which is accessible to any async operation inside the zone.
 - Automatically tracking outstanding async operations within a given zone, to perform cleanup or rendering or test assertion steps afterwards.
 - Timing the total time spent in a zone, for analytics or in-the-field profiling.
 
-# Proposed Solution
+# Possible Solution
 
 ```js
-class AsyncZone {
-  constructor(asyncZoneSpec, initialStoreGetter);
+class Zone {
+  constructor(zoneSpec, initialStoreGetter);
 
   attach(): this;
   detach(): this;
@@ -106,7 +106,7 @@ class AsyncZone {
   getStore(): any;
 }
 
-interface AsyncZoneSpec {
+interface ZoneSpec {
   scheduledAsyncTask(task);
   beforeAsyncTaskExecute(task);
   afterAsyncTaskExecute(task);
@@ -120,7 +120,7 @@ Fundamentally if an object is going to be finalized, it can not be used afterwar
 If an async task says it is disposed, `runInAsyncScope` throws once disposed.
 -->
 
-For library owners, `AsyncTask`s are preferred to schedule a new async task.
+For library owners, `AsyncTask`s are preferred to indicate new async tasks' schedule.
 
 ```js
 class AsyncTask {
@@ -133,7 +133,6 @@ class AsyncTask {
 }
 ```
 
-
 ### Using `Zone` for async local storage
 
 <!--
@@ -145,23 +144,29 @@ Async pattern does work, yet sync one can be adopt more seamlessly to existing c
 -->
 
 ```js
+// tracker.js
+
 const zone = Zone(
   /** initialValueGetter */() => ({ startTime: Date.now() }),
 );
-function trackStart() {
+export function start() {
   // (a)
   zone.attach();
 }
-function trackEnd() {
+export function end() {
   // (b)
   const dur = Date.now() - zone.getStore().startTime;
   console.log('onload duration:', dur);
   zone.detach();
 }
+```
+
+```js
+import * as tracker from './tracker.js'
 
 window.onload = e => {
   // (1)
-  trackStart()
+  tracker.start()
 
   fetch("https://example.com").then(res => {
     // (2)
@@ -173,7 +178,7 @@ window.onload = e => {
                           <button>OK, cool</button></dialog>`;
       dialog.show();
 
-      trackEnd();
+      tracker.end();
     });
   });
 };
@@ -181,6 +186,9 @@ window.onload = e => {
 
 In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
 and they are capable of reentrance thus capable of concurrent multi-tracking.
+
+Although `zone.attach` is a sync operation, it is not shared automatically and globally and doesn't have any
+side effects on other modules.
 
 # Prior Arts
 
@@ -221,6 +229,11 @@ window.onload = loadZone.wrap(e => { ... });
 then at all those sites, `Zone.current` would be equal to `loadZone`.
 
 ## Node.js `domain` module
+
+Domain's global central active domain can be consumed by multiple endpoints and be exchanged in any time with
+synchronous operation (`domain.enter()`). Since it is possible that some third party module changed active domain on the fly and application owner may unaware of such change, this can introduce unexpected implicit behavior and made domain diagnosis hard.
+
+Check out [Domain Module Postmortem](https://nodejs.org/en/docs/guides/domain-postmortem/) for more details.
 
 ## Node.js `async_hooks`
 
