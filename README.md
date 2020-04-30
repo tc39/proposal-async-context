@@ -37,8 +37,8 @@ Priorities (not necessarily in order):
 Non-goals:
 1. Error handling & bubbling through async stacks.
 2. Async task interception: this can cause confusion if some imported library can take application owner
-unaware actions to change how the application code running pattern. If there are multiple tracking instance
-on same async task chain,interception can cause collision and implicit behavior if these instances do not
+unaware actions to change the application code running pattern. If there are multiple tracking instance
+on same async task chain, interception can cause collision and implicit behavior if these instances do not
 cooperate well. Thus at this very initial proposal, we'd like to stand away with this feature.
 
 ---
@@ -192,7 +192,7 @@ side effects on other modules.
 
 # Prior Arts
 
-## Zones
+## zones.js
 Zones proposed a `Zone` object, which has the following API:
 
 ```js
@@ -210,10 +210,6 @@ class Zone {
 }
 ```
 
-Zones have an optional `name`, which is used for tooling and debugging purposes.
-
-Zones can be `fork`ed, creating a _child zone_ whose `parent` pointer is the forker.
-
 The concept of the _current zone_, reified as `Zone.current`, is crucial. Both `run` and `wrap` are designed to manage running the current zone:
 
 - `z.run(callback)` will set the current zone to `z` for the duration of `callback`, resetting it to its previous value afterward. This is how you "enter" a zone.
@@ -227,6 +223,11 @@ window.onload = loadZone.wrap(e => { ... });
 ```
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
+
+Zones in `zones.js` are basically `Zone` and `AsyncTask` merged in this proposal. The reason we'd like to
+split the concept of `Zone` and `AsyncTask` is that they don't share target users in most cases. `AsyncTask`s
+are generally made interests of third-party scheduling libraries, while `Zone`s are expected to be intuitive
+to most JavaScript users.
 
 ## Node.js `domain` module
 
