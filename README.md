@@ -19,7 +19,7 @@ or change of the task original code, e.g. `AsyncLocalStorage` in Node.js.
 
 While monkey-patching is quite straightforward solution to track async tasks, there is no way to patch
 mechanism like async/await. Also, monkey-patching only works if all third-party libraries with custom
-scheduling call a corresponding task awareness registration like `Zone.run`/`AsyncResource.runInAsyncScope`.
+scheduling call a corresponding task awareness registration like `AsyncTask.runInAsyncScope`.
 Furthermore, for those custom scheduling third-party libraries, we need to get library owners to think in
 terms of async context propagation.
 
@@ -29,10 +29,10 @@ libraries to work on different environments seamlessly.
 
 Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuous async tasks.
+1. **Must** provide a way to enable logical reentrancy.
 1. **Must** expose visibility into the async task scheduling and processing.
     1. **Must** not collide or introduce implicit behavior on multiple tracking instance on same async task chain.
     1. **Should** be able to be scoped to the an async task chain.
-1. **Must** provide a way to enable logical reentrancy.
 
 Non-goals:
 1. Error handling & bubbling through async stacks.
@@ -43,9 +43,9 @@ cooperate well. Thus at this very initial proposal, we'd like to stand away with
 
 ---
 
-Zones are meant to help with the problems of tracking asynchronous code. They are designed as a primitive for
-context propagation across multiple logically-connected async operations. As a simple example, consider the
-following code:
+AsyncLocalStorage are meant to help with the problems of tracking asynchronous code. They are designed as a
+primitive for context propagation across multiple logically-connected async operations. As a simple example,
+consider the following code:
 
 ```js
 window.onload = e => {
@@ -83,31 +83,35 @@ At all six marked points, the "async context" is the same: we're in an "async st
 same "async stack". And note how the promise chain does not suffice to capture this notion of async stack, as
 shown by `(6)`.
 
-Zones are meant specifically as a building block to reify this notion of "logical async context".
-However, in this proposal, we are not manipulating of the logical concept in zones, but a side router
+`AsyncLocalStorage` are meant specifically as a building block to reify this notion of "logical async context".
+However, in this proposal, we are not manipulating of the logical concept in `AsyncLocalStorage`, but a side router
 to monitor what happened around the async context changes. On top of this, in this proposal, and other work,
 perhaps outside of JavaScript, can build on this base association. Such work can accomplish things like:
 
-- Associating "async local data" with the zone, analogous to thread-local storage in other languages, which is accessible to any async operation inside the zone.
-- Automatically tracking outstanding async operations within a given zone, to perform cleanup or rendering or test assertion steps afterwards.
-- Timing the total time spent in a zone, for analytics or in-the-field profiling.
+- Associating "async local data" with the `AsyncLocalStorage`, analogous to thread-local storage in other languages,
+which is accessible to any async operation inside the "logical async context" of `AsyncLocalStorage`.
+- Automatically tracking outstanding async operations within a given "logical async context", to perform cleanup or
+rendering or test assertion steps afterwards.
+- Timing the total time spent in a "logical async context", for analytics or in-the-field profiling.
 
 # Possible Solution
 
 ```js
-class Zone {
-  constructor(zoneSpec, initialStoreGetter);
-
-  attach(): this;
-  detach(): this;
-
-  inEffectiveZone(): boolean;
-
-  getStore(): any;
+class AsyncLocalStorage<T = any> {
+  enterWith(store: T);
+  exit();
+  getStore(): T;
 }
 
-interface ZoneSpec {
-  scheduledAsyncTask(task);
+class AsyncHook {
+  constructor(hookSpec);
+
+  enable();
+  disable();
+}
+
+interface HookSpec {
+  scheduledAsyncTask(task, triggerTask);
   beforeAsyncTaskExecute(task);
   afterAsyncTaskExecute(task);
 }
@@ -124,40 +128,36 @@ For library owners, `AsyncTask`s are preferred to indicate new async tasks' sche
 
 ```js
 class AsyncTask {
-  static scheduleAsyncTask(name): AsyncTask;
+  constructor(name);
 
   get name;
 
   runInAsyncScope(callback[, thisArg, ...args]);
-  [@@dispose]();
 }
 ```
 
-### Using `Zone` for async local storage
+### Using `AsyncLocalStorage`
 
 <!--
-TODO: what's the recommended pattern to enter/attach a zone?
-
-Since async local storage is namespaced in the example: we don't have a global zones effective by default.
-Users of async local storage have to declare their own store with their own zones.
+Since async local storage is namespaced in the example: we don't have a global store/context
+effective by default.
+Users of async local storage have to declare their own store with their own store/context.
 Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
 -->
 
 ```js
 // tracker.js
 
-const zone = Zone(
-  /** initialValueGetter */() => ({ startTime: Date.now() }),
-);
+const store = new AsyncLocalStorage();
 export function start() {
   // (a)
-  zone.attach();
+  store.enterWith({ startTime: Date.now() });
 }
 export function end() {
   // (b)
-  const dur = Date.now() - zone.getStore().startTime;
+  const dur = Date.now() - store.getStore().startTime;
   console.log('onload duration:', dur);
-  zone.detach();
+  store.exit()
 }
 ```
 
@@ -187,8 +187,8 @@ window.onload = e => {
 In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
 and they are capable of reentrance thus capable of concurrent multi-tracking.
 
-Although `zone.attach` is a sync operation, it is not shared automatically and globally and doesn't have any
-side effects on other modules.
+Although `asyncLocalStorage.enterWith` is a sync operation, it is not shared automatically and globally and
+doesn't have any side effects on other modules.
 
 # Prior Arts
 
@@ -224,10 +224,10 @@ window.onload = loadZone.wrap(e => { ... });
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
 
-Zones in `zones.js` are basically `Zone` and `AsyncTask` merged in this proposal. The reason we'd like to
-split the concept of `Zone` and `AsyncTask` is that they don't share target users in most cases. `AsyncTask`s
-are generally made interests of third-party scheduling libraries, while `Zone`s are expected to be intuitive
-to most JavaScript users.
+Zones in `zones.js` are basically `AsyncHook`, `AsyncLocalStorage` and `AsyncTask` merged in this proposal. The
+reason we'd like to split the concept of `Zone` and `AsyncTask` is that they don't share target users in most cases.
+`AsyncTask`s are generally made interests of third-party scheduling libraries, while `AsyncHook` and `AsyncLocalStorage`
+are expected to be intuitive to most JavaScript users.
 
 ## Node.js `domain` module
 
