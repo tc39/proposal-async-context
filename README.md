@@ -163,10 +163,10 @@ proposal minimal, and discuss this feature in a follow up proposal.
 
 # Possible Solution
 
-`AsyncLocalStorage` and `AsyncHook` are meant to help with the problems of tracking asynchronous code.
+`AsyncLocal` and `AsyncHook` are meant to help with the problems of tracking asynchronous code.
 They are designed as a primitive for context propagation across multiple logically-connected async operations.
 
-In this proposal, we are not manipulating of the logical concept with `AsyncLocalStorage` and `AsyncHook`, but
+In this proposal, we are not manipulating of the logical concept with `AsyncLocal` and `AsyncHook`, but
 a side router to monitor what happened around the async context changes. On top of this, in this proposal, and
 other work, perhaps outside of JavaScript, can build on this base association. Such work can accomplish things like:
 
@@ -174,57 +174,18 @@ other work, perhaps outside of JavaScript, can build on this base association. S
 rendering or test assertion steps afterwards.
 - Timing the total time spent in a "logical async context", for analytics or in-the-field profiling.
 
+## AsyncLocal
+
 ```js
-class AsyncLocalStorage<T = any> {
-  enterWith(store: T);
-  exit();
-  getStore(): T;
+class AsyncLocal<T = any> {
+  get value(): T;
+  set value(val: T);
 }
 ```
 
-Calling `asyncLocalStorage.enterWith(store)` will transition into the context for the remainder of the current
-synchronous execution and will persist through any following asynchronous calls. Similarly, `asyncLocalStorage.exit()`
-will transition out of the context for the remainder of the current synchronous execution and will stop propagate
-any following asynchronous calls.
+`AsyncLocal` represents ambient data that is local to a given asynchronous control flow, such as an asynchronous method.
 
-`asyncLocalStorage.getStore()` returns the current store. If this method is called outside of an `asyncLocalStorage`
-context initialized by calling `asyncLocalStorage.enterWith`, it will return `undefined`.
-
-```js
-class AsyncHook {
-  constructor(hookSpec);
-
-  enable();
-  disable();
-}
-
-interface HookSpec {
-  scheduledAsyncTask(task, triggerTask);
-  beforeAsyncTaskExecute(task);
-  afterAsyncTaskExecute(task);
-}
-```
-
-<!--
-TODO: how do we determine a task is not going to be used anymore?
-
-Fundamentally if an object is going to be finalized, it can not be used afterward.
-If an async task says it is disposed, `runInAsyncScope` throws once disposed.
--->
-
-For library owners, `AsyncTask`s are preferred to indicate new async tasks' schedule.
-
-```js
-class AsyncTask {
-  constructor(name);
-
-  get name;
-
-  runInAsyncScope(callback[, thisArg, ...args]);
-}
-```
-
-### Using `AsyncLocalStorage`
+### Examples
 
 <!--
 Since async local storage is namespaced in the example: we don't have a global store/context
@@ -236,16 +197,15 @@ Async pattern does work, yet sync one can be adopt more seamlessly to existing c
 ```js
 // tracker.js
 
-const store = new AsyncLocalStorage();
+const store = new AsyncLocal();
 export function start() {
   // (a)
-  store.enterWith({ startTime: Date.now() });
+  store.value = Date.now();
 }
 export function end() {
   // (b)
-  const dur = Date.now() - store.getStore().startTime;
+  const dur = Date.now() - store.value;
   console.log('onload duration:', dur);
-  store.exit()
 }
 ```
 
@@ -275,8 +235,45 @@ window.onload = e => {
 In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
 and they are capable of reentrance thus capable of concurrent multi-tracking.
 
-Although `asyncLocalStorage.enterWith` is a sync operation, it is not shared automatically and globally and
-doesn't have any side effects on other modules.
+## AsyncHook
+
+```js
+class AsyncHook {
+  constructor(hookSpec);
+
+  enable();
+  disable();
+}
+
+interface HookSpec {
+  scheduledAsyncTask(task, triggerTask);
+  beforeAsyncTaskExecute(task);
+  afterAsyncTaskExecute(task);
+}
+```
+
+`AsyncHook`s can be used to monitoring the async flows of the application.
+
+## AsyncTask
+
+<!--
+TODO: how do we determine a task is not going to be used anymore?
+
+Fundamentally if an object is going to be finalized, it can not be used afterward.
+If an async task says it is disposed, `runInAsyncScope` throws once disposed.
+-->
+
+For library owners, `AsyncTask`s are preferred to indicate new async tasks' schedule.
+
+```js
+class AsyncTask {
+  constructor(name);
+
+  get name;
+
+  runInAsyncScope(callback[, thisArg, ...args]);
+}
+```
 
 # Prior Arts
 
@@ -311,11 +308,6 @@ window.onload = loadZone.wrap(e => { ... });
 ```
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
-
-Zones in `zones.js` are basically `AsyncHook`, `AsyncLocalStorage` and `AsyncTask` merged in this proposal. The
-reason we'd like to split the concept of `Zone` and `AsyncTask` is that they don't share target users in most cases.
-`AsyncTask`s are generally made interests of third-party scheduling libraries, while `AsyncHook` and `AsyncLocalStorage`
-are expected to be intuitive to most JavaScript users.
 
 ## Node.js `domain` module
 
