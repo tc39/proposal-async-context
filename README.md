@@ -102,7 +102,7 @@ vendors.
 ## **Case 3**: Leaking tasks
 
 Although promises and `async`/`await` are not very new to us, and we have many experience of how to use
-these features correctly. It can be still goes unnoticed if `await` or `return` is not correctly annotated
+these features correctly. It can be still going unnoticed if `await` or `return` is not correctly annotated
 or exceptions are thrown in a separate execution context.
 
 ```js
@@ -147,9 +147,9 @@ libraries to work on different host environments seamlessly.
 
 Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuous async tasks.
-1. **Must** provide a way to enable logical reentrancy.
-1. **Must** expose visibility into the async task scheduling and processing.
+1. **Must** provide a way to enable logical re-entrancy.
 1. **Must** not collide or introduce implicit behavior on multiple tracking instance on same async task chain.
+1. **Should** expose visibility into the async task scheduling and processing.
 
 Non-goals:
 1. Error handling & bubbling through async stacks. We'd like to discuss this topic in a separate proposal
@@ -180,7 +180,17 @@ class AsyncLocalStorage<T = any> {
   exit();
   getStore(): T;
 }
+```
 
+Calling `asyncLocalStorage.enterWith(store)` will transition into the context for the remainder of the current
+synchronous execution and will persist through any following asynchronous calls. Similarly, `asyncLocalStorage.exit()`
+will transition out of the context for the remainder of the current synchronous execution and will stop propagate
+any following asynchronous calls.
+
+`asyncLocalStorage.getStore()` returns the current store. If this method is called outside of an `asyncLocalStorage`
+context initialized by calling `asyncLocalStorage.enterWith`, it will return `undefined`.
+
+```js
 class AsyncHook {
   constructor(hookSpec);
 
