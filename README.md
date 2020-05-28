@@ -163,10 +163,10 @@ proposal minimal, and discuss this feature in a follow up proposal.
 
 # Possible Solution
 
-`AsyncLocal` and `AsyncHook` are meant to help with the problems of tracking asynchronous code.
+`AsyncLocal` and `AsyncFlow` are meant to help with the problems of tracking asynchronous code.
 They are designed as a primitive for context propagation across multiple logically-connected async operations.
 
-In this proposal, we are not manipulating of the logical concept with `AsyncLocal` and `AsyncHook`, but
+In this proposal, we are not manipulating of the logical concept with `AsyncLocal` and `AsyncFlow`, but
 a side router to monitor what happened around the async context changes. On top of this, in this proposal, and
 other work, perhaps outside of JavaScript, can build on this base association. Such work can accomplish things like:
 
@@ -174,10 +174,41 @@ other work, perhaps outside of JavaScript, can build on this base association. S
 rendering or test assertion steps afterwards.
 - Timing the total time spent in a "logical async context", for analytics or in-the-field profiling.
 
+## AsyncFlow
+
+```js
+class AsyncFlow {
+  static run(exec: Function, ...args: any[]): void
+}
+
+interface HookSpec {
+  scheduledAsyncTask(task, triggerTask);
+  beforeAsyncTaskExecute(task);
+  afterAsyncTaskExecute(task);
+}
+```
+
+## Examples
+
+```js
+const asyncLocal = new AsyncLocal(() => /** defaultValue */ 1);
+
+asyncLocal.value = 2
+
+http.createServer((req, res) => {
+  asyncLocal.value // 2, still in root async flow
+
+  AsyncFlow.new(() => {
+    asyncLocal.value // 1, initialized to default value
+  })
+})
+```
+
 ## AsyncLocal
 
 ```js
 class AsyncLocal<T = any> {
+  constructor(initialValueGetter: () => T);
   get value(): T;
   set value(val: T);
 }
@@ -187,12 +218,7 @@ class AsyncLocal<T = any> {
 
 ### Examples
 
-<!--
-Since async local storage is namespaced in the example: we don't have a global store/context
-effective by default.
-Users of async local storage have to declare their own store with their own store/context.
-Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
--->
+In this example, a tracker is implemented based on `AsyncLocal`.
 
 ```js
 // tracker.js
@@ -234,25 +260,6 @@ window.onload = e => {
 
 In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
 and they are capable of reentrance thus capable of concurrent multi-tracking.
-
-## AsyncHook
-
-```js
-class AsyncHook {
-  constructor(hookSpec);
-
-  enable();
-  disable();
-}
-
-interface HookSpec {
-  scheduledAsyncTask(task, triggerTask);
-  beforeAsyncTaskExecute(task);
-  afterAsyncTaskExecute(task);
-}
-```
-
-`AsyncHook`s can be used to monitoring the async flows of the application.
 
 ## AsyncTask
 
