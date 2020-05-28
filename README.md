@@ -174,6 +174,8 @@ other work, perhaps outside of JavaScript, can build on this base association. S
 rendering or test assertion steps afterwards.
 - Timing the total time spent in a "logical async context", for analytics or in-the-field profiling.
 
+## AsyncLocalStorage
+
 ```js
 class AsyncLocalStorage<T = any> {
   enterWith(store: T);
@@ -190,6 +192,10 @@ any following asynchronous calls.
 `asyncLocalStorage.getStore()` returns the current store. If this method is called outside of an `asyncLocalStorage`
 context initialized by calling `asyncLocalStorage.enterWith`, it will return `undefined`.
 
+## AsyncHook
+
+The `AsyncHook` provides an API to track asynchronous tasks.
+
 ```js
 class AsyncHook {
   constructor(hookSpec);
@@ -204,6 +210,8 @@ interface HookSpec {
   afterAsyncTaskExecute(task);
 }
 ```
+
+An asynchronous task represents an object with an associated callback. This callback may be called multiple times, for example, the `'connection'` event in `net.createServer()`, or just a single time like in `fs.open()`. A task can also be closed before the callback is called. `AsyncHook` does not explicitly distinguish between these different cases but will represent them as the abstract concept that is a task.
 
 <!--
 TODO: how do we determine a task is not going to be used anymore?
