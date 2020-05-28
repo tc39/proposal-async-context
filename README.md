@@ -107,13 +107,13 @@ or exceptions are thrown in a separate execution context.
 
 ```js
 test(async () => {
-  // errors will be piped to process.on(‘unhandledRejection’)
+  // How to early fail the case with this leaking task?
   /** await */ asyncOperation();
 });
 
 test(() => {
+  // How to early fail the case with this leaking task?
   setTimeout(() => {
-    // How to fail the case with this error?
     throw new Error('foobar');
   }, 1000);
 });
