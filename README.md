@@ -211,7 +211,23 @@ interface HookSpec {
 }
 ```
 
-An asynchronous task represents an object with an associated callback. This callback may be called multiple times, for example, the `'connection'` event in `net.createServer()`, or just a single time like in `fs.open()`. A task can also be closed before the callback is called. `AsyncHook` does not explicitly distinguish between these different cases but will represent them as the abstract concept that is a task.
+An asynchronous task represents an object with an associated callback. This callback may be called multiple times,
+for example, the `'connection'` event in `net.createServer()` in Node.js, or just a single time like in `fs.open()`.
+A task can also be abandoned before the callback is called. `AsyncHook` does not explicitly distinguish between
+these different cases but will represent them as the abstract concept that is a task.
+
+`scheduledAsyncTask` will be called when an `AsyncTask` is scheduled that has the possibility to emit an
+asynchronous event. This does not mean the instance must call `beforeAsyncTaskExecute`/`afterAsyncTaskExecute`,
+only that the possibility exists.
+
+When an asynchronous operation is initiated (such as a TCP server receiving a new connection) or completes
+(such as writing data to disk) a callback is called to notify the user. The `beforeAsyncTaskExecute` callback
+is called just before said callback is executed. `task` is the `AsyncTask` object about to execute the callback.
+
+The `afterAsyncTaskExecute` will be called immediately after the callback specified in `beforeAsyncTaskExecute` is
+completed.
+
+## AsyncTask
 
 <!--
 TODO: how do we determine a task is not going to be used anymore?
@@ -231,6 +247,10 @@ class AsyncTask {
   runInAsyncScope(callback[, thisArg, ...args]);
 }
 ```
+
+`AsyncTask.runInAsyncScope` calls the provided function with the provided arguments in the execution context
+of the async task. This will establish the context, trigger the `AsyncHook`s before callbacks, call the function,
+trigger the `AsyncHook`s after callbacks, and then restore the original execution context.
 
 ### Using `AsyncLocalStorage`
 
