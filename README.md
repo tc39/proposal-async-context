@@ -93,8 +93,8 @@ async function dbQuery(query) {
 In Node.js applications, we can orchestrate many downstream services to provide a composite
 data to users. What the thing is, if the application goes a long unresponsive downtime,
 it can be hard to determine which step in our app caused the issue. There are implementations like
-`async_hooks` in Node.js can be used to track and maintain a context across the async process chain
-of the request-response. However, they are not perfect in
+`async_hooks` in Node.js can be used to track and maintain a context across the async flow of the
+request-response. However, they are not perfect in
 [cases](https://gist.github.com/Qard/faad53ba2368db54c95828365751d7bc), and may get worse while
 working with `async`/`await` since they are part of the language and can not be shimmed by third party
 vendors.
@@ -126,7 +126,7 @@ another unrelated test case, which can be frustrating.
 ## Summary
 
 Tracked async tasks are useful for debugging, testing, and profiling. With async tasks tracked, we can
-properly propagate async locals along the async task chains, in which additional datum can be stored
+properly propagate async locals along the async flow, in which additional datum can be stored
 and fetched from without additional manual context transferring. It can be possible without many change
 of code to introduce async re-entrance to current libraries.
 
@@ -148,7 +148,7 @@ libraries to work on different host environments seamlessly.
 Priorities (not necessarily in order):
 1. **Must** be able to automatically link continuous async tasks.
 1. **Must** provide a way to enable logical re-entrancy.
-1. **Must** not collide or introduce implicit behavior on multiple tracking instance on same async task chain.
+1. **Must** not collide or introduce implicit behavior on multiple tracking instance on single async flow.
 1. **Should** expose visibility into the async task scheduling and processing.
 
 Non-goals:
@@ -157,7 +157,7 @@ since this can be another big story to tell, and keep this proposal minimal and 
 the case.
 2. Async task interception: This can be a cool feature. But it is easy to cause confusion if some imported
 library can take application owner unaware actions to change the application code running pattern. If
-there are multiple tracking instance on same async task chain, interception can cause collision and implicit
+there are multiple tracking instance on same async flow, interception can cause collision and implicit
 behavior if these instances do not cooperate well. Thus at this very initial proposal, we'd like to keep the
 proposal minimal, and discuss this feature in a follow up proposal.
 
