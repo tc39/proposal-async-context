@@ -49,7 +49,7 @@ shown by `(6)`.
 The code snippet above is simple and intuitive. However, if there is one or other step goes wrong -- not behaving
 as what we expect, it is hard to root out the cause of the problem:
 
-## **Case 1**: Broken error stacks
+## **Case 1**: Incomplete error stacks
 
 What if the `fetch` failed for network issues? In the case, the only error message we can get in DevTools will be:
 
