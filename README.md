@@ -163,7 +163,7 @@ proposal minimal, and discuss this feature in a follow up proposal.
 
 # Possible Solution
 
-`AsyncLocalStorage` and `AsyncHook` are meant to help with the problems of tracking asynchronous code.
+`AsyncLocalStorage`s are meant to help with the problems of tracking asynchronous code.
 They are designed as a primitive for context propagation across multiple logically-connected async operations.
 
 In this proposal, we are not manipulating of the logical concept with `AsyncLocalStorage` and `AsyncHook`, but
@@ -246,41 +246,6 @@ and they are capable of reentrance thus capable of concurrent multi-tracking.
 Although `asyncLocalStorage.enterWith` is a sync operation, it is not shared automatically and globally and
 doesn't have any side effects on other modules.
 
-## AsyncHook
-
-The `AsyncHook` provides an API to track asynchronous tasks.
-
-```js
-class AsyncHook {
-  constructor(hookSpec);
-
-  enable();
-  disable();
-}
-
-interface HookSpec {
-  scheduledAsyncTask(task, triggerTask);
-  beforeAsyncTaskExecute(task);
-  afterAsyncTaskExecute(task);
-}
-```
-
-An asynchronous task represents an object with an associated callback. This callback may be called multiple times,
-for example, the `'connection'` event in `net.createServer()` in Node.js, or just a single time like in `fs.open()`.
-A task can also be abandoned before the callback is called. `AsyncHook` does not explicitly distinguish between
-these different cases but will represent them as the abstract concept that is a task.
-
-`scheduledAsyncTask` will be called when an `AsyncTask` is scheduled that has the possibility to emit an
-asynchronous event. This does not mean the instance must call `beforeAsyncTaskExecute`/`afterAsyncTaskExecute`,
-only that the possibility exists.
-
-When an asynchronous operation is initiated (such as a TCP server receiving a new connection) or completes
-(such as writing data to disk) a callback is called to notify the user. The `beforeAsyncTaskExecute` callback
-is called just before said callback is executed. `task` is the `AsyncTask` object about to execute the callback.
-
-The `afterAsyncTaskExecute` will be called immediately after the callback specified in `beforeAsyncTaskExecute` is
-completed.
-
 ## AsyncTask
 
 <!--
@@ -342,6 +307,107 @@ not be the one establishing `DatabaseConnection`). And at the resolution of sock
 which is linked to its initiating execution context, so the context has to be re-established by `AsyncTask.runInAsyncScope`.
 
 In this way, we can propagate correct async context flows on multiplexing single async task.
+
+## AsyncHook
+
+The `AsyncHook` provides an API to track asynchronous tasks.
+
+```js
+class AsyncHook {
+  constructor(hookSpec);
+
+  enable();
+  disable();
+}
+
+interface HookSpec {
+  scheduledAsyncTask(task, triggerTask);
+  beforeAsyncTaskExecute(task);
+  afterAsyncTaskExecute(task);
+}
+```
+
+An asynchronous task represents an object with an associated callback. This callback may be called multiple times,
+for example, the `'connection'` event in `net.createServer()` in Node.js, or just a single time like in `fs.open()`.
+A task can also be abandoned before the callback is called. `AsyncHook` does not explicitly distinguish between
+these different cases but will represent them as the abstract concept that is a task.
+
+`scheduledAsyncTask` will be called when an `AsyncTask` is scheduled that has the possibility to emit an
+asynchronous event. This does not mean the instance must call `beforeAsyncTaskExecute`/`afterAsyncTaskExecute`,
+only that the possibility exists.
+
+When an asynchronous operation is initiated (such as a TCP server receiving a new connection) or completes
+(such as writing data to disk) a callback is called to notify the user. The `beforeAsyncTaskExecute` callback
+is called just before said callback is executed. `task` is the `AsyncTask` object about to execute the callback.
+
+The `afterAsyncTaskExecute` will be called immediately after the callback specified in `beforeAsyncTaskExecute` is
+completed.
+
+### Using `AsyncHook`s
+
+```js
+const als = new AsyncLocalStorage();
+const queue = []
+
+async function run() {
+  if (queue.length === 0) {
+    return;
+  }
+  const { name, callback } = queue.pop();
+  const backlog = [];
+  const hook = new AsyncHook({
+    scheduledAsyncTask (task) {
+      const test = als.getStore();
+      if (test == null) {
+        return;
+      }
+      backlog.push(new WeakRef(task));
+    }
+  });
+  hook.enable();
+
+  als.enterWith(name);
+  try {
+    await callback();
+  } finally {
+    hook.disable();
+    als.exit();
+  }
+  setImmediate(() => {
+    assert(
+      backlog.filter(ref => ref.deref() != null).length === 0,
+      `'${name}' ended with dangling async tasks.`
+    );
+    run();
+  });
+}
+setImmediate(run);
+
+function test(name, callback) {
+  queue.push({ name, callback });
+}
+```
+
+This example starts async tasks tracking with `AsyncHook` right before each test case execution, and stops
+tracking after the test case were expected to end. Each task scheduled during the run were pushed into a backlog
+with `WeakRef`ed. On the end of execution, the refs were checked against to determine if the task were still
+out lives there to see if the test were cleanly exited.
+
+```js
+// demo.test.js
+
+test('foo', async () => {
+  await new Promise(res => setTimeout(res, 100));
+  // Pass.
+});
+test('bar', async () => {
+  setTimeout(res, 100);
+  // Assert Failed => 'bar' ended with dangling async tasks.
+});
+```
+
+So the first case above with properly task scheduled and awaited got passed. And second case didn't run into the
+expectation and should fail.
 
 # Prior Arts
 
