@@ -192,6 +192,60 @@ any following asynchronous calls.
 `asyncLocalStorage.getStore()` returns the current store. If this method is called outside of an `asyncLocalStorage`
 context initialized by calling `asyncLocalStorage.enterWith`, it will return `undefined`.
 
+### Using `AsyncLocalStorage`
+
+<!--
+Since async local storage is namespaced in the example: we don't have a global store/context
+effective by default.
+Users of async local storage have to declare their own store with their own store/context.
+Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
+-->
+
+```js
+// tracker.js
+
+const store = new AsyncLocalStorage();
+export function start() {
+  // (a)
+  store.enterWith({ startTime: Date.now() });
+}
+export function end() {
+  // (b)
+  const dur = Date.now() - store.getStore().startTime;
+  console.log('onload duration:', dur);
+  store.exit()
+}
+```
+
+```js
+import * as tracker from './tracker.js'
+
+window.onload = e => {
+  // (1)
+  tracker.start()
+
+  fetch("https://example.com").then(res => {
+    // (2)
+
+    return processBody(res.body).then(data => {
+      // (3)
+
+      const dialog = html`<dialog>Here's some cool data: ${data}
+                          <button>OK, cool</button></dialog>`;
+      dialog.show();
+
+      tracker.end();
+    });
+  });
+};
+```
+
+In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
+and they are capable of reentrance thus capable of concurrent multi-tracking.
+
+Although `asyncLocalStorage.enterWith` is a sync operation, it is not shared automatically and globally and
+doesn't have any side effects on other modules.
+
 ## AsyncHook
 
 The `AsyncHook` provides an API to track asynchronous tasks.
@@ -252,59 +306,42 @@ class AsyncTask {
 of the async task. This will establish the context, trigger the `AsyncHook`s before callbacks, call the function,
 trigger the `AsyncHook`s after callbacks, and then restore the original execution context.
 
-### Using `AsyncLocalStorage`
-
-<!--
-Since async local storage is namespaced in the example: we don't have a global store/context
-effective by default.
-Users of async local storage have to declare their own store with their own store/context.
-Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
--->
+### Using `AsyncTask`
 
 ```js
-// tracker.js
+class DatabaseConnection {
+  constructor(port, host) {
+    // Initialize connection, possibly in root context.
+    this.socket = connect(port, host)
+  }
 
-const store = new AsyncLocalStorage();
-export function start() {
-  // (a)
-  store.enterWith({ startTime: Date.now() });
+  async query(search) {
+    const query = new Query(search)
+    const result = await this.socket.send(query)
+    // This async context is triggered by `DatabaseConnection` which is not linked to initiator of `DatabaseConnection.query`.
+    return query.runInAsyncScope(() => {
+      // Promise linked to the initiator of `DatabaseConnection.query`.
+      // Promise -> Query(AsyncTask) -> `DatabaseConnection.query`
+      return Promise.resolve(result)
+    })
+  }
 }
-export function end() {
-  // (b)
-  const dur = Date.now() - store.getStore().startTime;
-  console.log('onload duration:', dur);
-  store.exit()
+
+class Query extends AsyncTask {
+  constructor(search) {
+    // scheduled async task
+    super('database-query')
+    this.search = search
+  }
 }
 ```
 
-```js
-import * as tracker from './tracker.js'
+In the example above, `DatabaseConnection` can be established at root execution context (or any other context). With `AsyncTask`,
+each call to `DatabaseConnection.query` will schedule an async task, which will be linked to its initiator execution context (may
+not be the one establishing `DatabaseConnection`). And at the resolution of socket, the contexts are propagated by the `DatabaseConnection`,
+which is linked to its initiating execution context, so the context has to be re-established by `AsyncTask.runInAsyncScope`.
 
-window.onload = e => {
-  // (1)
-  tracker.start()
-
-  fetch("https://example.com").then(res => {
-    // (2)
-
-    return processBody(res.body).then(data => {
-      // (3)
-
-      const dialog = html`<dialog>Here's some cool data: ${data}
-                          <button>OK, cool</button></dialog>`;
-      dialog.show();
-
-      tracker.end();
-    });
-  });
-};
-```
-
-In the example above, `trackStart` and `trackEnd` don't share same lexical scope with actual code functions,
-and they are capable of reentrance thus capable of concurrent multi-tracking.
-
-Although `asyncLocalStorage.enterWith` is a sync operation, it is not shared automatically and globally and
-doesn't have any side effects on other modules.
+In this way, we can propagate correct async context flows on multiplexing single async task.
 
 # Prior Arts
 
