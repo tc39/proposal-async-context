@@ -174,25 +174,75 @@ other work, perhaps outside of JavaScript, can build on this base association. S
 rendering or test assertion steps afterwards.
 - Timing the total time spent in a "logical async context", for analytics or in-the-field profiling.
 
-## AsyncLocalStorage
+## AsyncLocal
 
 ```js
-class AsyncLocalStorage<T = any> {
-  enterWith(store: T);
-  exit();
-  getStore(): T;
+class AsyncLocal<T = any> {
+  constructor(valueChangedListener: ValueChangedListener<T>);
+  getValue(): T;
+  setValue(value: T);
+}
+
+type ValueChangedListener<T> = (newValue: T, prevValue: T, isExplicitSet: bool);
+```
+
+`AsyncLocal.getValue()` returns the current value of the context.
+
+An `AsyncLocal` has similar semantics of function parameters. The point is that
+`AsyncLocal` can be fetched from its own registry, i.e. the `AsyncLocal`
+object, from arbitrary execution context along side the async execution flow.
+
+```js
+async function root(context) {
+  console.log(context); // => 'foo'
+  context = 'bar';
+  await next(context);
+  console.log(context) // => 'bar'
+}
+
+async function next(context) {
+  context = 'quz';
+  console.log(context); // => 'quz'
+}
+
+const context = 'foo';
+await root(context);
+console.log(context); // => 'foo'
+```
+
+Similarly, `AsyncLocal` propagates values to its child async-execution-context.
+However the values set in child async execution context will not be feed back
+to its parent async execution context.
+
+```js
+const context = new AsyncLocal();
+
+context.setValue('foo');
+await root();
+console.log(context.getValue()); // => 'foo'
+
+async function root() {
+  console.log(context.getValue()); // => 'foo'
+  context.setValue('bar');
+  await next(context);
+  console.log(context.getValue()); // => 'bar'
+  sync();
+  console.log(context.getValue()); // => 'baz'
+}
+
+function sync() {
+  context.setValue('baz');
+  console.log(context.getValue()); // => 'baz'
+}
+
+async function next() {
+  context.setValue('quz');
+  console.log(context.getValue()); // => 'quz'
 }
 ```
 
-Calling `asyncLocalStorage.enterWith(store)` will transition into the context for the remainder of the current
-synchronous execution and will persist through any following asynchronous calls. Similarly, `asyncLocalStorage.exit()`
-will transition out of the context for the remainder of the current synchronous execution and will stop propagate
-any following asynchronous calls.
 
-`asyncLocalStorage.getStore()` returns the current store. If this method is called outside of an `asyncLocalStorage`
-context initialized by calling `asyncLocalStorage.enterWith`, it will return `undefined`.
-
-### Using `AsyncLocalStorage`
+### Using `AsyncLocal`
 
 <!--
 Since async local storage is namespaced in the example: we don't have a global store/context
@@ -201,19 +251,20 @@ Users of async local storage have to declare their own store with their own stor
 Async pattern does work, yet sync one can be adopt more seamlessly to existing codes.
 -->
 
+#### Time tracker
+
 ```js
 // tracker.js
 
-const store = new AsyncLocalStorage();
+const asyncLocal = new AsyncLocal();
 export function start() {
   // (a)
-  store.enterWith({ startTime: Date.now() });
+  store.setValue({ startTime: Date.now() });
 }
 export function end() {
   // (b)
-  const dur = Date.now() - store.getStore().startTime;
+  const dur = Date.now() - store.getValue().startTime;
   console.log('onload duration:', dur);
-  store.exit()
 }
 ```
 
@@ -307,107 +358,6 @@ not be the one establishing `DatabaseConnection`). And at the resolution of sock
 which is linked to its initiating execution context, so the context has to be re-established by `AsyncTask.runInAsyncScope`.
 
 In this way, we can propagate correct async context flows on multiplexing single async task.
-
-## AsyncHook
-
-The `AsyncHook` provides an API to track asynchronous tasks.
-
-```js
-class AsyncHook {
-  constructor(hookSpec);
-
-  enable();
-  disable();
-}
-
-interface HookSpec {
-  scheduledAsyncTask(task, triggerTask);
-  beforeAsyncTaskExecute(task);
-  afterAsyncTaskExecute(task);
-}
-```
-
-An asynchronous task represents an object with an associated callback. This callback may be called multiple times,
-for example, the `'connection'` event in `net.createServer()` in Node.js, or just a single time like in `fs.open()`.
-A task can also be abandoned before the callback is called. `AsyncHook` does not explicitly distinguish between
-these different cases but will represent them as the abstract concept that is a task.
-
-`scheduledAsyncTask` will be called when an `AsyncTask` is scheduled that has the possibility to emit an
-asynchronous event. This does not mean the instance must call `beforeAsyncTaskExecute`/`afterAsyncTaskExecute`,
-only that the possibility exists.
-
-When an asynchronous operation is initiated (such as a TCP server receiving a new connection) or completes
-(such as writing data to disk) a callback is called to notify the user. The `beforeAsyncTaskExecute` callback
-is called just before said callback is executed. `task` is the `AsyncTask` object about to execute the callback.
-
-The `afterAsyncTaskExecute` will be called immediately after the callback specified in `beforeAsyncTaskExecute` is
-completed.
-
-### Using `AsyncHook`s
-
-```js
-const als = new AsyncLocalStorage();
-const queue = []
-
-async function run() {
-  if (queue.length === 0) {
-    return;
-  }
-  const { name, callback } = queue.pop();
-  const backlog = [];
-  const hook = new AsyncHook({
-    scheduledAsyncTask (task) {
-      const test = als.getStore();
-      if (test == null) {
-        return;
-      }
-      backlog.push(new WeakRef(task));
-    }
-  });
-  hook.enable();
-
-  als.enterWith(name);
-  try {
-    await callback();
-  } finally {
-    hook.disable();
-    als.exit();
-  }
-  setImmediate(() => {
-    assert(
-      backlog.filter(ref => ref.deref() != null).length === 0,
-      `'${name}' ended with dangling async tasks.`
-    );
-    run();
-  });
-}
-setImmediate(run);
-
-function test(name, callback) {
-  queue.push({ name, callback });
-}
-```
-
-This example starts async tasks tracking with `AsyncHook` right before each test case execution, and stops
-tracking after the test case were expected to end. Each task scheduled during the run were pushed into a backlog
-with `WeakRef`ed. On the end of execution, the refs were checked against to determine if the task were still
-out lives there to see if the test were cleanly exited.
-
-```js
-// demo.test.js
-
-test('foo', async () => {
-  await new Promise(res => setTimeout(res, 100));
-  // Pass.
-});
-test('bar', async () => {
-  setTimeout(res, 100);
-  // Assert Failed => 'bar' ended with dangling async tasks.
-});
-```
-
-So the first case above with properly task scheduled and awaited got passed. And second case didn't run into the
-expectation and should fail.
 
 # Prior Arts
 
