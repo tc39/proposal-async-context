@@ -277,8 +277,64 @@ capable of concurrent multi-tracking.
 
 #### Request Context Maintenance
 
+With `AsyncLocal`, maintaining a request context across different execution
+context is possible. For example, we'd like to print a log before each database
+query with the request trace id.
+
+First we'll have a module holding the async local instance.
+
 ```js
+//
+const asyncLocal = new AsyncLocal();
+
+export function setContext(ctx) {
+  asyncLocal.setValue(ctx);
+}
+
+export function getContext() {
+  return asyncLocal.getValue();
+}
 ```
+
+With the our owned instance of async local, we can set the value on each
+request handling call. After set the context, any operations afterwards can
+fetch the context with the instance of async local.
+
+```js
+import { createServer } from 'http';
+import { setContext } from './context';
+import { queryDatabase } from './db';
+
+const server = createServer(handleRequest);
+
+async function handleRequest(req, res) {
+  setContext({ req });
+  // ... do some async work
+  // await...
+  // await...
+  const result = await queryDatabase({ very: { complex: { query: 'NOT TRUE' } } });
+  res.statusCode = 200;
+  res.end(result);
+}
+```
+
+So we don't need an additional parameter to the database query functions.
+Still, it's easy to fetch the request data and print it.
+
+```js
+import { getContext } from './context';
+// some module
+export function queryDatabase(query) {
+  const ctx = getContext();
+  console.log('query database by request %o with query %o',
+              ctx.req.traceId,
+              query);
+  return doQuery(query);
+}
+```
+
+In this way, we can have a context value propagated across the async execution
+flow and keep track of the value without any other efforts.
 
 ## AsyncTask
 
@@ -289,21 +345,23 @@ Fundamentally if an object is going to be finalized, it can not be used afterwar
 If an async task says it is disposed, `runInAsyncScope` throws once disposed.
 -->
 
-For library owners, `AsyncTask`s are preferred to indicate new async tasks' schedule.
+While multiplexing platform provided async resources is not a rare case,
+how does the async locals get properly propagated?
+
+For library owners, `AsyncTask`s are preferred to indicate new synthetic async
+tasks' schedule.
 
 ```js
 class AsyncTask {
-  constructor(name);
-
-  get name;
-
+  constructor();
   runInAsyncScope(callback[, thisArg, ...args]);
 }
 ```
 
-`AsyncTask.runInAsyncScope` calls the provided function with the provided arguments in the execution context
-of the async task. This will establish the context, trigger the `AsyncHook`s before callbacks, call the function,
-trigger the `AsyncHook`s after callbacks, and then restore the original execution context.
+`AsyncTask.runInAsyncScope` calls the provided function with the provided
+arguments in the execution context of the async task. This will establish
+the context, call the function, and then restore the original async execution
+context.
 
 ### Using `AsyncTask`
 
@@ -315,32 +373,38 @@ class DatabaseConnection {
   }
 
   async query(search) {
-    const query = new Query(search)
+    const task = new Query(search)
     const result = await this.socket.send(query)
-    // This async context is triggered by `DatabaseConnection` which is not linked to initiator of `DatabaseConnection.query`.
-    return query.runInAsyncScope(() => {
+    // This async context is triggered by `DatabaseConnection` which is
+    // not linked to initiator of `DatabaseConnection.query`.
+    return task.runInAsyncScope(() => {
       // Promise linked to the initiator of `DatabaseConnection.query`.
-      // Promise -> Query(AsyncTask) -> `DatabaseConnection.query`
+      // Promise -> QueryTask -> `DatabaseConnection.query`
       return Promise.resolve(result)
     })
   }
 }
 
-class Query extends AsyncTask {
+class QueryTask extends AsyncTask {
   constructor(search) {
     // scheduled async task
-    super('database-query')
+    super()
     this.search = search
   }
 }
 ```
 
-In the example above, `DatabaseConnection` can be established at root execution context (or any other context). With `AsyncTask`,
-each call to `DatabaseConnection.query` will schedule an async task, which will be linked to its initiator execution context (may
-not be the one establishing `DatabaseConnection`). And at the resolution of socket, the contexts are propagated by the `DatabaseConnection`,
-which is linked to its initiating execution context, so the context has to be re-established by `AsyncTask.runInAsyncScope`.
+In the example above, `DatabaseConnection` can be established at root execution
+context (or any other context). With `AsyncTask`, each call to
+`DatabaseConnection.query` will schedule an async task, which will be linked
+to its initiator execution context (may not be the one establishing
+`DatabaseConnection`). And at the resolution of socket, the contexts are
+propagated by the `DatabaseConnection`, which is linked to its initiating
+execution context, so the context has to be re-established by
+`AsyncTask.runInAsyncScope`.
 
-In this way, we can propagate correct async context flows on multiplexing single async task.
+In this way, we can propagate correct async context flows on multiplexing
+single host platform provided async resource.
 
 # Prior Arts
 
