@@ -171,8 +171,8 @@ type ValueChangedListener<T> = (newValue: T, prevValue: T, isExplicitSet: bool);
 
 `AsyncLocal.getValue()` returns the current value of the context.
 
-An `AsyncLocal` has similar semantics of function parameters, the value in
-`AsyncLocal` propagates forward along with the async execution flow.
+The value in `AsyncLocal` propagates forward along with the async execution
+flow.
 
 ```js
 async function root(context) {
