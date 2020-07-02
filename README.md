@@ -207,20 +207,20 @@ console.log(context.getValue()); // => 'foo'
 async function root() {
   console.log(context.getValue()); // => 'foo'
   context.setValue('bar');
-  await next(context);
+  await asyncFunction(context);
   console.log(context.getValue()); // => 'bar'
-  sync();
+  syncFunction();
   console.log(context.getValue()); // => 'baz'
 }
 
-function sync() {
-  context.setValue('baz');
-  console.log(context.getValue()); // => 'baz'
-}
-
-async function next() {
+async function asyncFunction() {
   context.setValue('quz');
   console.log(context.getValue()); // => 'quz'
+}
+
+function syncFunction() {
+  context.setValue('baz');
+  console.log(context.getValue()); // => 'baz'
 }
 ```
 
@@ -228,6 +228,41 @@ As the value of `AsyncLocal` can be fetched from its own store, i.e. the
 `AsyncLocal` object, from arbitrary execution context in an async execution
 flow, users of async local have to declare their own `AsyncLocal` to get
 their value propagates with async execution flow.
+
+The `valueChangedListener` will be called each time the value in the current
+async flow has been updated by explicit `AsyncLocal.setValue` call, or when
+the value set by `AsyncLocal.setValue` been invalidated.
+
+
+```js
+const context = new AsyncLocal(
+  (newValue, prevValue, isExplicitSet) =>
+    console.log(`newValue(${newValue}), prevValue(${prevValue}), isExplicitSet(${isExplicitSet})`)
+);
+
+context.setValue('foo');
+// 1. => newValue('foo'), prevValue(undefined), isExplicitSet(true)
+await root();
+// 6. => newValue('foo'), prevValue('baz'), isExplicitSet(false)
+
+async function root() {
+  context.setValue('bar');
+  // 2. => newValue('bar'), prevValue('foo'), isExplicitSet(true)
+  await next(context);
+  // 4. => newValue('bar'), prevValue('quz'), isExplicitSet(false)
+  sync();
+}
+
+async function next() {
+  context.setValue('quz');
+  // 3. => newValue('quz'), prevValue('bar'), isExplicitSet(true)
+}
+
+function sync() {
+  context.setValue('baz');
+  // 5. => newValue('baz'), prevValue('bar'), isExplicitSet(true)
+}
+```
 
 ### Using `AsyncLocal`
 
