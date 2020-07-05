@@ -1,12 +1,12 @@
 {
-  "name": "zones-proposal",
+  "name": "proposal-async-context",
   "private": true,
   "version": "1.0.0",
-  "description": "Zones proposal for JavaScript",
+  "description": "Async Context proposal for JavaScript",
   "scripts": {
     "build": "mkdir -p build && ecmarkup spec.html build/index.html"
   },
-  "repository": "legendecas/zones",
+  "repository": "legendecas/proposal-async-context",
   "keywords": [
     "async",
     "context",
@@ -17,7 +17,7 @@
     "ecmascript",
     "spec"
   ],
-  "author": "Domenic Denicola <d@domenic.me> (https://domenic.me/)",
+  "author": "Chengzhong Wu <legendecas@gmail.com>",
   "license": "CC0-1.0",
   "devDependencies": {
     "ecmarkup": "^3.1.1"
