@@ -51,11 +51,11 @@ context" originating from the `load` event on `window`. Note how `(3)` and
 stack". And note how the promise chain does not suffice to capture this notion
 of async stack, as shown by `(6)`.
 
+## **Case 1**: Incomplete error stacks
+
 The code snippet above is simple and intuitive. However, if there is one or
 other step goes wrong -- not behaving as what we expect, it is hard to root
 out the cause of the problem.
-
-## **Case 1**: Incomplete error stacks
 
 What if the `fetch` failed for network issues? In the case, the only error
 message we can get in DevTools will be:
