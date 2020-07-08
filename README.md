@@ -274,11 +274,11 @@ function sync() {
 const asyncLocal = new AsyncLocal();
 export function start() {
   // (a)
-  store.setValue({ startTime: Date.now() });
+  asyncLocal.setValue({ startTime: Date.now() });
 }
 export function end() {
   // (b)
-  const dur = Date.now() - store.getValue().startTime;
+  const dur = Date.now() - asyncLocal.getValue().startTime;
   console.log('onload duration:', dur);
 }
 ```
