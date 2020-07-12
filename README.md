@@ -398,30 +398,74 @@ context.
 ### Using `AsyncTask`
 
 ```js
-class DatabaseConnection {
-  constructor(port, host) {
-    // Initialize connection, possibly in root context.
-    this.socket = connect(port, host)
-  }
+// Callback based arbitrary asynchronous API.
+function connect(port, host) {
+  let nextId = 0;
+  const requestResponseMap = new Map();
 
-  async query(search) {
-    const task = new Query(search)
-    const result = await this.socket.send(query)
-    // This async context is triggered by `DatabaseConnection` which is
-    // not linked to initiator of `DatabaseConnection.query`.
-    return task.runInAsyncScope(() => {
-      // Promise linked to the initiator of `DatabaseConnection.query`.
-      // Promise -> QueryTask -> `DatabaseConnection.query`
-      return Promise.resolve(result)
-    })
+  // Establish the connection, the client is linked to the current context.
+  const client = net.createConnection({ host, port });
+  client.on('connect', () => {
+    console.log('connected to server');
+  });
+  client.on('end', () => {
+    console.log('disconnected from server');
+  });
+
+  // the client is created at the context of `connect`,
+  // the listeners will be triggered at the context of the
+  // client initiating context.
+  client.on('data', (res) => {
+    const { id, data } = JSON.parse(res.toString('utf8'));
+    const req = requestResponseMap.get(id);
+    if (req == null) {
+      console.log('unknown response with id(%s)', id);
+      return;
+    }
+
+    // The req.handler callback is called under the context of client
+    // listeners.
+    req.handler(data);
+  });
+  return {
+    send: (data, handler) => {
+      const id = nextId++;
+      client.write(JSON.stringify({ id, data }));
+      requestResponseMap.set(id, { handler });
+    }
   }
 }
 
+// AsyncTask & Promise based connection wrapper.
+class DatabaseConnection {
+  constructor(port, host) {
+    // Initialize connection, possibly in root context.
+    this.socket = connect(port, host);
+  }
+
+  async query(search) {
+    const task = new QueryTask(search)
+    return new Promise((resolve, reject) => {
+      this.socket.send(query, (result) => {
+        // This async context is triggered by `DatabaseConnection` which is
+        // not linked to initiator of `DatabaseConnection.query`.
+        task.runInAsyncScope(() => {
+          // This async context linked to the initiator of
+          // `DatabaseConnection.query`.
+          // PromiseResolution -> QueryTask -> `DatabaseConnection.query`
+          resolve(result)
+        });
+      });
+    });
+  }
+}
+
+// A simple task that extends AsyncTask.
 class QueryTask extends AsyncTask {
   constructor(search) {
-    // scheduled async task
-    super()
-    this.search = search
+    // link async task to current execution async context
+    super();
+    this.search = search;
   }
 }
 ```
