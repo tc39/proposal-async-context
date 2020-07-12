@@ -111,6 +111,34 @@ That is to say, the value propagation will only happen on each call like
 closure of [PromiseReactionJob][]s' were invoked, or callbacks of host defined
 async operation like `setTimeout` were invoked.
 
+For that reason, normal recursive async function will not be punished on
+performance.
+
+```js
+const context = new AsyncLocal();
+
+(async function main() {
+  context.setValue(0);
+
+  await test();
+  printContext();
+})();
+
+async function test() {
+  const value = context.getValue();
+  if (value < 100) {
+    context.setValue(value + 1);
+    await test();
+  };
+}
+
+function printContext() {
+  console.log(context.getValue());
+}
+```
+
+The code snippet above will print `100`.
+
 The propagation operation in the section doesn't mean an actual propagation
 operation should be effective immediately. It is possible to link those async
 operation by the time of invocation like `Promise.resolve(value)`. As such,
