@@ -121,7 +121,7 @@ const context = new AsyncLocal();
   context.setValue(0);
 
   await test();
-  printContext();
+  console.log(context.getValue());
 })();
 
 async function test() {
@@ -131,16 +131,32 @@ async function test() {
     await test();
   };
 }
-
-function printContext() {
-  console.log(context.getValue());
-}
 ```
 
 The code snippet above will print `100`.
 
+### How the value got propagated
+
+As mentioned in [README.md][], AsyncLocal propagates values along the logical
+async execution flow. While all above examples are storing primitive values in
+the AsyncLocal, it is notable that the semantics for propagation of the value
+is assignment but not deep copy.
+
+```js
+const context = new AsyncLocal();
+
+context.setValue({});
+setTimeout(() => {
+  const ctx = context.getValue();
+  ctx.foo = 'bar';
+  setTimeout(() => {
+    console.log(context.getValue()); // => { foo: 'bar' };
+  }, 1000);
+}, 1000);
+```
+
 The propagation operation in the section doesn't mean an actual propagation
-operation should be effective immediately. It is possible to link those async
+operation will be effective immediately. It is possible to link those async
 operation by the time of invocation like `Promise.resolve(value)`. As such,
 one of the major design goal of current `AsyncLocal` value propagation can be
 fulfilled by leveraging the performance hit to the time when we explicitly call

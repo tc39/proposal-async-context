@@ -153,7 +153,7 @@ follow up proposal.
 
 # Possible Solution
 
-`AsyncLocal`s are meant to help with the problems of tracking asynchronous
+AsyncLocals are meant to help with the problems of tracking asynchronous
 logical contexts. They are designed as a value store for context propagation
 across multiple logically-connected async operations.
 
@@ -171,12 +171,12 @@ type ValueChangedListener<T> = (newValue: T, prevValue: T);
 
 `AsyncLocal.getValue()` returns the current value of the context.
 
-As the value of `AsyncLocal` has to be fetched from its own store, i.e. the
-`AsyncLocal` object. From arbitrary execution context in an async execution
-flow, users have to declare their own `AsyncLocal` to get their value
+As the value of AsyncLocal has to be fetched from its own store, i.e. the
+AsyncLocal object. From arbitrary execution context in an async execution
+flow, users have to declare their own AsyncLocal to get their value
 propagates along with an async execution flow.
 
-`AsyncLocal` propagates values to along the logic async execution flow.
+AsyncLocal propagates values along the logical async execution flow.
 
 ```js
 const context = new AsyncLocal();
@@ -258,10 +258,10 @@ valueChanged: newValue('quz'), prevValue('bar');
 valueChanged: newValue('quz'), prevValue('bar');
 ```
 
-Read more about the detailed behaviors definition of `AsyncLocal` at
+Read more about the detailed behaviors definition of AsyncLocal at
 [SOLUTION.md][].
 
-### Using `AsyncLocal`
+### Using AsyncLocal
 
 #### Time tracker
 
@@ -309,7 +309,7 @@ capable of concurrent multi-tracking.
 
 #### Request Context Maintenance
 
-With `AsyncLocal`, maintaining a request context across different execution
+With AsyncLocal, maintaining a request context across different execution
 context is possible. For example, we'd like to print a log before each database
 query with the request trace id.
 
@@ -527,7 +527,7 @@ this proposal. However, there are differences of the basic concept between
 those two definitions. The major motivation of `AsyncTask` is to declare a
 logical connection between multiple asynchronously executions. With these
 connections, the only use case in this proposal is to propagate the values of
-`AsyncLocal` correctly. However, many features still can be built on top of the
+AsyncLocal correctly. However, many features still can be built on top of the
 connections built by `AsyncTask`.
 
 ## Node.js `domain` module
