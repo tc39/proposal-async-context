@@ -65,7 +65,7 @@ TypeError: Failed to fetch
     at rejectPromise
 ```
 
-> V8 introduced [async stack traces]() not before long:
+> V8 introduced [async stack traces][] not before long:
 > ```
 > GET https://example.com/ net::ERR_TUNNEL_CONNECTION_FAILED
 > window.onload	@	(index):13
@@ -121,7 +121,7 @@ While monkey-patching is quite straightforward solution to track async tasks,
 there is no way to patch JavaScript features like `async`/`await`. Also,
 monkey-patching only works if all third-party libraries with custom scheduling
 call a corresponding task awareness registration like
-[`AsyncResource.runInAsyncScope`](). Furthermore, for those custom scheduling
+[`AsyncResource.runInAsyncScope`][]. Furthermore, for those custom scheduling
 third-party libraries, we need to get library owners to think in terms of async
 context propagation.
 
@@ -161,108 +161,105 @@ across multiple logically-connected async operations.
 
 ```js
 class AsyncLocal<T = any> {
-  constructor(valueChangedListener: ValueChangedListener<T>);
+  constructor(valueChangedListener?: ValueChangedListener<T>);
   getValue(): T;
   setValue(value: T);
 }
 
-type ValueChangedListener<T> = (newValue: T, prevValue: T, isExplicitSet: bool);
+type ValueChangedListener<T> = (newValue: T, prevValue: T);
 ```
 
 `AsyncLocal.getValue()` returns the current value of the context.
 
-The value in `AsyncLocal` propagates forward along with the async execution
-flow.
+As the value of `AsyncLocal` has to be fetched from its own store, i.e. the
+`AsyncLocal` object. From arbitrary execution context in an async execution
+flow, users have to declare their own `AsyncLocal` to get their value
+propagates along with an async execution flow.
 
-```js
-async function root(context) {
-  console.log(context); // => 'foo'
-  context = 'bar';
-  await next(context);
-  console.log(context) // => 'bar'
-}
-
-async function next(context) {
-  context = 'quz';
-  console.log(context); // => 'quz'
-}
-
-const context = 'foo';
-await root(context);
-console.log(context); // => 'foo'
-```
-
-Similar to above example of the additional function parameter "context",
-`AsyncLocal` propagates values to its child async-execution-context.
-However the values set in child async execution context will not be feed back
-to its parent async execution context.
+`AsyncLocal` propagates values to along the logic async execution flow.
 
 ```js
 const context = new AsyncLocal();
 
-context.setValue('foo');
-await root();
-console.log(context.getValue()); // => 'foo'
+(function main() {
+  context.setValue('main');
 
-async function root() {
-  console.log(context.getValue()); // => 'foo'
-  context.setValue('bar');
-  await asyncFunction(context);
-  console.log(context.getValue()); // => 'bar'
-  syncFunction();
-  console.log(context.getValue()); // => 'baz'
-}
+  setTimeout(() => {
+    printContext(); // => 'main'
+    context.setValue('first timer');
+    setTimeout(() => {
+      printContext(); // => 'first timer'
+    }, 1000);
+  }, 1000);
 
-async function asyncFunction() {
-  context.setValue('quz');
-  console.log(context.getValue()); // => 'quz'
-}
+  setTimeout(() => {
+    printContext(); // => 'main'
+    context.setValue('second timer');
+    setTimeout(() => {
+      printContext(); // => 'second timer'
+    }, 1000);
+  }, 1000);
+})();
 
-function syncFunction() {
-  context.setValue('baz');
-  console.log(context.getValue()); // => 'baz'
+function printContext() {
+  console.log(context.getValue());
 }
 ```
 
-As the value of `AsyncLocal` can be fetched from its own store, i.e. the
-`AsyncLocal` object, from arbitrary execution context in an async execution
-flow, users of async local have to declare their own `AsyncLocal` to get
-their value propagates with async execution flow.
-
 The `valueChangedListener` will be called each time the value in the current
-async flow has been updated by explicit `AsyncLocal.setValue` call, or when
-the value set by `AsyncLocal.setValue` been invalidated.
+async flow has been updated by explicit `AsyncLocal.setValue` call. It can be
+treated as a property setter of an object.
 
+The motivation for the `valueChangedListener` is that we can have a cleaner way
+to monitor the value changes of an AsyncLocal without any `setValue` wrappers.
+
+As the `valueChangedListener` is only going to be trigger by explicit value
+set, codes where can trigger the `valueChangedListener` is strictly restricted
+since the code where trigger the listener has to explicitly refer to the
+instance of AsyncLocal.
 
 ```js
 const context = new AsyncLocal(
-  (newValue, prevValue, isExplicitSet) =>
-    console.log(`newValue(${newValue}), prevValue(${prevValue}), isExplicitSet(${isExplicitSet})`)
+  (newValue, prevValue) =>
+    console.log(`valueChanged: newValue(${newValue}), prevValue(${prevValue})`)
 );
 
-context.setValue('foo');
-// 1. => newValue('foo'), prevValue(undefined), isExplicitSet(true)
-await root();
-// 6. => newValue('foo'), prevValue('baz'), isExplicitSet(false)
+// Evaluate the `run` function twice asynchronously.
+Promise.resolve().then(run);
+Promise.resolve().then(run);
 
-async function root() {
-  context.setValue('bar');
-  // 2. => newValue('bar'), prevValue('foo'), isExplicitSet(true)
+async function run() {
+  // (1)
+  context.setValue('foo');
+  await sleep(1000);
   await next(context);
-  // 4. => newValue('bar'), prevValue('quz'), isExplicitSet(false)
-  sync();
+  // (3)
+  context.setValue('quz');
 }
 
 async function next() {
-  context.setValue('quz');
-  // 3. => newValue('quz'), prevValue('bar'), isExplicitSet(true)
-}
-
-function sync() {
-  context.setValue('baz');
-  // 5. => newValue('baz'), prevValue('bar'), isExplicitSet(true)
+  // (2)
+  context.setValue('bar');
+  await sleep(1000);
 }
 ```
+
+The output of above snippet will be
+
+```log
+// (1)
+valueChanged: newValue('foo'), prevValue(undefined);
+valueChanged: newValue('foo'), prevValue(undefined);
+// (2)
+valueChanged: newValue('bar'), prevValue('foo');
+valueChanged: newValue('bar'), prevValue('foo');
+// (3)
+valueChanged: newValue('quz'), prevValue('bar');
+valueChanged: newValue('quz'), prevValue('bar');
+```
+
+Read more about the detailed behaviors definition of `AsyncLocal` at
+[SOLUTION.md][].
 
 ### Using `AsyncLocal`
 
@@ -483,8 +480,11 @@ then at all those sites, `Zone.current` would be equal to `loadZone`.
 
 Compared to this proposal, `Zone` acts similar to the `AsyncTask` object in
 this proposal. However, there are differences of the basic concept between
-those two definitions. `AsyncTask`s declare a logical connection between
-multiple asynchronously executions.
+those two definitions. The major motivation of `AsyncTask` is to declare a
+logical connection between multiple asynchronously executions. With these
+connections, the only use case in this proposal is to propagate the values of
+`AsyncLocal` correctly. However, many features still can be built on top of the
+connections built by `AsyncTask`.
 
 ## Node.js `domain` module
 
@@ -494,7 +494,7 @@ Since it is possible that some third party module changed active domain on
 the fly and application owner may unaware of such change, this can introduce
 unexpected implicit behavior and made domain diagnosis hard.
 
-Check out [Domain Module Postmortem]() for more details.
+Check out [Domain Module Postmortem][] for more details.
 
 ## Node.js `async_hooks`
 
@@ -505,3 +505,4 @@ resources tracking for APM vendors. On which Node.js also implemented
 [async stack traces]: https://v8.dev/docs/stack-trace-api#async-stack-traces
 [`AsyncResource.runInAsyncScope`]: https://nodejs.org/dist/latest-v14.x/docs/api/async_hooks.html#async_hooks_asyncresource_runinasyncscope_fn_thisarg_args
 [Domain Module Postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
+[SOLUTION.md]: ./SOLUTION.md
