@@ -8,66 +8,58 @@ propagated along with the async execution flow.
 We'll still have the example from [README.md][] for a introduction.
 
 ```js
-const context = new AsyncLocal();
+const asyncLocal = new AsyncLocal();
 
 (function main() {
-  context.setValue('main');
+  asyncLocal.setValue('main');
 
   // (1)
   setTimeout(() => {
-    printContext(); // => 'main'
-    context.setValue('first timer');
+    console.log(asyncLocal.getValue()); // => 'main'
+    asyncLocal.setValue('first timer');
     setTimeout(() => {
-      printContext(); // => 'first timer'
+      console.log(asyncLocal.getValue()); // => 'first timer'
     }, 1000);
   }, 1000);
 
   // (2)
   setTimeout(() => {
-    printContext(); // => 'main'
-    context.setValue('second timer');
+    console.log(asyncLocal.getValue()); // => 'main'
+    asyncLocal.setValue('second timer');
     setTimeout(() => {
-      printContext(); // => 'second timer'
+      console.log(asyncLocal.getValue()); // => 'second timer'
     }, 1000);
   }, 1000);
 })();
-
-function printContext() {
-  console.log(context.getValue());
-}
 ```
 
 In the example above, the `main` function first filled the AsyncLocal with
-value `'main'` by `context.setValue('main')`, then it called `setTimeout` twice
+value `'main'` by `asyncLocal.setValue('main')`, then it called `setTimeout` twice
 consecutively. In the callback of `setTimeout`, first the value of AsyncLocal
 were printed, then each callback of `setTimeout` set AsyncLocal with different
 value `'first time'` and `'second time'` respectively. After the value set,
 both callback of `setTimeout` initiated with a new `setTimeout` with a callback
 to print the value of AsyncLocal.
 
-The notable things are that we have `context.setValue` been placed in a nested
+The notable things are that we have `asyncLocal.setValue` been placed in a nested
 callback of `setTimeout`, an asynchronous API provided by many outstanding
 hosts like web browsers and Node.js. Why is this necessary? Can we replace
 the `setTimeout` with an async function and `await` them? Like following
 snippet:
 
 ```js
-const context = new AsyncLocal();
+const asyncLocal = new AsyncLocal();
 
 (async function main() {
-  context.setValue(0);
+  asyncLocal.setValue(0);
 
   await Promise.all([ test(), test() ]);
-  printContext();
+  console.log(asyncLocal.getValue());
 })();
 
 async function test() {
-  printContext();
-  context.setValue(context.getValue() + 1);
-}
-
-function printContext() {
-  console.log(context.getValue());
+  console.log(asyncLocal.getValue());
+  asyncLocal.setValue(asyncLocal.getValue() + 1);
 }
 ```
 
@@ -78,11 +70,11 @@ calling an async function as they can be desugared as following:
 ```js
 function main() {
   return new Promise((resolve, reject) => {
-    context.setValue(0);
+    asyncLocal.setValue(0);
     var result = Promise.all([ test(), test() ]);
     Promise.resolve(result)
       .then(() => {
-        printContext();
+        console.log(asyncLocal.getValue());
         resolve(undefined);
       });
   });
@@ -90,8 +82,8 @@ function main() {
 
 function test() {
   return new Promise((resolve, reject) => {
-    printContext();
-    context.setValue(context.getValue() + 1);
+    console.log(asyncLocal.getValue());
+    asyncLocal.setValue(asyncLocal.getValue() + 1);
     resolve(undefined);
   });
 }
@@ -100,9 +92,9 @@ function test() {
 The output of snippet above will be:
 
 ```log
-0 // test: printContext();
-1 // test: printContext();
-2 // main: printContext();
+0 // test: console.log(asyncLocal.getValue());
+1 // test: console.log(asyncLocal.getValue());
+2 // main: console.log(asyncLocal.getValue());
 ```
 
 > For more async function evaluation definition, checkout [25.7.5.1 AsyncFunctionStart][].
@@ -115,19 +107,19 @@ For that reason, normal recursive async function will not be punished on
 performance.
 
 ```js
-const context = new AsyncLocal();
+const asyncLocal = new AsyncLocal();
 
 (async function main() {
-  context.setValue(0);
+  asyncLocal.setValue(0);
 
   await test();
-  console.log(context.getValue());
+  console.log(asyncLocal.getValue());
 })();
 
 async function test() {
-  const value = context.getValue();
+  const value = asyncLocal.getValue();
   if (value < 100) {
-    context.setValue(value + 1);
+    asyncLocal.setValue(value + 1);
     await test();
   };
 }
@@ -143,14 +135,14 @@ the AsyncLocal, it is notable that the semantics for propagation of the value
 is assignment but not deep copy.
 
 ```js
-const context = new AsyncLocal();
+const asyncLocal = new AsyncLocal();
 
-context.setValue({});
+asyncLocal.setValue({});
 setTimeout(() => {
-  const ctx = context.getValue();
+  const ctx = asyncLocal.getValue();
   ctx.foo = 'bar';
   setTimeout(() => {
-    console.log(context.getValue()); // => { foo: 'bar' };
+    console.log(asyncLocal.getValue()); // => { foo: 'bar' };
   }, 1000);
 }, 1000);
 ```

@@ -169,7 +169,7 @@ class AsyncLocal<T = any> {
 type ValueChangedListener<T> = (newValue: T, prevValue: T);
 ```
 
-`AsyncLocal.getValue()` returns the current value of the context.
+`AsyncLocal.getValue()` returns the current value of the async execution flow.
 
 As the value of AsyncLocal has to be fetched from its own store, i.e. the
 AsyncLocal object. From arbitrary execution context in an async execution
@@ -179,31 +179,27 @@ propagates along with an async execution flow.
 AsyncLocal propagates values along the logical async execution flow.
 
 ```js
-const context = new AsyncLocal();
+const asyncLocal = new AsyncLocal();
 
 (function main() {
-  context.setValue('main');
+  asyncLocal.setValue('main');
 
   setTimeout(() => {
-    printContext(); // => 'main'
-    context.setValue('first timer');
+    console.log(asyncLocal.getValue()); // => 'main'
+    asyncLocal.setValue('first timer');
     setTimeout(() => {
-      printContext(); // => 'first timer'
+      console.log(asyncLocal.getValue()); // => 'first timer'
     }, 1000);
   }, 1000);
 
   setTimeout(() => {
-    printContext(); // => 'main'
-    context.setValue('second timer');
+    console.log(asyncLocal.getValue()); // => 'main'
+    asyncLocal.setValue('second timer');
     setTimeout(() => {
-      printContext(); // => 'second timer'
+      console.log(asyncLocal.getValue()); // => 'second timer'
     }, 1000);
   }, 1000);
 })();
-
-function printContext() {
-  console.log(context.getValue());
-}
 ```
 
 The optional `valueChangedListener` will be called each time the value in the
@@ -219,7 +215,7 @@ since the code where trigger the listener has to explicitly refer to the
 instance of AsyncLocal.
 
 ```js
-const context = new AsyncLocal(
+const asyncLocal = new AsyncLocal(
   (newValue, prevValue) =>
     console.log(`valueChanged: newValue(${newValue}), prevValue(${prevValue})`)
 );
@@ -230,16 +226,16 @@ Promise.resolve().then(run);
 
 async function run() {
   // (1)
-  context.setValue('foo');
+  asyncLocal.setValue('foo');
   await sleep(1000);
-  await next(context);
+  await next(asyncLocal);
   // (3)
-  context.setValue('quz');
+  asyncLocal.setValue('quz');
 }
 
 async function next() {
   // (2)
-  context.setValue('bar');
+  asyncLocal.setValue('bar');
   await sleep(1000);
 }
 ```
@@ -391,8 +387,8 @@ class AsyncTask {
 ```
 
 `AsyncTask.runInAsyncScope` calls the provided function with the provided
-arguments in the execution context of the async task. This will establish
-the context, call the function, and then restore the original async execution
+arguments in the async context of the async task. This will establish
+the async context, call the function, and then restore the original async
 context.
 
 ### Using `AsyncTask`
@@ -403,7 +399,7 @@ function connect(port, host) {
   let nextId = 0;
   const requestResponseMap = new Map();
 
-  // Establish the connection, the client is linked to the current context.
+  // Establish the connection, the client is linked to the current async context.
   const client = net.createConnection({ host, port });
   client.on('connect', () => {
     console.log('connected to server');
@@ -412,9 +408,9 @@ function connect(port, host) {
     console.log('disconnected from server');
   });
 
-  // the client is created at the context of `connect`,
-  // the listeners will be triggered at the context of the
-  // client initiating context.
+  // the client is created at the async context of `connect`,
+  // the listeners will be triggered at the async context of the
+  // client initiating async context.
   client.on('data', (res) => {
     const { id, data } = JSON.parse(res.toString('utf8'));
     const req = requestResponseMap.get(id);
@@ -423,7 +419,7 @@ function connect(port, host) {
       return;
     }
 
-    // The req.handler callback is called under the context of client
+    // The req.handler callback is called under the async context of client
     // listeners.
     req.handler(data);
   });
@@ -439,7 +435,7 @@ function connect(port, host) {
 // AsyncTask & Promise based connection wrapper.
 class DatabaseConnection {
   constructor(port, host) {
-    // Initialize connection, possibly in root context.
+    // Initialize connection, possibly in root async context.
     this.socket = connect(port, host);
   }
 
@@ -470,13 +466,13 @@ class QueryTask extends AsyncTask {
 }
 ```
 
-In the example above, `DatabaseConnection` can be established at root execution
+In the example above, `DatabaseConnection` can be established at root async
 context (or any other context). With `AsyncTask`, each call to
 `DatabaseConnection.query` will schedule an async task, which will be linked
-to its initiator execution context (may not be the one establishing
+to its initiator async context (may not be the one establishing
 `DatabaseConnection`). And at the resolution of socket, the contexts are
 propagated by the `DatabaseConnection`, which is linked to its initiating
-execution context, so the context has to be re-established by
+async context, so the async context has to be re-established by
 `AsyncTask.runInAsyncScope`.
 
 In this way, we can propagate correct async context flows on multiplexing
