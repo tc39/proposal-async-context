@@ -155,13 +155,9 @@ setTimeout(() => {
 }, 1000);
 ```
 
-The propagation operation in the section doesn't mean an actual propagation
-operation will be effective immediately. It is possible to link those async
-operation by the time of invocation like `Promise.resolve(value)`. As such,
-one of the major design goal of current `AsyncLocal` value propagation can be
-fulfilled by leveraging the performance hit to the time when we explicitly call
-`AsyncLocal.getValue()`. The applications that didn't use any AsyncLocal
-features will not be punished for the implementation of AsyncLocal.
+In the example above, an object was stored in the AsyncLocal. Therefore, it is
+possible to write properties on the object but not setting the value of the
+AsyncLocal and not triggering `valueChangedListener`.
 
 ### Stop propagation
 

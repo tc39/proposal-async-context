@@ -206,9 +206,9 @@ function printContext() {
 }
 ```
 
-The `valueChangedListener` will be called each time the value in the current
-async flow has been updated by explicit `AsyncLocal.setValue` call. It can be
-treated as a property setter of an object.
+The optional `valueChangedListener` will be called each time the value in the
+current async flow has been updated by explicit `AsyncLocal.setValue` call. It
+can be treated as a property setter of an object.
 
 The motivation for the `valueChangedListener` is that we can have a cleaner way
 to monitor the value changes of an AsyncLocal without any `setValue` wrappers.
