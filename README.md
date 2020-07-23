@@ -166,7 +166,7 @@ class AsyncLocal<T = any> {
   setValue(value: T);
 }
 
-type ValueChangedListener<T> = (newValue: T, prevValue: T);
+type ValueChangedListener<T> = (newValue: T, prevValue: T) => void;
 ```
 
 `AsyncLocal.getValue()` returns the current value of the async execution flow.
@@ -312,7 +312,7 @@ query with the request trace id.
 First we'll have a module holding the async local instance.
 
 ```js
-//
+// context.js
 const asyncLocal = new AsyncLocal();
 
 export function setContext(ctx) {
@@ -324,14 +324,14 @@ export function getContext() {
 }
 ```
 
-With the our owned instance of async local, we can set the value on each
+With our owned instance of async local, we can set the value on each
 request handling call. After set the context, any operations afterwards can
 fetch the context with the instance of async local.
 
 ```js
 import { createServer } from 'http';
-import { setContext } from './context';
-import { queryDatabase } from './db';
+import { setContext } from './context.js';
+import { queryDatabase } from './db.js';
 
 const server = createServer(handleRequest);
 
@@ -350,8 +350,8 @@ So we don't need an additional parameter to the database query functions.
 Still, it's easy to fetch the request data and print it.
 
 ```js
-import { getContext } from './context';
-// some module
+// db.js
+import { getContext } from './context.js';
 export function queryDatabase(query) {
   const ctx = getContext();
   console.log('query database by request %o with query %o',
