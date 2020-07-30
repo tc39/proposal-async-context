@@ -202,6 +202,9 @@ const asyncLocal = new AsyncLocal();
 })();
 ```
 
+> Note: There are controversial thought on the dynamic scoping and AsyncLocal,
+> checkout [SCOPING.md][] for more details.
+
 The optional `valueChangedListener` will be called each time the value in the
 current async flow has been updated by explicit `AsyncLocal.setValue` call. It
 can be treated as a property setter of an object.
@@ -546,3 +549,4 @@ resources tracking for APM vendors. On which Node.js also implemented
 [`AsyncResource.runInAsyncScope`]: https://nodejs.org/dist/latest-v14.x/docs/api/async_hooks.html#async_hooks_asyncresource_runinasyncscope_fn_thisarg_args
 [Domain Module Postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
 [SOLUTION.md]: ./SOLUTION.md
+[SCOPING.md]: ./SCOPING.md
