@@ -211,3 +211,10 @@ let local;
   })();
 })();
 ```
+
+### Summary
+
+There are no differences regarding naming scope of async locals between regular
+JavaScript variables. AsyncLocal doesn't introduce dynamic scoping to the
+naming scope of AsyncLocal instances. There are no changes regarding variable
+naming scope in the proposal.
