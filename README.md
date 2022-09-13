@@ -3,6 +3,10 @@
 Status: Last presented to TC39 on June 4th, 2020. Consensus for Stage 1 is not
 reached yet.
 
+Champions:
+- Chengzhong Wu (@legendecas)
+- Justin Ridgewell (@jridgewell)
+
 # Motivation
 
 The goal of the proposal is to provide a mechanism to ergonomically track async
