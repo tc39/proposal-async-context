@@ -371,120 +371,6 @@ export function queryDatabase(query) {
 In this way, we can have a context value propagated across the async execution
 flow and keep track of the value without any other efforts.
 
-## AsyncTask
-
-<!--
-TODO: how do we determine a task is not going to be used anymore?
-
-Fundamentally if an object is going to be finalized, it can not be used afterward.
-If an async task says it is disposed, `runInAsyncScope` throws once disposed.
--->
-
-While multiplexing platform provided async resources is not a rare case,
-how does the async locals get properly propagated?
-
-For library owners, `AsyncTask`s are preferred to indicate new synthetic async
-tasks' schedule.
-
-```js
-class AsyncTask {
-  constructor();
-  runInAsyncScope(callback[, thisArg, ...args]);
-}
-```
-
-`AsyncTask.runInAsyncScope` calls the provided function with the provided
-arguments in the async context of the async task. This will establish
-the async context, call the function, and then restore the original async
-context.
-
-### Using `AsyncTask`
-
-```js
-// Callback based arbitrary asynchronous API.
-function connect(port, host) {
-  let nextId = 0;
-  const requestResponseMap = new Map();
-
-  // Establish the connection, the client is linked to the current async context.
-  const client = net.createConnection({ host, port });
-  client.on('connect', () => {
-    console.log('connected to server');
-  });
-  client.on('end', () => {
-    console.log('disconnected from server');
-  });
-
-  // the client is created at the async context of `connect`,
-  // the listeners will be triggered at the async context of the
-  // client initiating async context.
-  client.on('data', (res) => {
-    const { id, data } = JSON.parse(res.toString('utf8'));
-    const req = requestResponseMap.get(id);
-    if (req == null) {
-      console.log('unknown response with id(%s)', id);
-      return;
-    }
-
-    // The req.handler callback is called under the async context of client
-    // listeners.
-    req.handler(data);
-  });
-  return {
-    send: (data, handler) => {
-      const id = nextId++;
-      client.write(JSON.stringify({ id, data }));
-      requestResponseMap.set(id, { handler });
-    }
-  }
-}
-
-// AsyncTask & Promise based connection wrapper.
-class DatabaseConnection {
-  constructor(port, host) {
-    // Initialize connection, possibly in root async context.
-    this.socket = connect(port, host);
-  }
-
-  async query(search) {
-    const task = new QueryTask(search)
-    return new Promise((resolve, reject) => {
-      this.socket.send(query, (result) => {
-        // This async context is triggered by `DatabaseConnection` which is
-        // not linked to initiator of `DatabaseConnection.query`.
-        task.runInAsyncScope(() => {
-          // This async context linked to the initiator of
-          // `DatabaseConnection.query`.
-          // PromiseResolution -> QueryTask -> `DatabaseConnection.query`
-          resolve(result)
-        });
-      });
-    });
-  }
-}
-
-// A simple task that extends AsyncTask.
-class QueryTask extends AsyncTask {
-  constructor(search) {
-    // link async task to current execution async context
-    super();
-    this.search = search;
-  }
-}
-```
-
-In the example above, `DatabaseConnection` can be established at root async
-context (or any other context). With `AsyncTask`, each call to
-`DatabaseConnection.query` will schedule an async task, which will be linked
-to its initiator async context (may not be the one establishing
-`DatabaseConnection`). And at the resolution of socket, the contexts are
-propagated by the `DatabaseConnection`, which is linked to its initiating
-async context, so the async context has to be re-established by
-`AsyncTask.runInAsyncScope`.
-
-In this way, we can propagate correct async context flows on multiplexing
-single host platform provided async resource.
-
 # Prior Arts
 
 ## zones.js
@@ -524,14 +410,6 @@ window.onload = loadZone.wrap(e => { ... });
 ```
 
 then at all those sites, `Zone.current` would be equal to `loadZone`.
-
-Compared to this proposal, `Zone` acts similar to the `AsyncTask` object in
-this proposal. However, there are differences of the basic concept between
-those two definitions. The major motivation of `AsyncTask` is to declare a
-logical connection between multiple asynchronously executions. With these
-connections, the only use case in this proposal is to propagate the values of
-AsyncLocal correctly. However, many features still can be built on top of the
-connections built by `AsyncTask`.
 
 ## Node.js `domain` module
 
