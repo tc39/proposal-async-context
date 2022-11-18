@@ -250,7 +250,7 @@ class AsyncContext<T> {
 }
 ```
 
-`AsyncContext.p.run()` and `AsyncContext.p.get()` sets and gets the current
+`AsyncContext.prototype.run()` and `AsyncContext.prototype.get()` sets and gets the current
 value of an async execution flow. `AsyncContext.wrap()` allows you to opaquely
 capture the current value of all `AsyncContexts` and execute the callback at a
 later time with as if those values were still the current values (a snapshot and
@@ -288,7 +288,7 @@ function main() {
   // Context was restored after the previous run.
   console.log(context.get()); // => 'top'
 
-  // Maintains the state of all AsyncContext's at this moment.
+  // Captures the state of all AsyncContext's at this moment.
   const snapshotDuringTop = AsyncContext.wrap((cb) => {
       console.log(context.get()); // => 'top'
       cb();
