@@ -10,32 +10,118 @@ Champions:
 # Motivation
 
 The goal of the proposal is to provide a mechanism to ergonomically track async
-contexts in JavaScript.
+contexts in JavaScript. Put another way, it allows propagating a value through
+a callstack regardless of any async execution.
 
-There are multiple implementations in different platforms and frameworks like
-`async_hooks` in Node.js and `zones.js` in Angular that provides async contexts
-and async tasks tracking. These modules works well on their own platform/impl,
-however they are not in quite same per API shapes compared with each other.
-Library owners might have to adopt both two, or more, to keep a persistent
-async context across async tasks execution.
+It's easiest to explain this in terms of setting and reading a global variable
+in sync execution. Imagine we're a library which provides a simple `log` and
+`run` function. Users may pass their callbacks into our `run` function and an
+arbitrary "id". The `run` will then invoke their callback and while running, the
+developer may call our `log` function to annotate the logs with the id they
+passed to the run.
 
-So what is async contexts? We will take following code snippet as an example:
+```typescript
+let currentId = undefined;
 
-```js
+export function log() {
+  if (currentId === undefined) throw new Error('must be inside a run call stack');
+  console.log(`[${currentId}]`, ...arguments);
+}
+
+export function run<T>(id: string, cb: () => T) {
+  let prevId = currentId;
+  try {
+    currentId = id;
+    return cb();
+  } finally {
+    currentId = prevId;
+  }
+}
+```
+
+The developer may then use our library like this:
+
+```typescript
+import { run, log } from 'library';
+import { helper } from 'some-random-npm-library';
+
+document.body.addEventListener('click', () => {
+  const id = new Uuid();
+
+  run(id, () => {
+    log('starting');
+
+    // Assume helper will invoke doSomething.
+    helper(doSomething);
+
+    log('done');
+  });
+});
+
+function doSomething() {
+  log("did something");
+}
+```
+
+In this example, no matter how many times a user may click, we'll also see a
+perfect "[123] starting", "[123] did something" "[123] done" log. We've
+essentially implemented a synchronous context stack, able to propagate the `id`
+down through the developers call stack without them needing to manually pass or
+store the id themselves.  This pattern is extremely useful. It is not always
+ergonomic (or even always possible) to pass a value through every function call
+(think of passing React props through several intermediate components vs passing
+through a React [Context](https://reactjs.org/docs/context.html)).
+
+However, this scenario breaks as soon as we introduce any async operation into
+our call stack.
+
+```typescript
+document.body.addEventListener('click', () => {
+  const id = new Uuid();
+
+  run(id, async () => {
+    log('starting');
+
+    await helper(doSomething);
+
+    // This will error! We've lost our id!
+    log('done');
+  });
+});
+
+function doSomething() {
+  // Will this error? Depends on if `helper` awaited before calling.
+  log("did something");
+}
+```
+
+`AsyncContext` solves this issue, allowing you to propagate the id through both
+sync and async execution by keeping track of the context in which we started the
+execution.
+
+```typescript
+const context = new AsyncContext();
+
+export function log() {
+  const currentId = context.get();
+  if (currentId === undefined) throw new Error('must be inside a run call stack');
+  console.log(`[${currentId}]`, ...arguments);
+}
+
+export function run<T>(id: string, cb: () => T) {
+  context.run(id, cb);
+}
+```
+
+## **Case 1**: Incomplete error stacks
+
+```typescript
 window.onload = e => {
   // (1)
   fetch("https://example.com").then(res => {
     // (2)
     return processBody(res.body).then(data => {
-      // (5)
-      const dialog = html`<dialog>Here's some cool data: ${data}
-                          <button>OK, cool</button></dialog>`;
-      dialog.show();
-
-      dialog.querySelector("button").onclick = () => {
-        // (6)
-        dialog.close();
-      };
+      doSomething(data);
     });
   });
 };
@@ -48,14 +134,6 @@ function processBody(body) {
   });
 }
 ```
-
-At all six marked points, the "async context" is the same: we're in an "async
-context" originating from the `load` event on `window`. Note how `(3)` and
-`(4)` are outside the lexical context, but is still part of the same "async
-stack". And note how the promise chain does not suffice to capture this notion
-of async stack, as shown by `(6)`.
-
-## **Case 1**: Incomplete error stacks
 
 The code snippet above is simple and intuitive. However, if there is one or
 other step goes wrong -- not behaving as what we expect, it is hard to root
@@ -84,7 +162,7 @@ where did we get to the error in an async way?
 
 ## **Case 2**: Where did we come to here?
 
-```js
+```typescript
 export async function handler(ctx, next) {
   const span = Tracer.startSpan();
   // First query runs in the synchronous context of the request.
@@ -157,206 +235,187 @@ follow up proposal.
 
 # Possible Solution
 
-AsyncLocals are meant to help with the problems of tracking asynchronous
-logical contexts. They are designed as a value store for context propagation
-across multiple logically-connected async operations.
+`AsyncContext` are designed as a value store for context propagation across
+multiple logically-connected sync/async operations.
 
-## AsyncLocal
+## AsyncContext
 
-```js
-class AsyncLocal<T = any> {
-  constructor(valueChangedListener?: ValueChangedListener<T>);
-  getValue(): T;
-  setValue(value: T);
+```typescript
+class AsyncContext<T> {
+  static wrap<R>(callback: (...args: any[]) => R): (...args: any[]) => R;
+
+  run<R>(value: T, callback: () => R): R;
+
+  get(): T;
+}
+```
+
+`AsyncContext.p.run()` and `AsyncContext.p.get()` sets and gets the current
+value of an async execution flow. `AsyncContext.wrap()` allows you to opaquely
+capture the current value of all `AsyncContexts` and execute the callback at a
+later time with as if those values were still the current values (a snapshot and
+restore).
+
+```typescript
+const context = new AynsContext();
+
+// Sets the current value to 'top', and executes the `main` function.
+context.run('top', main);
+
+function main() {
+  // Context is maintained through other platform queueing.
+  setTimeout(() => {
+    console.log(context.get()); // => 'top'
+
+    context.run('A', () => {
+      console.log(context.get()); // => 'A'
+
+      setTimeout(() => {
+        console.log(context.get()); // => 'A'
+      }, randomTimeout());
+    });
+  }, randomTimeout());
+
+  // Context runs can be nested.
+  context.run('B', () => {
+    console.log(context.get()); // => 'B'
+
+    setTimeout(() => {
+      console.log(context.get()); // => 'B'
+    }, randomTimeout());
+  });
+
+  // Context was restored after the previous run.
+  console.log(context.get()); // => 'top'
+
+  // Maintains the state of all AsyncContext's at this moment.
+  const snapshotDuringTop = AsyncContext.wrap((cb) => {
+      console.log(context.get()); // => 'top'
+      cb();
+  });
+
+
+  // Context runs can be nested.
+  context.run('C', () => {
+    console.log(context.get()); // => 'C'
+
+    // The snapshotDuringTop will restore all AsyncContext to their snapshot
+    // state and invoke the wrapped function. We pass a callback which it will
+    // invoke.
+    snapshotDuringTop(() => {
+      // Despite being lexically nested inside 'C', the snapshot restored us to
+      // to the 'top' state.
+      console.log(context.get()); // => 'top'
+    });
+  });
 }
 
-type ValueChangedListener<T> = (newValue: T, prevValue: T) => void;
+function randomTimeout() {
+  return Math.random() * 1000;
+}
 ```
 
-`AsyncLocal.getValue()` returns the current value of the async execution flow.
-
-As the value of AsyncLocal has to be fetched from its own store, i.e. the
-AsyncLocal object. From arbitrary execution context in an async execution
-flow, users have to declare their own AsyncLocal to get their value
-propagates along with an async execution flow.
-
-AsyncLocal propagates values along the logical async execution flow.
-
-```js
-const asyncLocal = new AsyncLocal();
-
-(function main() {
-  asyncLocal.setValue('main');
-
-  setTimeout(() => {
-    console.log(asyncLocal.getValue()); // => 'main'
-    asyncLocal.setValue('first timer');
-    setTimeout(() => {
-      console.log(asyncLocal.getValue()); // => 'first timer'
-    }, 1000);
-  }, 1000);
-
-  setTimeout(() => {
-    console.log(asyncLocal.getValue()); // => 'main'
-    asyncLocal.setValue('second timer');
-    setTimeout(() => {
-      console.log(asyncLocal.getValue()); // => 'second timer'
-    }, 1000);
-  }, 1000);
-})();
-```
-
-> Note: There are controversial thought on the dynamic scoping and AsyncLocal,
+> Note: There are controversial thought on the dynamic scoping and `AsyncContext`,
 > checkout [SCOPING.md][] for more details.
 
-The optional `valueChangedListener` will be called each time the value in the
-current async flow has been updated by explicit `AsyncLocal.setValue` call. It
-can be treated as a property setter of an object.
-
-The motivation for the `valueChangedListener` is that we can have a cleaner way
-to monitor the value changes of an AsyncLocal without any `setValue` wrappers.
-
-As the `valueChangedListener` is only going to be trigger by explicit value
-set, codes where can trigger the `valueChangedListener` is strictly restricted
-since the code where trigger the listener has to explicitly refer to the
-instance of AsyncLocal.
-
-```js
-const asyncLocal = new AsyncLocal(
-  (newValue, prevValue) =>
-    console.log(`valueChanged: newValue(${newValue}), prevValue(${prevValue})`)
-);
-
-// Evaluate the `run` function twice asynchronously.
-Promise.resolve().then(run);
-Promise.resolve().then(run);
-
-async function run() {
-  // (1)
-  asyncLocal.setValue('foo');
-  await sleep(1000);
-  await next(asyncLocal);
-  // (3)
-  asyncLocal.setValue('quz');
-}
-
-async function next() {
-  // (2)
-  asyncLocal.setValue('bar');
-  await sleep(1000);
-}
-```
-
-The output of above snippet will be
-
-```log
-// (1)
-valueChanged: newValue('foo'), prevValue(undefined);
-valueChanged: newValue('foo'), prevValue(undefined);
-// (2)
-valueChanged: newValue('bar'), prevValue('foo');
-valueChanged: newValue('bar'), prevValue('foo');
-// (3)
-valueChanged: newValue('quz'), prevValue('bar');
-valueChanged: newValue('quz'), prevValue('bar');
-```
-
-Read more about the detailed behaviors definition of AsyncLocal at
+Read more about the detailed behaviors definition of `AsyncContext` at
 [SOLUTION.md][].
 
-### Using AsyncLocal
+### Using AsyncContext
 
 #### Time tracker
 
-```js
+```typescript
 // tracker.js
 
-const asyncLocal = new AsyncLocal();
-export function start() {
+const context = new AsyncContext();
+export function run(cb) {
   // (a)
-  asyncLocal.setValue({ startTime: Date.now() });
+  context.run({ startTime: Date.now() }, cb);
 }
-export function end() {
+
+export function elapsed() {
   // (b)
-  const dur = Date.now() - asyncLocal.getValue().startTime;
-  console.log('onload duration:', dur);
+  const elapsed = Date.now() - context.get().startTime;
+  console.log('onload duration:', elapsed);
 }
 ```
 
-```js
+```typescript
 import * as tracker from './tracker.js'
 
 button.onclick = e => {
   // (1)
-  tracker.start();
+  tracker.run(() => {
+    fetch("https://example.com").then(res => {
+      // (2)
 
-  fetch("https://example.com").then(res => {
-    // (2)
+      return processBody(res.body).then(data => {
+        // (3)
 
-    return processBody(res.body).then(data => {
-      // (3)
+        const dialog = html`<dialog>Here's some cool data: ${data}
+                            <button>OK, cool</button></dialog>`;
+        dialog.show();
 
-      const dialog = html`<dialog>Here's some cool data: ${data}
-                          <button>OK, cool</button></dialog>`;
-      dialog.show();
-
-      tracker.end();
+        tracker.elapsed();
+      });
     });
   });
 };
 ```
 
-In the example above, `trackStart` and `trackEnd` don't share same lexical
-scope with actual code functions, and they are capable of async reentrance thus
-capable of concurrent multi-tracking.
+In the example above, `run` and `elapsed` don't share same lexical scope with
+actual code functions, and they are capable of async reentrance thus capable of
+concurrent multi-tracking.
 
 #### Request Context Maintenance
 
-With AsyncLocal, maintaining a request context across different execution
+With AsyncContext, maintaining a request context across different execution
 context is possible. For example, we'd like to print a log before each database
 query with the request trace id.
 
 First we'll have a module holding the async local instance.
 
-```js
+```typescript
 // context.js
-const asyncLocal = new AsyncLocal();
+const context = new AsyncContext();
 
-export function setContext(ctx) {
-  asyncLocal.setValue(ctx);
+export function run(ctx, cb) {
+  context.run(ctx, cb);
 }
 
 export function getContext() {
-  return asyncLocal.getValue();
+  return context.getValue();
 }
 ```
 
-With our owned instance of async local, we can set the value on each
-request handling call. After set the context, any operations afterwards can
-fetch the context with the instance of async local.
+With our owned instance of async context, we can set the value on each request
+handling call. After setting the context's value, any operations afterwards can
+fetch the value with the instance of async context.
 
-```js
+```typescript
 import { createServer } from 'http';
-import { setContext } from './context.js';
+import { run } from './context.js';
 import { queryDatabase } from './db.js';
 
 const server = createServer(handleRequest);
 
 async function handleRequest(req, res) {
-  setContext({ req });
-  // ... do some async work
-  // await...
-  // await...
-  const result = await queryDatabase({ very: { complex: { query: 'NOT TRUE' } } });
-  res.statusCode = 200;
-  res.end(result);
+  run({ req }, () => {
+    // ... do some async work
+    // await...
+    // await...
+    const result = await queryDatabase({ very: { complex: { query: 'NOT TRUE' } } });
+    res.statusCode = 200;
+    res.end(result);
+  });
 }
 ```
 
 So we don't need an additional parameter to the database query functions.
 Still, it's easy to fetch the request data and print it.
 
-```js
+```typescript
 // db.js
 import { getContext } from './context.js';
 export function queryDatabase(query) {
@@ -376,7 +435,7 @@ flow and keep track of the value without any other efforts.
 ## zones.js
 Zones proposed a `Zone` object, which has the following API:
 
-```js
+```typescript
 class Zone {
   constructor({ name, parent });
 
@@ -404,7 +463,7 @@ The _current zone_ is the async context that propagates with all our
 operations. In our above example, sites `(1)` through `(6)` would all have
 the same value of `Zone.current`. If a developer had done something like:
 
-```js
+```typescript
 const loadZone = Zone.current.fork({ name: "loading zone" });
 window.onload = loadZone.wrap(e => { ... });
 ```
