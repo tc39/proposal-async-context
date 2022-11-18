@@ -318,9 +318,6 @@ function randomTimeout() {
 > Note: There are controversial thought on the dynamic scoping and `AsyncContext`,
 > checkout [SCOPING.md][] for more details.
 
-Read more about the detailed behaviors definition of `AsyncContext` at
-[SOLUTION.md][].
-
 ### Using AsyncContext
 
 #### Time tracker
