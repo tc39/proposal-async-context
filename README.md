@@ -257,7 +257,7 @@ later time with as if those values were still the current values (a snapshot and
 restore).
 
 ```typescript
-const context = new AynsContext();
+const context = new AsyncContext();
 
 // Sets the current value to 'top', and executes the `main` function.
 context.run('top', main);
