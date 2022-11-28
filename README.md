@@ -483,8 +483,47 @@ This is what the proposal evolved from. `async_hooks` in Node.js enabled async
 resources tracking for APM vendors. On which Node.js also implemented
 `AsyncLocalStorage`.
 
+## Chrome Async Stack Tagging API
+
+Frameworks can schedule tasks with their own userland queues. In such case, the
+stack trace originated from the framework scheduling logic tell only part of
+the story.
+
+```console
+Error: Call stack
+  at someTask (example.js)
+  at loop (framework.js)
+```
+
+The Chrome [Async Stack Tagging API][] introduces a new console method named
+`console.createTask()`. The API signature is as follows:
+
+```typescript
+interface Console {
+  createTask(name: string): Task;
+}
+
+interface Task {
+  run<T>(f: () => T): T;
+}
+```
+
+`console.createTask()` snapshots the call stack into a `Task` record. And each
+`Task.run()` restores the saved call stack and append it to newly generated
+call stacks.
+
+```console
+Error: Call stack
+  at someTask (example.js)
+  at loop (framework.js)
+  at async someTask               // <- Task.run
+  at schedule (framework.js)      // <- console.createTask
+  at businessLogic (example.js)
+```
+
 [async stack traces]: https://v8.dev/docs/stack-trace-api#async-stack-traces
 [`AsyncResource.runInAsyncScope`]: https://nodejs.org/dist/latest-v14.x/docs/api/async_hooks.html#async_hooks_asyncresource_runinasyncscope_fn_thisarg_args
 [Domain Module Postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
 [SOLUTION.md]: ./SOLUTION.md
 [SCOPING.md]: ./SCOPING.md
+[Async Stack Tagging API]: https://developer.chrome.com/blog/devtools-modern-web-debugging/#linked-stack-traces
