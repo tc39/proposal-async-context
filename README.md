@@ -486,7 +486,7 @@ resources tracking for APM vendors. On which Node.js also implemented
 ## Chrome Async Stack Tagging API
 
 Frameworks can schedule tasks with their own userland queues. In such case, the
-stack trace originated from the framework scheduling logic tell only part of
+stack trace originated from the framework scheduling logic tells only part of
 the story.
 
 ```console
