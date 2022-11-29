@@ -515,8 +515,8 @@ call stacks.
 ```console
 Error: Call stack
   at someTask (example.js)
-  at loop (framework.js)
-  at async someTask               // <- Task.run
+  at loop (framework.js)          // <- Task.run
+  at async someTask               // <- Async stack appended
   at schedule (framework.js)      // <- console.createTask
   at businessLogic (example.js)
 ```
