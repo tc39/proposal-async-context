@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "Async Context proposal for JavaScript",
   "scripts": {
-    "build": "mkdir -p build && ecmarkup spec.html build/index.html"
+    "build": "mkdir -p build && ecmarkup spec.html build/index.html",
+    "test": "mocha"
   },
   "repository": "legendecas/proposal-async-context",
   "keywords": [
@@ -20,6 +21,11 @@
   "author": "Chengzhong Wu <legendecas@gmail.com>",
   "license": "CC0-1.0",
   "devDependencies": {
-    "ecmarkup": "^3.1.1"
+    "@esbuild-kit/cjs-loader": "2.4.1",
+    "@esbuild-kit/esm-loader": "2.5.4",
+    "@types/mocha": "10.0.1",
+    "@types/node": "18.11.18",
+    "ecmarkup": "^3.1.1",
+    "mocha": "10.2.0"
   }
 }

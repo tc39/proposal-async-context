@@ -1,0 +1,8 @@
+{
+  "require": "@esbuild-kit/cjs-loader",
+  "loader": "@esbuild-kit/esm-loader",
+  "spec": ["tests/**"],
+  "extensions": ["ts"],
+  "watch-files": ["src"],
+  "node-option": ["no-warnings"]
+}
