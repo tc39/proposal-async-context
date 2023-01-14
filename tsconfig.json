@@ -4,5 +4,6 @@
     "target": "esnext",
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "nodenext",
+    "noEmit": true
   }
 }
