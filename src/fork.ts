@@ -1,5 +1,5 @@
-import type { Mapping } from './mapping';
-import type { AsyncContext } from './index';
+import type { Mapping } from "./mapping";
+import type { AsyncContext } from "./index";
 
 /**
  * FrozenFork holds a frozen Mapping that will be simply restored when the fork is
