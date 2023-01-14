@@ -1,5 +1,5 @@
 import { AsyncContext } from "../src/index";
-import assert from "node:assert/strict";
+import { strict as assert } from "assert";
 
 type Value = { id: number };
 
