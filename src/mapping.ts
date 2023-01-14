@@ -22,8 +22,8 @@ export class Mapping {
     return this.#data.has(key);
   }
 
-  get<T>(key: AsyncContext<T>): T {
-    return this.#data.get(key) as T;
+  get<T>(key: AsyncContext<T>): T | undefined {
+    return this.#data.get(key) as T | undefined;
   }
 
   /**
@@ -53,7 +53,7 @@ export class Mapping {
     this.#frozen = true;
   }
 
-  isFrozen() {
+  isFrozen(): boolean {
     return this.#frozen;
   }
 

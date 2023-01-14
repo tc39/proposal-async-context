@@ -21,7 +21,7 @@ export class Storage {
   /**
    * Set assigns a new value to the AsyncContext.
    */
-  static set<T>(key: AsyncContext<T>, value: T) {
+  static set<T>(key: AsyncContext<T>, value: T): void {
     const current = this.#current || new Mapping(new Map());
     // If the Mappings are frozen (someone has snapshot it), then modifying the
     // mappings will return a clone containing the modification.
@@ -48,7 +48,7 @@ export class Storage {
    * Join will restore the global storage state to state at the time of the
    * fork.
    */
-  static join<T>(fork: FrozenFork | OwnedFork<T>) {
+  static join<T>(fork: FrozenFork | OwnedFork<T>): void {
     // The only way for #current to be undefined at a join is if we're in the
     // we've snapshot the initial empty state with `wrap` and restored it. In
     // which case, we're operating on a FrozenFork, and the param doesn't
