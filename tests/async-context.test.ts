@@ -92,6 +92,57 @@ describe("sync", () => {
       assert.equal(ctx.get(), undefined);
     });
 
+    it("runs within wrap", () => {
+      const ctx = new AsyncContext<Value>();
+      const first = { id: 1 };
+      const second = { id: 2 };
+
+      const wrap = ctx.run(first, () => {
+        const wrap = AsyncContext.wrap(() => {
+          assert.equal(ctx.get(), first);
+          ctx.run(second, () => {
+            assert.equal(ctx.get(), second);
+          });
+          assert.equal(ctx.get(), first);
+        });
+        assert.equal(ctx.get(), first);
+        return wrap;
+      });
+
+      wrap();
+      assert.equal(ctx.get(), undefined);
+    });
+
+    it("runs different context within wrap", () => {
+      const a = new AsyncContext<Value>();
+      const b = new AsyncContext<Value>();
+      const first = { id: 1 };
+      const second = { id: 2 };
+
+      const wrap = a.run(first, () => {
+        const wrap = AsyncContext.wrap(() => {
+          assert.equal(a.get(), first);
+          assert.equal(b.get(), undefined);
+
+          b.run(second, () => {
+            assert.equal(a.get(), first);
+            assert.equal(b.get(), second);
+          });
+
+          assert.equal(a.get(), first);
+          assert.equal(b.get(), undefined);
+        });
+
+        assert.equal(a.get(), first);
+        assert.equal(b.get(), undefined);
+        return wrap;
+      });
+
+      wrap();
+      assert.equal(a.get(), undefined);
+      assert.equal(b.get(), undefined);
+    });
+
     it("wrap within nesting contexts", () => {
       const ctx = new AsyncContext<Value>();
       const first = { id: 1 };
