@@ -23,7 +23,7 @@ export class FrozenFork {
    * For FrozenFork, that's as simple as returning the known-frozen Mapping,
    * because we know it can't have been modified.
    */
-  join(): Mapping {
+  join(_current: Mapping): Mapping {
     return this.#mapping;
   }
 }
@@ -39,13 +39,11 @@ export class FrozenFork {
  * will clone the current state and we restore the clone to the prior state.
  */
 export class OwnedFork<T> {
-  #mapping: Mapping;
   #key: AsyncContext<T>;
   #has: boolean;
   #prev: T | undefined;
 
   constructor(mapping: Mapping, key: AsyncContext<T>) {
-    this.#mapping = mapping;
     this.#key = key;
     this.#has = mapping.has(key);
     this.#prev = mapping.get(key);
@@ -59,11 +57,11 @@ export class OwnedFork<T> {
    * reallocate if anyone has since taken a snapshot) in the hopes that we
    * won't need to reallocate.
    */
-  join(): Mapping {
+  join(current: Mapping): Mapping {
     if (this.#has) {
-      return this.#mapping.set(this.#key, this.#prev);
+      return current.set(this.#key, this.#prev);
     } else {
-      return this.#mapping.delete(this.#key);
+      return current.delete(this.#key);
     }
   }
 }

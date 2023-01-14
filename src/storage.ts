@@ -47,7 +47,7 @@ export class Storage {
    * fork.
    */
   static join<T>(fork: FrozenFork | OwnedFork<T>) {
-    this.#current = fork.join();
+    this.#current = fork.join(this.#current);
   }
 
   /**
