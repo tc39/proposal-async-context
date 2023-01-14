@@ -26,9 +26,9 @@ describe("sync", () => {
       const ctx = new AsyncContext<Value>();
       const expected = { id: 1 };
 
-      const actual = ctx.run(expected, () => ctx.get());
-
-      assert.equal(actual, expected);
+      ctx.run(expected, () => {
+        assert.equal(ctx.get(), expected);
+      });
     });
 
     it("get within nesting contexts", () => {
@@ -36,11 +36,14 @@ describe("sync", () => {
       const first = { id: 1 };
       const second = { id: 2 };
 
-      const actual = ctx.run(first, () => {
-        return [ctx.get(), ctx.run(second, () => ctx.get()), ctx.get()];
+      ctx.run(first, () => {
+        assert.equal(ctx.get(), first);
+        ctx.run(second, () => {
+          assert.equal(ctx.get(), second);
+        });
+        assert.equal(ctx.get(), first);
       });
-
-      assert.deepStrictEqual(actual, [first, second, first]);
+      assert.equal(ctx.get(), undefined);
     });
 
     it("get within nesting different contexts", () => {
@@ -49,24 +52,18 @@ describe("sync", () => {
       const first = { id: 1 };
       const second = { id: 2 };
 
-      const actual = a.run(first, () => {
-        return [
-          a.get(),
-          b.get(),
-          ...b.run(second, () => [a.get(), b.get()]),
-          a.get(),
-          b.get(),
-        ];
+      a.run(first, () => {
+        assert.equal(a.get(), first);
+        assert.equal(b.get(), undefined);
+        b.run(second, () => {
+          assert.equal(a.get(), first);
+          assert.equal(b.get(), second);
+        });
+        assert.equal(a.get(), first);
+        assert.equal(b.get(), undefined);
       });
-
-      assert.deepStrictEqual(actual, [
-        first,
-        undefined,
-        first,
-        second,
-        first,
-        undefined,
-      ]);
+      assert.equal(a.get(), undefined);
+      assert.equal(b.get(), undefined);
     });
   });
 
@@ -75,22 +72,24 @@ describe("sync", () => {
       const ctx = new AsyncContext<Value>();
       const wrapped = AsyncContext.wrap(() => ctx.get());
 
-      const actual = ctx.run({ id: 1 }, () => wrapped());
-
-      assert.equal(actual, undefined);
+      ctx.run({ id: 1 }, () => {
+        assert.equal(wrapped(), undefined);
+      });
     });
 
     it("stores current state", () => {
       const ctx = new AsyncContext<Value>();
       const expected = { id: 1 };
 
-      const wrapped = ctx.run(expected, () => {
-        return AsyncContext.wrap(() => ctx.get());
+      const wrap = ctx.run(expected, () => {
+        const wrap = AsyncContext.wrap(() => ctx.get());
+        assert.equal(wrap(), expected);
+        assert.equal(ctx.get(), expected);
+        return wrap;
       });
 
-      const actual = wrapped();
-
-      assert.equal(actual, expected);
+      assert.equal(wrap(), expected);
+      assert.equal(ctx.get(), undefined);
     });
 
     it("wrap within nesting contexts", () => {
@@ -98,15 +97,76 @@ describe("sync", () => {
       const first = { id: 1 };
       const second = { id: 2 };
 
-      const actual = ctx.run(first, () => {
-        const firstWrap = AsyncContext.wrap(() => ctx.get());
-        const secondWrap = ctx.run(second, () => {
-          return AsyncContext.wrap(() => ctx.get());
+      const [firstWrap, secondWrap] = ctx.run(first, () => {
+        const firstWrap = AsyncContext.wrap(() => {
+          assert.equal(ctx.get(), first);
         });
-        return [ctx.get(), firstWrap(), secondWrap(), ctx.get()];
+        firstWrap();
+
+        const secondWrap = ctx.run(second, () => {
+          const secondWrap = AsyncContext.wrap(() => {
+            firstWrap();
+            assert.equal(ctx.get(), second);
+          });
+          firstWrap();
+          secondWrap();
+          assert.equal(ctx.get(), second);
+
+          return secondWrap;
+        });
+
+        firstWrap();
+        secondWrap();
+        assert.equal(ctx.get(), first);
+
+        return [firstWrap, secondWrap];
       });
 
-      assert.deepStrictEqual(actual, [first, first, second, first]);
+      firstWrap();
+      secondWrap();
+      assert.equal(ctx.get(), undefined);
+    });
+
+    it("wrap within nesting different contexts", () => {
+      const a = new AsyncContext<Value>();
+      const b = new AsyncContext<Value>();
+      const first = { id: 1 };
+      const second = { id: 2 };
+
+      const [firstWrap, secondWrap] = a.run(first, () => {
+        const firstWrap = AsyncContext.wrap(() => {
+          assert.equal(a.get(), first);
+          assert.equal(b.get(), undefined);
+        });
+        firstWrap();
+
+        const secondWrap = b.run(second, () => {
+          const secondWrap = AsyncContext.wrap(() => {
+            firstWrap();
+            assert.equal(a.get(), first);
+            assert.equal(b.get(), second);
+          });
+
+          firstWrap();
+          secondWrap();
+          assert.equal(a.get(), first);
+          assert.equal(b.get(), second);
+
+          return secondWrap;
+        });
+
+        firstWrap();
+        secondWrap();
+        assert.equal(a.get(), first);
+        assert.equal(b.get(), undefined);
+
+        return [firstWrap, secondWrap];
+      });
+
+      firstWrap();
+      secondWrap();
+      assert.equal(a.get(), undefined);
+      assert.equal(b.get(), undefined);
     });
 
     it("wrap out of order", () => {
@@ -115,14 +175,20 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const firstWrap = ctx.run(first, () => {
-        return AsyncContext.wrap(() => ctx.get());
+        return AsyncContext.wrap(() => {
+          assert.equal(ctx.get(), first);
+        });
       });
       const secondWrap = ctx.run(second, () => {
-        return AsyncContext.wrap(() => ctx.get());
+        return AsyncContext.wrap(() => {
+          assert.equal(ctx.get(), second);
+        });
       });
-      const actual = [firstWrap(), secondWrap(), firstWrap(), secondWrap()];
 
-      assert.deepStrictEqual(actual, [first, second, first, second]);
+      firstWrap();
+      secondWrap();
+      firstWrap();
+      secondWrap();
     });
   });
 });
