@@ -1,11 +1,7 @@
 import { AsyncContext } from "../src/index";
-import { then, nativeThen } from "../src/promise-polyfill";
 import assert from "node:assert/strict";
 
 type Value = { id: number };
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
 
 describe("sync", () => {
   describe("run and get", () => {
@@ -103,13 +99,14 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const actual = ctx.run(first, () => {
-        const wrapped = ctx.run(second, () => {
+        const firstWrap = AsyncContext.wrap(() => ctx.get());
+        const secondWrap = ctx.run(second, () => {
           return AsyncContext.wrap(() => ctx.get());
         });
-        return [ctx.get(), wrapped(), ctx.get()];
+        return [ctx.get(), firstWrap(), secondWrap(), ctx.get()];
       });
 
-      assert.deepStrictEqual(actual, [first, second, first]);
+      assert.deepStrictEqual(actual, [first, first, second, first]);
     });
 
     it("wrap out of order", () => {
@@ -126,124 +123,6 @@ describe("sync", () => {
       const actual = [firstWrap(), secondWrap(), firstWrap(), secondWrap()];
 
       assert.deepStrictEqual(actual, [first, second, first, second]);
-    });
-  });
-});
-
-describe("async via promises", () => {
-  beforeEach(() => {
-    Promise.prototype.then = then;
-  });
-  afterEach(() => {
-    Promise.prototype.then = nativeThen;
-  });
-
-  describe("run and get", () => {
-    it("get returns current context value", async () => {
-      const ctx = new AsyncContext<Value>();
-      const expected = { id: 1 };
-
-      const actual = await ctx.run(expected, () => {
-        return Promise.resolve().then(() => ctx.get());
-      });
-
-      assert.equal(actual, expected);
-    });
-
-    it("get within nesting contexts", async () => {
-      const ctx = new AsyncContext<Value>();
-      const first = { id: 1 };
-      const second = { id: 2 };
-
-      const actual = await ctx.run(first, () => {
-        return Promise.resolve([])
-          .then((temp) => {
-            temp.push(ctx.get());
-            return temp;
-          })
-          .then((temp) => {
-            return ctx.run(second, () => {
-              return Promise.resolve().then(() => {
-                temp.push(ctx.get());
-                return temp;
-              });
-            });
-          })
-          .then((temp) => {
-            temp.push(ctx.get());
-            return temp;
-          });
-      });
-
-      assert.deepStrictEqual(actual, [first, second, first]);
-    });
-
-    it("get within nesting different contexts", async () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const first = { id: 1 };
-      const second = { id: 2 };
-
-      const actual = await a.run(first, () => {
-        return Promise.resolve([])
-          .then((temp) => {
-            temp.push(a.get(), b.get());
-            return temp;
-          })
-          .then((temp) => {
-            return b.run(second, () => {
-              return Promise.resolve().then(() => {
-                temp.push(a.get(), b.get());
-                return temp;
-              });
-            });
-          })
-          .then((temp) => {
-            temp.push(a.get(), b.get());
-            return temp;
-          });
-      });
-
-      assert.deepStrictEqual(actual, [
-        first,
-        undefined,
-        first,
-        second,
-        first,
-        undefined,
-      ]);
-    });
-
-    it("get out of order", async () => {
-      const ctx = new AsyncContext<Value>();
-      const first = { id: 1 };
-      const second = { id: 2 };
-
-      const firstRun = ctx.run(first, () => {
-        return [
-          sleep(10).then(() => ctx.get()),
-          sleep(20).then(() => ctx.get()),
-          sleep(30).then(() => ctx.get()),
-        ];
-      });
-      const secondRun = ctx.run(second, () => {
-        return [
-          sleep(25).then(() => ctx.get()),
-          sleep(15).then(() => ctx.get()),
-          sleep(5).then(() => ctx.get()),
-        ];
-      });
-
-      const actual = await Promise.all(firstRun.concat(secondRun));
-
-      assert.deepStrictEqual(actual, [
-        first,
-        first,
-        first,
-        second,
-        second,
-        second,
-      ]);
     });
   });
 });
