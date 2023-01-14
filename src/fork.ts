@@ -10,9 +10,9 @@ import type { AsyncContext } from "./index";
  * mapping) as an OwnedFork would.
  */
 export class FrozenFork {
-  #mapping: Mapping;
+  #mapping: Mapping | undefined;
 
-  constructor(mapping: Mapping) {
+  constructor(mapping: Mapping | undefined) {
     this.#mapping = mapping;
   }
 
@@ -23,20 +23,20 @@ export class FrozenFork {
    * For FrozenFork, that's as simple as returning the known-frozen Mapping,
    * because we know it can't have been modified.
    */
-  join(_current: Mapping): Mapping {
+  join(_current: Mapping | undefined): Mapping | undefined {
     return this.#mapping;
   }
 }
 
 /**
- * OwnedFork holds an unfrozen Mapping that we will attempt when rejoining to
- * attempt to restore it to its prior state.
+ * OwnedFork holds an unfrozen Mapping that we will attempt to modify when
+ * rejoining to attempt to restore it to its prior state.
  *
  * This is used when we know that the Mapping is unfrozen at start, because
  * it's possible that no one will snapshot this Mapping before we rejoin. In
- * that case, we can simply modify the Mapping (without reallocation) to
- * restore it to its prior state. If someone does snapshot it, then modifying
- * will clone the current state and we restore the clone to the prior state.
+ * that case, we can simply modify the Mapping (without cloning) to restore it
+ * to its prior state. If someone does snapshot it, then modifying will clone
+ * the current state and we restore the clone to the prior state.
  */
 export class OwnedFork<T> {
   #key: AsyncContext<T>;

@@ -32,7 +32,7 @@ export class AsyncContext<T> {
     }
   }
 
-  get(): T {
+  get(): T | undefined {
     return Storage.get(this);
   }
 }

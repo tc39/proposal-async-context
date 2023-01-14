@@ -9,22 +9,23 @@ import type { AsyncContext } from "./index";
  * None of the methods here are exposed to users, they're only exposed to the AsyncContext class.
  */
 export class Storage {
-  static #current: Mapping = new Mapping(new Map());
+  static #current: Mapping | undefined = undefined;
 
   /**
    * Get retrieves the current value assigned to the AsyncContext.
    */
-  static get<T>(key: AsyncContext<T>): T {
-    return this.#current.get(key);
+  static get<T>(key: AsyncContext<T>): T | undefined {
+    return this.#current?.get(key);
   }
 
   /**
    * Set assigns a new value to the AsyncContext.
    */
   static set<T>(key: AsyncContext<T>, value: T) {
+    const current = this.#current || new Mapping(new Map());
     // If the Mappings are frozen (someone has snapshot it), then modifying the
     // mappings will return a clone containing the modification.
-    this.#current = this.#current.set(key, value);
+    this.#current = current.set(key, value);
   }
 
   /**
@@ -35,11 +36,12 @@ export class Storage {
    * The Fork instance returned will be able to restore the mappings to the
    * unmodified state.
    */
-  static fork<T>(key: AsyncContext<T>): OwnedFork<T> | FrozenFork {
-    if (this.#current.isFrozen()) {
-      return new FrozenFork(this.#current);
+  static fork<T>(key: AsyncContext<T>): FrozenFork | OwnedFork<T> {
+    const current = this.#current;
+    if (current === undefined || current.isFrozen()) {
+      return new FrozenFork(current);
     }
-    return new OwnedFork(this.#current, key);
+    return new OwnedFork(current, key);
   }
 
   /**
@@ -47,7 +49,12 @@ export class Storage {
    * fork.
    */
   static join<T>(fork: FrozenFork | OwnedFork<T>) {
-    this.#current = fork.join(this.#current);
+    // The only way for #current to be undefined at a join is if we're in the
+    // we've snapshot the initial empty state with `wrap` and restored it. In
+    // which case, we're operating on a FrozenFork, and the param doesn't
+    // matter. The only other call to join is in the `run` case, and that
+    // guarantees that we have a mappings.
+    this.#current = fork.join(this.#current!);
   }
 
   /**
@@ -56,7 +63,7 @@ export class Storage {
    * snapshot.
    */
   static snapshot(): FrozenFork {
-    this.#current.freeze();
+    this.#current?.freeze();
     return new FrozenFork(this.#current);
   }
 
@@ -66,7 +73,7 @@ export class Storage {
    */
   static restore(snapshot: FrozenFork): FrozenFork {
     const previous = this.#current;
-    this.#current = snapshot.join();
+    this.#current = snapshot.join(previous);
 
     // Technically, previous may not be frozen. But we know its state cannot
     // change, because the only way to modify it is to restore it to the
