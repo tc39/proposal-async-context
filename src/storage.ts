@@ -9,23 +9,22 @@ import type { AsyncContext } from "./index";
  * None of the methods here are exposed to users, they're only exposed to the AsyncContext class.
  */
 export class Storage {
-  static #current: Mapping | undefined = undefined;
+  static #current: Mapping = new Mapping(null);
 
   /**
    * Get retrieves the current value assigned to the AsyncContext.
    */
   static get<T>(key: AsyncContext<T>): T | undefined {
-    return this.#current?.get(key);
+    return this.#current.get(key);
   }
 
   /**
    * Set assigns a new value to the AsyncContext.
    */
   static set<T>(key: AsyncContext<T>, value: T): void {
-    const current = this.#current || new Mapping(new Map());
     // If the Mappings are frozen (someone has snapshot it), then modifying the
     // mappings will return a clone containing the modification.
-    this.#current = current.set(key, value);
+    this.#current = this.#current.set(key, value);
   }
 
   /**
@@ -38,7 +37,7 @@ export class Storage {
    */
   static fork<T>(key: AsyncContext<T>): FrozenFork | OwnedFork<T> {
     const current = this.#current;
-    if (current === undefined || current.isFrozen()) {
+    if (current.isFrozen()) {
       return new FrozenFork(current);
     }
     return new OwnedFork(current, key);
@@ -49,12 +48,7 @@ export class Storage {
    * fork.
    */
   static join<T>(fork: FrozenFork | OwnedFork<T>): void {
-    // The only way for #current to be undefined at a join is if we're in the
-    // we've snapshot the initial empty state with `wrap` and restored it. In
-    // which case, we're operating on a FrozenFork, and the param doesn't
-    // matter. The only other call to join is in the `run` case, and that
-    // guarantees that we have a mappings.
-    this.#current = fork.join(this.#current!);
+    this.#current = fork.join(this.#current);
   }
 
   /**

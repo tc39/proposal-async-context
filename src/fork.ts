@@ -10,9 +10,9 @@ import type { AsyncContext } from "./index";
  * mapping) as an OwnedFork would.
  */
 export class FrozenFork {
-  #mapping: Mapping | undefined;
+  #mapping: Mapping;
 
-  constructor(mapping: Mapping | undefined) {
+  constructor(mapping: Mapping) {
     this.#mapping = mapping;
   }
 
@@ -23,7 +23,7 @@ export class FrozenFork {
    * For FrozenFork, that's as simple as returning the known-frozen Mapping,
    * because we know it can't have been modified.
    */
-  join(_current: Mapping | undefined): Mapping | undefined {
+  join(_current: Mapping): Mapping {
     return this.#mapping;
   }
 }

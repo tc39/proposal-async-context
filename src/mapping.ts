@@ -5,25 +5,26 @@ import type { AsyncContext } from "./index";
  * taken of the current data.
  */
 export class Mapping {
+  #data: Map<AsyncContext<unknown>, unknown> | null;
+
   /**
    * If a snapshot of this data is taken, then further modifications cannot be
    * made directly. Instead, set/delete will clone this Mapping and modify
    * _that_ instance.
    */
-  #frozen = false;
+  #frozen: boolean;
 
-  #data: Map<AsyncContext<unknown>, unknown>;
-
-  constructor(data: Map<AsyncContext<unknown>, unknown>) {
+  constructor(data: Map<AsyncContext<unknown>, unknown> | null) {
     this.#data = data;
+    this.#frozen = data === null;
   }
 
   has<T>(key: AsyncContext<T>): boolean {
-    return this.#data.has(key);
+    return this.#data?.has(key) || false;
   }
 
   get<T>(key: AsyncContext<T>): T | undefined {
-    return this.#data.get(key) as T | undefined;
+    return this.#data?.get(key) as T | undefined;
   }
 
   /**
@@ -32,7 +33,7 @@ export class Mapping {
    */
   set<T>(key: AsyncContext<T>, value: T): Mapping {
     const mapping = this.#fork();
-    mapping.#data.set(key, value);
+    mapping.#data!.set(key, value);
     return mapping;
   }
 
@@ -42,7 +43,7 @@ export class Mapping {
    */
   delete<T>(key: AsyncContext<T>): Mapping {
     const mapping = this.#fork();
-    mapping.#data.delete(key);
+    mapping.#data!.delete(key);
     return mapping;
   }
 
