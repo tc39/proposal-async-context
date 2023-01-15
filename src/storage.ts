@@ -9,21 +9,9 @@ let __data__: Data<unknown> | null = new Map();
 let __frozen__: FrozenMap<unknown> | null | undefined = undefined;
 
 export class Storage {
-  freeze(): void {
-    if (__frozen__ === undefined) {
-      // There's no reason to freeze an empty map.
-      if (__data__ && __data__.size > 0) {
-        __frozen__ = new FrozenMap(__data__);
-      } else {
-        __frozen__ = null;
-      }
-      // Now that the frozen map owns the data, we cannot mutate it further.
-      __data__ = null;
-    }
-  }
-
-  snapshot() {
-    return new Snapshot();
+  snapshot(freeze: boolean) {
+    if (freeze) freezeData();
+    return new Snapshot(freeze);
   }
 
   get<T>(key: AsyncContext<T>): T | undefined {
@@ -71,6 +59,19 @@ function del<T>(key: AsyncContext<T>): void {
   __frozen__ = undefined;
 }
 
+function freezeData(): void {
+  if (__frozen__ === undefined) {
+    // There's no reason to freeze an empty map.
+    if (__data__ && __data__.size > 0) {
+      __frozen__ = new FrozenMap(__data__);
+      // Now that the frozen map owns the data, we cannot mutate it further.
+      __data__ = null;
+    } else {
+      __frozen__ = null;
+    }
+  }
+}
+
 /**
  * Snapshot stores the full state, allowing us to revert back to it at any
  * time.
@@ -81,8 +82,12 @@ function del<T>(key: AsyncContext<T>): void {
  * capture the state immediately before we restore the first.
  */
 class Snapshot {
-  #prevData = __data__;
+  #prevData: Data<unknown> | null;
   #prevFrozen = __frozen__;
+
+  constructor(freeze: boolean) {
+    this.#prevData = freeze ? null : __data__;
+  }
 
   restore() {
     __data__ = this.#prevData;

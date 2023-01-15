@@ -6,11 +6,10 @@ const __storage__ = new Storage();
 
 export class AsyncContext<T> {
   static wrap<F extends AnyFunc<any>>(fn: F): F {
-    __storage__.freeze();
-    const snapshot = __storage__.snapshot();
+    const snapshot = __storage__.snapshot(true);
 
     function wrap(this: ThisType<F>, ...args: Parameters<F>): ReturnType<F> {
-      const prev = __storage__.snapshot();
+      const prev = __storage__.snapshot(false);
       try {
         snapshot.restore();
         return fn.apply(this, args);
