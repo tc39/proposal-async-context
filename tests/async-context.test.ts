@@ -231,7 +231,6 @@ describe("sync", () => {
       const wrap = a.run(first, () => {
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            debugger;
             return AsyncContext.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
@@ -272,7 +271,6 @@ describe("sync", () => {
           AsyncContext.wrap(() => {});
 
           const wrap = c.run(third, () => {
-            debugger;
             return AsyncContext.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
@@ -313,7 +311,6 @@ describe("sync", () => {
 
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            debugger;
             return AsyncContext.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
