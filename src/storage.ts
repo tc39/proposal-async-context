@@ -1,79 +1,141 @@
-import { Mapping } from "./mapping";
-import { FrozenFork, OwnedFork } from "./fork";
-import type { AsyncContext } from "./index";
+import { AsyncContext } from "./index";
+import { FrozenMap } from "./map";
+import type { Data } from "./map";
+
+let __data__: Data<unknown> | null = new Map();
+
+// Frozen uses undefined to signal not present,
+// and null to signal "frozen" empty state.
+let __frozen__: FrozenMap<unknown> | null | undefined = undefined;
+
+export class Storage {
+  freeze(): void {
+    if (__frozen__ === undefined) {
+      // There's no reason to freeze an empty map.
+      if (__data__ && __data__.size > 0) {
+        __frozen__ = new FrozenMap(__data__);
+      } else {
+        __frozen__ = null;
+      }
+      // Now that the frozen map owns the data, we cannot mutate it further.
+      __data__ = null;
+    }
+  }
+
+  snapshot() {
+    return new Snapshot();
+  }
+
+  get<T>(key: AsyncContext<T>): T | undefined {
+    const map = current<T>();
+    return map?.get(key);
+  }
+
+  set<T>(key: AsyncContext<T>, value: T): Undo {
+    const undo = new Undo(key);
+    set(key, value);
+    return undo;
+  }
+}
 
 /**
- * Storage is the (internal to the language) storage container of all
- * AsyncContext data.
- *
- * None of the methods here are exposed to users, they're only exposed to the AsyncContext class.
+ * A helper to get the current map
  */
-export class Storage {
-  static #current: Mapping = new Mapping(null);
+function current<T>(): Data<T> | FrozenMap<T> | null {
+  // We prioritize mutable data so mutations do not need to clone.
+  if (__data__) return __data__ as Data<T>;
+  assert(
+    __frozen__ !== undefined,
+    "data can only be empty if we just froze it"
+  );
+  return __frozen__ as FrozenMap<T> | null;
+}
 
-  /**
-   * Get retrieves the current value assigned to the AsyncContext.
-   */
-  static get<T>(key: AsyncContext<T>): T | undefined {
-    return this.#current.get(key);
+function set<T>(key: AsyncContext<T>, value: T): void {
+  // If current is null, we're in the initial empty state.
+  const map = current<T>() || new Map();
+  __data__ = map.set(key, value);
+  __frozen__ = undefined;
+}
+
+function del<T>(key: AsyncContext<T>): void {
+  if (__data__) {
+    __data__.delete(key);
+  } else {
+    // del is only called from Undo.edit() (which is only called during run),
+    // guaranteeing there is data _somewhere_. If data didn't exist, then
+    // we must have frozen it.
+    assert(__frozen__ != null, "del is only called from undo");
+    __data__ = __frozen__.delete(key);
+  }
+  __frozen__ = undefined;
+}
+
+/**
+ * Snapshot stores the full state, allowing us to revert back to it at any
+ * time.
+ *
+ * Two snapshots are taken during wrap, one during the wrappers creation and
+ * one while invoking the wrapper. The first is guaranteed to have run
+ * directly after freezing, so __data__ will be null. The second allows us to
+ * capture the state immediately before we restore the first.
+ */
+class Snapshot {
+  #prevData = __data__;
+  #prevFrozen = __frozen__;
+
+  restore() {
+    __data__ = this.#prevData;
+    __frozen__ = this.#prevFrozen;
+  }
+}
+
+/**
+ * Undo allows us to, well, undo the run operation's set.
+ */
+class Undo {
+  #prevFrozen = __frozen__;
+  #key: AsyncContext<unknown>;
+  #has: boolean;
+  #value: unknown;
+
+  constructor(key: AsyncContext<unknown>) {
+    const map = current();
+    this.#key = key;
+    this.#has = map?.has(key) || false;
+    this.#value = map?.get(key);
   }
 
   /**
-   * Set assigns a new value to the AsyncContext.
+   * This is only called during run, and we're guaranteed to have some state
+   * when undoing.
    */
-  static set<T>(key: AsyncContext<T>, value: T): void {
-    // If the Mappings are frozen (someone has snapshot it), then modifying the
-    // mappings will return a clone containing the modification.
-    this.#current = this.#current.set(key, value);
-  }
+  edit() {
+    const nexFrozen = this.#prevFrozen;
+    const curFrozen = __frozen__;
 
-  /**
-   * Fork is called before modifying the global storage state (either by
-   * replacing the current mappings or assigning a new value to an individual
-   * AsyncContext).
-   *
-   * The Fork instance returned will be able to restore the mappings to the
-   * unmodified state.
-   */
-  static fork<T>(key: AsyncContext<T>): FrozenFork | OwnedFork<T> {
-    const current = this.#current;
-    if (current.isFrozen()) {
-      return new FrozenFork(current);
+    // If current is frozen we should avoid cloning, but we can only do it
+    // if the next state (the original state before run) is also frozen.
+    if (curFrozen !== undefined && nexFrozen !== undefined) {
+      // This defers the clone until the next modification is needed (either a
+      // run or an exit).
+      __data__ = null;
+      __frozen__ = nexFrozen;
+      return;
     }
-    return new OwnedFork(current, key);
+
+    if (this.#has) {
+      set(this.#key, this.#value);
+    } else {
+      del(this.#key);
+    }
+    __frozen__ = nexFrozen;
   }
+}
 
-  /**
-   * Join will restore the global storage state to state at the time of the
-   * fork.
-   */
-  static join<T>(fork: FrozenFork | OwnedFork<T>): void {
-    this.#current = fork.join(this.#current);
-  }
-
-  /**
-   * Snapshot freezes the current storage state, and returns a new fork which
-   * can restore the global storage state to the state at the time of the
-   * snapshot.
-   */
-  static snapshot(): FrozenFork {
-    this.#current?.freeze();
-    return new FrozenFork(this.#current);
-  }
-
-  /**
-   * Restore restores the global storage state to the state at the time of the
-   * snapshot.
-   */
-  static restore(snapshot: FrozenFork): FrozenFork {
-    const previous = this.#current;
-    this.#current = snapshot.join(previous);
-
-    // Technically, previous may not be frozen. But we know its state cannot
-    // change, because the only way to modify it is to restore it to the
-    // Storage container, and the only way to do that is to have snapshot it.
-    // So it's either snapshot (and frozen), or it's not and thus cannot be
-    // modified.
-    return new FrozenFork(previous);
+function assert(value: unknown, message: string): asserts value {
+  if (!value) {
+    debugger;
+    throw new Error(message);
   }
 }

@@ -2,16 +2,20 @@ import { Storage } from "./storage";
 
 type AnyFunc<T> = (this: T, ...args: any) => any;
 
+const __storage__ = new Storage();
+
 export class AsyncContext<T> {
   static wrap<F extends AnyFunc<any>>(fn: F): F {
-    const snapshot = Storage.snapshot();
+    __storage__.freeze();
+    const snapshot = __storage__.snapshot();
 
     function wrap(this: ThisType<F>, ...args: Parameters<F>): ReturnType<F> {
-      const fork = Storage.restore(snapshot);
+      const prev = __storage__.snapshot();
       try {
+        snapshot.restore();
         return fn.apply(this, args);
       } finally {
-        Storage.join(fork);
+        prev.restore();
       }
     }
 
@@ -23,16 +27,15 @@ export class AsyncContext<T> {
     fn: F,
     ...args: Parameters<F>
   ): ReturnType<F> {
-    const fork = Storage.fork(this);
-    Storage.set(this, value);
+    const undo = __storage__.set(this, value);
     try {
       return fn.apply(null, args);
     } finally {
-      Storage.join(fork);
+      undo.edit();
     }
   }
 
   get(): T | undefined {
-    return Storage.get(this);
+    return __storage__.get(this);
   }
 }
