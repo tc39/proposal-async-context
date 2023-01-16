@@ -3,6 +3,7 @@
     "strict": true,
     "target": "esnext",
     "allowSyntheticDefaultImports": true,
+    "allowUnusedLabels": true,
     "moduleResolution": "nodenext",
     "noEmit": true
   }

@@ -6,7 +6,7 @@ let __data__: Data<unknown> | null = new Map();
 
 // Frozen uses undefined to signal not present,
 // and null to signal "frozen" empty state.
-let __frozen__: FrozenMap<unknown> | null | undefined = undefined;
+let __frozen__: FrozenMap<unknown> | null = null;
 
 export class Storage {
   snapshot(freeze: boolean) {
@@ -29,21 +29,18 @@ export class Storage {
 /**
  * A helper to get the current map
  */
-function current<T>(): Data<T> | FrozenMap<T> | null {
+function current<T>(): Data<T> | FrozenMap<T> {
   // We prioritize mutable data so mutations do not need to clone.
   if (__data__) return __data__ as Data<T>;
-  assert(
-    __frozen__ !== undefined,
-    "data can only be empty if we just froze it"
-  );
-  return __frozen__ as FrozenMap<T> | null;
+  assert(__frozen__ !== null, "data can only be empty if we just froze it");
+  return __frozen__ as FrozenMap<T>;
 }
 
 function set<T>(key: AsyncContext<T>, value: T): void {
   // If current is null, we're in the initial empty state.
   const map = current<T>() || new Map();
   __data__ = map.set(key, value);
-  __frozen__ = undefined;
+  __frozen__ = null;
 }
 
 function del<T>(key: AsyncContext<T>): void {
@@ -53,22 +50,18 @@ function del<T>(key: AsyncContext<T>): void {
     // del is only called from Undo.edit() (which is only called during run),
     // guaranteeing there is data _somewhere_. If data didn't exist, then
     // we must have frozen it.
-    assert(__frozen__ != null, "del is only called from undo");
+    assert(__frozen__ !== null, "del is only called from undo");
     __data__ = __frozen__.delete(key);
   }
-  __frozen__ = undefined;
+  __frozen__ = null;
 }
 
 function freezeData(): void {
-  if (__frozen__ === undefined) {
-    // There's no reason to freeze an empty map.
-    if (__data__ && __data__.size > 0) {
-      __frozen__ = new FrozenMap(__data__);
-      // Now that the frozen map owns the data, we cannot mutate it further.
-      __data__ = null;
-    } else {
-      __frozen__ = null;
-    }
+  if (__frozen__ === null) {
+    assert(__data__ !== null, "either __frozen__ exists, or __data__ exists");
+    __frozen__ = new FrozenMap(__data__);
+    // Now that the frozen map owns the data, we cannot mutate it further.
+    __data__ = null;
   }
 }
 
@@ -116,31 +109,26 @@ class Undo {
    * when undoing.
    */
   edit() {
-    const nexFrozen = this.#prevFrozen;
+    const prevFrozen = this.#prevFrozen;
     const curFrozen = __frozen__;
 
-    // If current is frozen we should avoid cloning, but we can only do it
-    // if the next state (the original state before run) is also frozen.
-    if (curFrozen !== undefined && nexFrozen !== undefined) {
-      // This defers the clone until the next modification is needed (either a
-      // run or an exit).
+    // If we're currently frozen, than undoing will cause a clone. If the prior
+    // state is also frozen, we can just restore directly to it and defer any
+    // cloning until the next modification is needed.
+    if (curFrozen !== null && prevFrozen !== null) {
       __data__ = null;
-      __frozen__ = nexFrozen;
-      return;
+    } else {
+      if (this.#has) {
+        set(this.#key, this.#value);
+      } else {
+        del(this.#key);
+      }
     }
 
-    if (this.#has) {
-      set(this.#key, this.#value);
-    } else {
-      del(this.#key);
-    }
-    __frozen__ = nexFrozen;
+    __frozen__ = prevFrozen;
   }
 }
 
 function assert(value: unknown, message: string): asserts value {
-  if (!value) {
-    debugger;
-    throw new Error(message);
-  }
+  debug: if (!value) { throw new Error(message); }
 }
