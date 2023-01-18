@@ -1,5 +1,5 @@
 import { Mapping } from "./mapping";
-import { FrozenFork, OwnedFork } from "./fork";
+import { StagedFork, StagingFork } from "./fork";
 import type { AsyncContext } from "./index";
 
 /**
@@ -28,52 +28,39 @@ export class Storage {
   }
 
   /**
-   * Fork is called before modifying the global storage state (either by
+   * Stage is called before modifying the global storage state (either by
    * replacing the current mappings or assigning a new value to an individual
    * AsyncContext).
    *
    * The Fork instance returned will be able to restore the mappings to the
    * unmodified state.
    */
-  static fork<T>(key: AsyncContext<T>): FrozenFork | OwnedFork<T> {
+  static stage<T>(key: AsyncContext<T>): StagedFork | StagingFork<T> {
     const current = this.#current;
     if (current.isFrozen()) {
-      return new FrozenFork(current);
+      return new StagedFork(current);
     }
-    return new OwnedFork(current, key);
+    return new StagingFork(current, key);
   }
 
   /**
-   * Join will restore the global storage state to state at the time of the
-   * fork.
-   */
-  static join<T>(fork: FrozenFork | OwnedFork<T>): void {
-    this.#current = fork.join(this.#current);
-  }
-
-  /**
-   * Snapshot freezes the current storage state, and returns a new fork which
+   * Commit freezes the current storage state, and returns a new fork which
    * can restore the global storage state to the state at the time of the
-   * snapshot.
+   * commit.
+   *
+   * Subsequent modification to the mappings clone the committed state.
    */
-  static snapshot(): FrozenFork {
+  static commit(): StagedFork {
     this.#current?.freeze();
-    return new FrozenFork(this.#current);
+    return new StagedFork(this.#current);
   }
 
   /**
-   * Restore restores the global storage state to the state at the time of the
-   * snapshot.
+   * Switch restores the global storage state to the state of the given fork.
    */
-  static restore(snapshot: FrozenFork): FrozenFork {
+  static switch<T>(fork: StagedFork | StagingFork<T>): StagedFork {
     const previous = this.#current;
-    this.#current = snapshot.join(previous);
-
-    // Technically, previous may not be frozen. But we know its state cannot
-    // change, because the only way to modify it is to restore it to the
-    // Storage container, and the only way to do that is to have snapshot it.
-    // So it's either snapshot (and frozen), or it's not and thus cannot be
-    // modified.
-    return new FrozenFork(previous);
+    this.#current = fork.switch(previous);
+    return new StagedFork(previous);
   }
 }

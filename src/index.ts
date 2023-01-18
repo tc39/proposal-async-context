@@ -4,14 +4,14 @@ type AnyFunc<T> = (this: T, ...args: any) => any;
 
 export class AsyncContext<T> {
   static wrap<F extends AnyFunc<any>>(fn: F): F {
-    const snapshot = Storage.snapshot();
+    const snapshot = Storage.commit();
 
     function wrap(this: ThisType<F>, ...args: Parameters<F>): ReturnType<F> {
-      const fork = Storage.restore(snapshot);
+      const fork = Storage.switch(snapshot);
       try {
         return fn.apply(this, args);
       } finally {
-        Storage.join(fork);
+        Storage.switch(fork);
       }
     }
 
@@ -23,12 +23,12 @@ export class AsyncContext<T> {
     fn: F,
     ...args: Parameters<F>
   ): ReturnType<F> {
-    const fork = Storage.fork(this);
+    const staging = Storage.stage(this);
     Storage.set(this, value);
     try {
       return fn.apply(null, args);
     } finally {
-      Storage.join(fork);
+      Storage.switch(staging);
     }
   }
 
