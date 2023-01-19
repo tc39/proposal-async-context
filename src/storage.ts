@@ -57,7 +57,7 @@ export class Storage {
    * snapshot.
    */
   static snapshot(): FrozenFork {
-    this.#current?.freeze();
+    this.#current.freeze();
     return new FrozenFork(this.#current);
   }
 
