@@ -7,11 +7,11 @@ export class AsyncContext<T> {
     const snapshot = Storage.snapshot();
 
     function wrap(this: ThisType<F>, ...args: Parameters<F>): ReturnType<F> {
-      const fork = Storage.restore(snapshot);
+      const head = Storage.switch(snapshot);
       try {
         return fn.apply(this, args);
       } finally {
-        Storage.join(fork);
+        Storage.restore(head);
       }
     }
 
@@ -23,12 +23,11 @@ export class AsyncContext<T> {
     fn: F,
     ...args: Parameters<F>
   ): ReturnType<F> {
-    const fork = Storage.fork(this);
-    Storage.set(this, value);
+    const revert = Storage.set(this, value);
     try {
       return fn.apply(null, args);
     } finally {
-      Storage.join(fork);
+      Storage.restore(revert);
     }
   }
 

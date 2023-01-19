@@ -1,5 +1,5 @@
 import { Mapping } from "./mapping";
-import { FrozenFork, OwnedFork } from "./fork";
+import { FrozenRevert, Revert } from "./fork";
 import type { AsyncContext } from "./index";
 
 /**
@@ -19,61 +19,52 @@ export class Storage {
   }
 
   /**
-   * Set assigns a new value to the AsyncContext.
+   * Set assigns a new value to the AsyncContext, returning a revert that can
+   * undo the modification at a later time.
    */
-  static set<T>(key: AsyncContext<T>, value: T): void {
+  static set<T>(key: AsyncContext<T>, value: T): FrozenRevert | Revert<T> {
     // If the Mappings are frozen (someone has snapshot it), then modifying the
     // mappings will return a clone containing the modification.
-    this.#current = this.#current.set(key, value);
-  }
-
-  /**
-   * Fork is called before modifying the global storage state (either by
-   * replacing the current mappings or assigning a new value to an individual
-   * AsyncContext).
-   *
-   * The Fork instance returned will be able to restore the mappings to the
-   * unmodified state.
-   */
-  static fork<T>(key: AsyncContext<T>): FrozenFork | OwnedFork<T> {
     const current = this.#current;
-    if (current.isFrozen()) {
-      return new FrozenFork(current);
-    }
-    return new OwnedFork(current, key);
+    const undo = current.isFrozen()
+      ? new FrozenRevert(current)
+      : new Revert(current, key);
+    this.#current = this.#current.set(key, value);
+    return undo;
   }
 
   /**
-   * Join will restore the global storage state to state at the time of the
-   * fork.
+   * Restore will, well, restore the global storage state to state at the time
+   * the revert was created.
    */
-  static join<T>(fork: FrozenFork | OwnedFork<T>): void {
-    this.#current = fork.join(this.#current);
+  static restore<T>(revert: FrozenRevert | Revert<T>): void {
+    this.#current = revert.restore(this.#current);
   }
 
   /**
-   * Snapshot freezes the current storage state, and returns a new fork which
+   * Snapshot freezes the current storage state, and returns a new revert which
    * can restore the global storage state to the state at the time of the
    * snapshot.
    */
-  static snapshot(): FrozenFork {
+  static snapshot(): FrozenRevert {
     this.#current.freeze();
-    return new FrozenFork(this.#current);
+    return new FrozenRevert(this.#current);
   }
 
   /**
-   * Restore restores the global storage state to the state at the time of the
-   * snapshot.
+   * Switch swaps the global storage state to the state at the time of a
+   * snapshot, completely replacing the current state (and making it impossible
+   * for the current state to be modified until the snapshot is reverted).
    */
-  static restore(snapshot: FrozenFork): FrozenFork {
+  static switch(snapshot: FrozenRevert): FrozenRevert {
     const previous = this.#current;
-    this.#current = snapshot.join(previous);
+    this.#current = snapshot.restore(previous);
 
     // Technically, previous may not be frozen. But we know its state cannot
     // change, because the only way to modify it is to restore it to the
     // Storage container, and the only way to do that is to have snapshot it.
     // So it's either snapshot (and frozen), or it's not and thus cannot be
     // modified.
-    return new FrozenFork(previous);
+    return new FrozenRevert(previous);
   }
 }
