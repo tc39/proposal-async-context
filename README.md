@@ -113,54 +113,7 @@ export function run<T>(id: string, cb: () => T) {
 }
 ```
 
-## **Case 1**: Incomplete error stacks
-
-```typescript
-window.onload = e => {
-  // (1)
-  fetch("https://example.com").then(res => {
-    // (2)
-    return processBody(res.body).then(data => {
-      doSomething(data);
-    });
-  });
-};
-
-function processBody(body) {
-  // (3)
-  return body.json().then(obj => {
-    // (4)
-    return obj.data;
-  });
-}
-```
-
-The code snippet above is simple and intuitive. However, if there is one or
-other step goes wrong -- not behaving as what we expect, it is hard to root
-out the cause of the problem.
-
-What if the `fetch` failed for network issues? In the case, the only error
-message we can get in DevTools will be:
-
-```
-TypeError: Failed to fetch
-    at rejectPromise
-```
-
-> V8 introduced [async stack traces][] not before long:
-> ```
-> GET https://example.com/ net::ERR_TUNNEL_CONNECTION_FAILED
-> window.onload	@	(index):13
-> load (async)
-> (anonymous)	@	(index):12
-> ```
-> This is wonderful, but it's not the story for most other platforms.
-
-It could be messy for a rather complex project if the error can not be
-identified by its error stacks, and more importantly its async cause -- i.e.
-where did we get to the error in an async way?
-
-## **Case 2**: Where did we come to here?
+## Determine the initiator of the task
 
 ```typescript
 export async function handler(ctx, next) {
@@ -183,12 +136,11 @@ async function dbQuery(query) {
 In Node.js applications, we can orchestrate many downstream services to provide
 a composite data to users. What the thing is, if the application goes a long
 unresponsive downtime, it can be hard to determine which step in our app caused
-the issue. Node.js experimental builtin module `async_hooks` can be used to
-track and maintain a context across the async flow of the request-response.
-However, they are not perfect in
-[cases](https://gist.github.com/Qard/faad53ba2368db54c95828365751d7bc), and may
-get worse while working with `async`/`await` since they are part of the language
-and can not be shimmed by third party vendors.
+the issue.
+
+Node.js builtin api `AsyncLocalStorage` can be used to maitain the async task
+flow of the request-response and retrieve the initiator of the task. However,
+this is not part of the standard and is not available on other runtimes.
 
 ## Summary
 
