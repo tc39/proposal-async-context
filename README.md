@@ -1,7 +1,6 @@
 # Async Context for JavaScript
 
-Status: Last presented to TC39 on June 4th, 2020. Consensus for Stage 1 is not
-reached yet.
+Stage: 1
 
 Champions:
 - Chengzhong Wu (@legendecas)
