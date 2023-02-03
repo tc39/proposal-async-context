@@ -112,84 +112,19 @@ export function run<T>(id: string, cb: () => T) {
 }
 ```
 
-## Determine the initiator of the task
-
-```typescript
-export async function handler(ctx, next) {
-  const span = Tracer.startSpan();
-  // First query runs in the synchronous context of the request.
-  await dbQuery({ criteria: 'item > 10' });
-  // What about subsequent async operations?
-  await dbQuery({ criteria: 'item < 10' });
-  span.finish();
-}
-
-async function dbQuery(query) {
-  // How do we determine which request context we are in?
-  const span = Tracer.startSpan();
-  await db.query(query);
-  span.finish();
-}
-```
-
-In Node.js applications, we can orchestrate many downstream services to provide
-a composite data to users. What the thing is, if the application goes a long
-unresponsive downtime, it can be hard to determine which step in our app caused
-the issue.
-
-Node.js builtin api `AsyncLocalStorage` can be used to maitain the async task
-flow of the request-response and retrieve the initiator of the task. However,
-this is not part of the standard and is not available on other runtimes.
-
 ## Summary
 
-Tracked async context across executions of async tasks are useful for debugging,
-testing, and profiling. With async context tracked, we can propagate values in
-the context along the async flow, in which additional datum can be stored and
-fetched  from without additional manual context transferring, like additional
-function parameters. Things can be possible without many change of code to
-introduce async re-entrance to current libraries.
-
-While monkey-patching is quite straightforward solution to track async tasks,
-there is no way to patch JavaScript features like `async`/`await`. Also,
-monkey-patching only works if all third-party libraries with custom scheduling
-call a corresponding task awareness registration like
-[`AsyncResource.runInAsyncScope`][]. Furthermore, for those custom scheduling
-third-party libraries, we need to get library owners to think in terms of async
-context propagation.
-
-In a summary, we would like to have an async context tracking specification right
-in place of ECMAScript for host environments to take advantage of it, and a
-standard JavaScript API to enable third-party libraries to work on different
-host environments seamlessly.
-
-Priorities:
-1. **Must** be able to automatically link continuous async tasks.
-1. **Must** provide a way to enable logical re-entrancy.
-1. **Must** not collide or introduce implicit behavior on multiple tracking
-instance on single async flow.
+This proposal introduces APIs to propagate a value through asynchronous
+hop or continuation, such as a promise continuation or async callbacks.
 
 Non-goals:
-1. Async task tracking and monitoring. Giving access to task scheduling in
-ECMAScript surfaces concerns from secure ECMAScript environments as it
-potentially breaking the scopes that a snippet of code can reach.
-1. Error handling & bubbling through async stacks. We'd like to discuss this
-topic in a separate proposal since this can be another big story to tell, and
-keep this proposal minimal and easy to use for most of the case.
-1. Async task interception: This can be a cool feature. But it is easy to cause
-confusion if some imported library can take application owner unaware actions
-to change the application code running pattern. If there are multiple tracking
-instance on same async flow, interception can cause collision and implicit
-behavior if these instances do not cooperate well. Thus at this very initial
-proposal, we'd like to keep the proposal minimal, and discuss this feature in a
-follow up proposal.
+1. Async tasks scheduling and interception.
+1. Error handling & bubbling through async stacks.
 
-# Possible Solution
+# Proposed Solution
 
 `AsyncContext` are designed as a value store for context propagation across
 multiple logically-connected sync/async operations.
-
-## AsyncContext
 
 ```typescript
 class AsyncContext<T> {
@@ -269,32 +204,45 @@ function randomTimeout() {
 > Note: There are controversial thought on the dynamic scoping and `AsyncContext`,
 > checkout [SCOPING.md][] for more details.
 
-### Using AsyncContext
+# Examples
 
-#### Time tracker
+## Determine the initiator of a task
+
+Application monitoring tools like OpenTelemetry save their tracing spans in the
+`AsyncContext` and retrieve the span when they need to determine what started
+this chain of interaction.
+
+These libraries can not intrude the developer APIs for seamless monitoring.
+The tracing span doesn't need to be manually passing around by usercodes.
 
 ```typescript
-// tracker.js
+// tracer.js
 
 const context = new AsyncContext();
 export function run(cb) {
   // (a)
-  context.run({ startTime: Date.now() }, cb);
+  const span = {
+    startTime: Date.now(),
+    traceId: randomUUID(),
+    spanId: randomUUID(),
+  };
+  context.run(span, cb);
 }
 
-export function elapsed() {
+export function end() {
   // (b)
-  const elapsed = Date.now() - context.get().startTime;
-  console.log('onload duration:', elapsed);
+  const span = context.get();
+  span?.endTime = Date.now();
 }
 ```
 
 ```typescript
-import * as tracker from './tracker.js'
+// my-app.js
+import * as tracer from './tracer.js'
 
 button.onclick = e => {
   // (1)
-  tracker.run(() => {
+  tracer.run(() => {
     fetch("https://example.com").then(res => {
       // (2)
 
@@ -305,78 +253,53 @@ button.onclick = e => {
                             <button>OK, cool</button></dialog>`;
         dialog.show();
 
-        tracker.elapsed();
+        tracer.end();
       });
     });
   });
 };
 ```
 
-In the example above, `run` and `elapsed` don't share same lexical scope with
+In the example above, `run` and `end` don't share same lexical scope with
 actual code functions, and they are capable of async reentrance thus capable of
 concurrent multi-tracking.
 
-#### Request Context Maintenance
+## Transitive task attribution
 
-With AsyncContext, maintaining a request context across different execution
-context is possible. For example, we'd like to print a log before each database
-query with the request trace id.
-
-First we'll have a module holding the async local instance.
+User tasks can be scheduled with attributions. With `AsyncContext`, task
+attributions are propagated in the async task flow and sub-tasks can be
+scheduled with the same priority.
 
 ```typescript
-// context.js
-const context = new AsyncContext();
+const scheduler = {
+  context: new AsyncContext(),
+  postTask(task, options) {
+    // In practice, the task execution may be deferred.
+    // Here we simply run the task immediately with the context.
+    this.context.run({ priority: options.priority }, task);
+  },
+  currentTask() {
+    return this.context.get() ?? { priority: 'default' };
+  },
+};
 
-export function run(ctx, cb) {
-  context.run(ctx, cb);
+const res = await scheduler.postTask(task, { priority: 'background' });
+console.log(res);
+
+async function task() {
+  // Fetch remains background priority by referring to scheduler.currentPriority().
+  const resp = await fetch('/hello');
+  const text = await resp.text();
+
+  scheduler.currentTask(); // => { priority: 'background' }
+  return doStuffs(text);
 }
 
-export function getContext() {
-  return context.getValue();
-}
-```
-
-With our owned instance of async context, we can set the value on each request
-handling call. After setting the context's value, any operations afterwards can
-fetch the value with the instance of async context.
-
-```typescript
-import { createServer } from 'http';
-import { run } from './context.js';
-import { queryDatabase } from './db.js';
-
-const server = createServer(handleRequest);
-
-async function handleRequest(req, res) {
-  run({ req }, () => {
-    // ... do some async work
-    // await...
-    // await...
-    const result = await queryDatabase({ very: { complex: { query: 'NOT TRUE' } } });
-    res.statusCode = 200;
-    res.end(result);
-  });
+async function doStuffs(text) {
+  // Some async calculation...
+  return text;
 }
 ```
-
-So we don't need an additional parameter to the database query functions.
-Still, it's easy to fetch the request data and print it.
-
-```typescript
-// db.js
-import { getContext } from './context.js';
-export function queryDatabase(query) {
-  const ctx = getContext();
-  console.log('query database by request %o with query %o',
-              ctx.req.traceId,
-              query);
-  return doQuery(query);
-}
-```
-
-In this way, we can have a context value propagated across the async execution
-flow and keep track of the value without any other efforts.
 
 # Prior Arts
 

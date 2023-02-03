@@ -7,7 +7,7 @@ process is that there are potential dynamic scoping of the semantics of
 ### Dynamic Scoping
 
 A classic dynamic scoping issue is: the variable `x` inside a function `g` will
-be determined by the callee of `g`. If `g` is called at root scope, the name `x`
+be determined by the caller of `g`. If `g` is called at root scope, the name `x`
 refers to the one defined in the root scope. If `g` is called inside a function
 `f`, the name `x` could refer to the one defined in the scope of `f`.
 
@@ -66,10 +66,10 @@ function f() {
 }
 ```
 
-### Dynamic Scoping: dependency on callee
+### Dynamic Scoping: dependency on caller
 
 One argument on the dynamic scoping is that the values in `AsyncContext` can be
-changed depending on which the callee is.
+changed depending on which the caller is.
 
 However, the definition of whether the value of an async context can be changed
 has the same meaning with a regular JavaScript variable: anyone with direct
