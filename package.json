@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Async Context proposal for JavaScript",
   "scripts": {
-    "build": "mkdir -p build && ecmarkup spec.html build/index.html",
+    "build": "mkdir -p build && ecmarkup --load-biblio @tc39/ecma262-biblio --verbose --strict --lint-spec spec.html build/index.html",
     "watch": "npm run build -- --watch",
     "lint": "tsc -p tsconfig.json",
     "test": "mocha"
