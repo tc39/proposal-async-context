@@ -196,6 +196,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
     <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects">
       <h1>AsyncContext Wrapped Function Exotic Objects</h1>
+
+      <emu-note>
+        <p>This is based on <emu-xref href="#sec-bound-function-exotic-objects"></emu-xref></p>
+      </emu-note>
+
       <p>An AsyncContext wrapped function exotic object is an exotic object that wraps another function object. An AsyncContext wrapped function exotic object is callable (it has a [[Call]] internal method and may have a [[Construct]] internal method). Calling an AsyncContext wrapped function exotic object generally results in a call of its wrapped function.</p>
 
       <p>An object is a <dfn id="asynccontext-wrapped-function-exotic-object" variants="async context wrapped function exotic objects">AsyncContext wrapped function exotic object</dfn> if its [[Call]] and (if applicable) [[Construct]] internal methods use the following implementations, and its other essential internal methods use the definitions found in Ordinary Object Internal Methods and Internal Slots. These methods are installed in AsyncContextWrappedFunctionCreate.</p>
@@ -366,13 +371,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext">
-        <h1>AsyncContext ( )</h1>
+        <h1>AsyncContext ( _name_ )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
           1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]] »).
-          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol.
+          1. Let _nameString_ be ? ToString(_name_).
+          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol whose [[Description]] is _nameString_.
           1. Return _asyncContext_.
         </emu-alg>
       </emu-clause>
@@ -408,7 +414,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext.prototype.run">
-        <h1>AsyncContext.prototype.run ( _value_, _func_ )</h1>
+        <h1>AsyncContext.prototype.run ( _value_, _func_, ..._args_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncContext_ be the *this* value.
@@ -424,7 +430,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _p_ be the Record { [[AsyncContextKey]]: _asyncContextKey_, [[AsyncContextValue]]: _value_ }.
           1. Append _p_ to _asyncContextMapping_.
           1. AsyncContextSwap(_asyncContextMapping_).
-          1. Let _result_ be Completion(Call(_func_, *undefined*)).
+          1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
           1. AsyncContextSwap(_previousContextMapping_).
           1. Return _result_.
         </emu-alg>
