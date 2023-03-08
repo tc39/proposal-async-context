@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Async Context proposal for JavaScript",
   "scripts": {
-    "build": "mkdir -p build && ecmarkup spec.html build/index.html",
+    "build": "npm run build-loose -- --strict",
+    "build-loose": "mkdir -p build && ecmarkup --load-biblio @tc39/ecma262-biblio --verbose --lint-spec spec.html build/index.html",
+    "watch": "npm run build-loose -- --watch",
     "lint": "tsc -p tsconfig.json",
     "test": "mocha"
   },
@@ -24,9 +26,10 @@
   "devDependencies": {
     "@esbuild-kit/cjs-loader": "2.4.1",
     "@esbuild-kit/esm-loader": "2.5.4",
+    "@tc39/ecma262-biblio": "^2.1.2517",
     "@types/mocha": "10.0.1",
     "@types/node": "18.11.18",
-    "ecmarkup": "^3.1.1",
+    "ecmarkup": "^16.1.1",
     "mocha": "10.2.0",
     "typescript": "4.9.4"
   }
