@@ -371,14 +371,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext">
-        <h1>AsyncContext ( _name_ )</h1>
+        <h1>AsyncContext ( )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
           1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]] »).
-          1. Let _nameString_ be ? ToString(_name_).
-          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol whose [[Description]] is _nameString_.
+          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol.
           1. Return _asyncContext_.
         </emu-alg>
       </emu-clause>
