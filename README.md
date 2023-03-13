@@ -10,7 +10,46 @@ Champions:
 
 The goal of the proposal is to provide a mechanism to ergonomically track async
 contexts in JavaScript. Put another way, it allows propagating a value through
-a callstack regardless of any async execution.
+a callstack regardless of any async execution, without needing to explicitly
+pass the value from task to task.
+
+Use cases for this include:
+
+- Annotating logs with information related to an asynchronous callstack.
+
+- Collecting performance information across logical asynchronous threads of
+  control. This includes timing measurements, as well as OpenTelemetry. For
+  example, OpenTelemetry's
+  [`ZoneContextManager`](https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_context_zone_peer_dep.ZoneContextManager.html)
+  is only able to achieve this by using zone.js (see the prior art section).
+
+- There are a number of use cases for browsers to track the attribution of tasks
+  in the event loop, even though an asynchronous callstack. They include:
+
+  - Optimizing the loading of critical resources in web pages requires tracking
+    whether a task is transitively depended on by a critical resource.
+
+  - Tracking long tasks effectively with the
+    [Long Tasks API](https://w3c.github.io/longtasks) requires being able to
+    tell where a task was spawned from.
+
+  - [Measuring the performance of SPA soft navigations](https://developer.chrome.com/blog/soft-navigations-experiment/)
+    requires being able to tell which task initiated a particular soft
+    navigation.
+
+  - Transitive task prioritization: The
+    [Prioritized Task Scheduling API](https://wicg.github.io/scheduling-apis/)
+    allows setting the priority a task should have in the event loop, but that
+    does not currently extend to task spawned from that one.
+
+  - Limiting access to certain APIs transitively, such as sensitive or
+    high-entropy APIs from less-trusted scripts and any tasks they might spawn.
+
+Hosts are expected to use the infrastructure in this proposal to allow tracking
+not only asynchronous callstacks, but other ways to schedule jobs on the event
+loop (such as `setTimeout`) to maximize the value of these use cases.
+
+## A use case in depth: logging
 
 It's easiest to explain this in terms of setting and reading a global variable
 in sync execution. Imagine we're a library which provides a simple `log` and
