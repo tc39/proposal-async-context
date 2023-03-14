@@ -392,12 +392,29 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-wrap">
-        <h1>AsyncContext.wrap ( _func_ )</h1>
+        <h1>AsyncContext.wrap ( _target_ )</h1>
         <p>This function returns a new function which opaquely captures the current value of all AsyncContexts and restores the captured value when being invoked.</p>
 
         <emu-alg>
           1. Let _snapshot_ be AsyncContextSnapshot().
-          1. Return ? AsyncContextWrappedFunctionCreate(_func_, _snapshot_).
+          1. If IsCallable(_target_) is false, throw a TypeError exception.
+          1. Let _F_ be ? AsyncContextWrappedFunctionCreate(_target_, _snapshot_).
+          1. Let _L_ be 0.
+          1. Let _targetHasLength_ be ? HasOwnProperty(_target_, *"length"*).
+          1. If _targetHasLength_ is *true*, then
+            1. Let _targetLen_ be ? Get(_target_, *"length"*).
+            1. If _targetLen_ is a Number, then
+              1. If _targetLen_ is *+∞*<sub>𝔽</sub>, set _L_ to +∞.
+              1. Else if _targetLen_ is *-∞*<sub>𝔽</sub>, set _L_ to 0.
+              1. Else,
+                1. Let _targetLenAsInt_ be ! ToIntegerOrInfinity(_targetLen_).
+                1. Assert: _targetLenAsInt_ is finite.
+                1. Set _L_ to _targetLenAsInt_.
+          1. Perform SetFunctionLength(_F_, _L_).
+          1. Let _targetName_ be ? Get(_target_, *"name"*).
+          1. If _targetName_ is not a String, set _targetName_ to the empty String.
+          1. Perform SetFunctionName(_F_, _targetName_, *"wrapped"*).
+          1. Return _F_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
