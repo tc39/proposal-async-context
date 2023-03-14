@@ -142,7 +142,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <p>An implementation of HostMakeJobCallback must conform to the following requirements:</p>
       <ul>
         <li>It must return a JobCallback Record whose [[Callback]] field is _callback_,</li>
-        <li><ins>It must return a JobCallback Record whose [[AsyncContextSnapshot]] field is a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value).</ins></li>
+        <li><ins>It must return a JobCallback Record whose [[AsyncContextSnapshot]] field is the result of performing AsyncContextSnapshot().</ins></li>
       </ul>
       <p>The default implementation of HostMakeJobCallback performs the following steps when called:</p>
       <emu-alg>
@@ -168,8 +168,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </dl>
       <p>An implementation of HostCallJobCallback must conform to the following requirements:</p>
       <ul>
-        <li><ins>It must perform AsyncContextSwap before and after the call,</ins></li>
-        <li>It must perform and return the result of Call(_jobCallback_.[[Callback]], _V_, _argumentsList_).</li>
+        <li><ins>It must perform AsyncContextSwap(_jobCallback_.[[Callback]]) before the call,</ins></li>
+        <li>It must perform and return the result of Call(_jobCallback_.[[Callback]], _V_, _argumentsList_),</li>
+        <li><ins>It must perform AsyncContextSwap after the call, with the result of the earlier AsyncContextSwap operation.</ins></li>
       </ul>
       <p>The default implementation of HostCallJobCallback performs the following steps when called:</p>
       <emu-alg>
