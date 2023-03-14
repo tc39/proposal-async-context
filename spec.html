@@ -412,7 +412,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
                 1. Set _L_ to _targetLenAsInt_.
           1. Perform SetFunctionLength(_F_, _L_).
           1. Let _targetName_ be ? Get(_target_, *"name"*).
-          1. If _targetName_ is not a String, set _targetName_ to the empty String.
+          1. If _targetName_ is not a String or a Symbol, set _targetName_ to the empty String.
           1. Perform SetFunctionName(_F_, _targetName_, *"wrapped"*).
           1. Return _F_.
         </emu-alg>
