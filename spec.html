@@ -168,7 +168,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </dl>
       <p>An implementation of HostCallJobCallback must conform to the following requirements:</p>
       <ul>
-        <li><ins>It must perform AsyncContextSwap(_jobCallback_.[[Callback]]) before the call,</ins></li>
+        <li><ins>It must perform AsyncContextSwap(_jobCallback_.[[AsyncContextSnapshot]]) before the call,</ins></li>
         <li>It must perform and return the result of Call(_jobCallback_.[[Callback]], _V_, _argumentsList_),</li>
         <li><ins>It must perform AsyncContextSwap after the call, with the result of the earlier AsyncContextSwap operation.</ins></li>
       </ul>
