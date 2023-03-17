@@ -51,7 +51,7 @@ would also include any promise jobs created from it (such that async functions
 work as expected, sharing a single async control flow), but it might also
 include the execution of any callbacks scheduled through APIs provided by the
 host, such as `setTimeout`. Hosts are therefore expected to use the
-infrastructure in this proposal to define how asynchronous flow of control are
+infrastructure in this proposal to define how asynchronous flows of control are
 defined and propagated in terms of their host APIs.
 
 ## A use case in depth: logging
