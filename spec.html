@@ -206,38 +206,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-alg>
       <p>ECMAScript hosts that are not web browsers must use the default implementation of HostMakeJobCallback.</p>
       <emu-note>
-        <p>HostMakeJobCallback snapshots the current AsyncContext global state. HostCallJobCallback restores the snapshot.</p>
-      </emu-note>
-    </emu-clause>
-
-    <emu-clause id="sec-hostcalljobcallback" type="host-defined abstract operation">
-      <h1>
-        HostCallJobCallback (
-          _jobCallback_: a JobCallback Record,
-          _V_: an ECMAScript language value,
-          _argumentsList_: a List of ECMAScript language values,
-        ): either a normal completion containing an ECMAScript language value or a throw completion
-      </h1>
-      <dl class="header">
-      </dl>
-      <p>An implementation of HostCallJobCallback must conform to the following requirements:</p>
-      <ul>
-        <li><ins>It must perform AsyncContextSwap(_jobCallback_.[[AsyncContextSnapshot]]) before the call,</ins></li>
-        <li>It must perform and return the result of Call(_jobCallback_.[[Callback]], _V_, _argumentsList_),</li>
-        <li><ins>It must perform AsyncContextSwap after the call, with the result of the earlier AsyncContextSwap operation.</ins></li>
-      </ul>
-      <p>The default implementation of HostCallJobCallback performs the following steps when called:</p>
-      <emu-alg>
-        1. Assert: IsCallable(_jobCallback_.[[Callback]]) is *true*.
-        1. <del>Return ? Call(_jobCallback_.[[Callback]], _V_, _argumentsList_).</del>
-        1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_jobCallback_.[[AsyncContextSnapshot]]).</ins>
-        1. <ins>Let _result_ be Completion(Call(_jobCallback_.[[Callback]], _V_, _argumentsList_)).</ins>
-        1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
-        1. <ins>Return _result_.</ins>
-      </emu-alg>
-      <p>ECMAScript hosts that are not web browsers must use the default implementation of HostCallJobCallback.</p>
-      <emu-note>
-        <p>HostCallJobCallback restores the snapshot saved in HostMakeJobCallback when calling the _jobCallback_.[[Callback]].</p>
+        <p>HostMakeJobCallback snapshots the current AsyncContext global state. The snapshot is restored when calling HostCallJobCallback in NewPromiseReactionJob and NewPromiseResolveThenableJob.</p>
       </emu-note>
     </emu-clause>
   </emu-clause>
@@ -331,6 +300,88 @@ contributors: Chengzhong Wu, Justin Ridgewell
             </ul>
           </emu-note>
         </ins>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-promise-jobs">
+      <h1>Promise Jobs</h1>
+      <emu-clause id="sec-newpromisereactionjob" type="abstract operation" oldids="sec-promisereactionjob">
+        <h1>
+          NewPromiseReactionJob (
+            _reaction_: a PromiseReaction Record,
+            _argument_: an ECMAScript language value,
+          ): a Record with fields [[Job]] (a Job Abstract Closure) and [[Realm]] (a Realm Record or *null*)
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It returns a new Job Abstract Closure that applies the appropriate handler to the incoming value, and uses the handler's return value to resolve or reject the derived promise associated with that handler.</dd>
+        </dl>
+        <emu-alg>
+          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _reaction_ and _argument_ and performs the following steps when called:
+            1. Let _promiseCapability_ be _reaction_.[[Capability]].
+            1. Let _type_ be _reaction_.[[Type]].
+            1. Let _handler_ be _reaction_.[[Handler]].
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
+            1. If _handler_ is ~empty~, then
+              1. If _type_ is ~Fulfill~, let _handlerResult_ be NormalCompletion(_argument_).
+              1. Else,
+                1. Assert: _type_ is ~Reject~.
+                1. Let _handlerResult_ be ThrowCompletion(_argument_).
+            1. Else, let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
+            1. If _promiseCapability_ is *undefined*, then
+              1. Assert: _handlerResult_ is not an abrupt completion.
+              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. Return ~empty~.
+            1. Assert: _promiseCapability_ is a PromiseCapability Record.
+            1. If _handlerResult_ is an abrupt completion, then
+              1. <del>Return ? Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »).</del>
+              1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
+            1. Else,
+              1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
+              1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Return _resolvingFunctionResult_.</ins>
+          1. Let _handlerRealm_ be *null*.
+          1. If _reaction_.[[Handler]] is not ~empty~, then
+            1. Let _getHandlerRealmResult_ be Completion(GetFunctionRealm(_reaction_.[[Handler]].[[Callback]])).
+            1. If _getHandlerRealmResult_ is a normal completion, set _handlerRealm_ to _getHandlerRealmResult_.[[Value]].
+            1. Else, set _handlerRealm_ to the current Realm Record.
+            1. NOTE: _handlerRealm_ is never *null* unless the handler is *undefined*. When the handler is a revoked Proxy and no ECMAScript code runs, _handlerRealm_ is used to create error objects.
+          1. Return the Record { [[Job]]: _job_, [[Realm]]: _handlerRealm_ }.
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-newpromiseresolvethenablejob" type="abstract operation" oldids="sec-promiseresolvethenablejob">
+        <h1>
+          NewPromiseResolveThenableJob (
+            _promiseToResolve_: a Promise,
+            _thenable_: an Object,
+            _then_: a JobCallback Record,
+          ): a Record with fields [[Job]] (a Job Abstract Closure) and [[Realm]] (a Realm Record)
+        </h1>
+        <dl class="header">
+        </dl>
+        <emu-alg>
+          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, and _then_ and performs the following steps when called:
+            1. Let _resolvingFunctions_ be CreateResolvingFunctions(_promiseToResolve_).
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_then_.[[AsyncContextSnapshot]]).</ins>
+            1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFunctions_.[[Resolve]], _resolvingFunctions_.[[Reject]] »)).
+            1. If _thenCallResult_ is an abrupt completion, then
+              1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
+              1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
+              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>Return _rejectResult_.</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. Return ? _thenCallResult_.
+          1. Let _getThenRealmResult_ be Completion(GetFunctionRealm(_then_.[[Callback]])).
+          1. If _getThenRealmResult_ is a normal completion, let _thenRealm_ be _getThenRealmResult_.[[Value]].
+          1. Else, let _thenRealm_ be the current Realm Record.
+          1. NOTE: _thenRealm_ is never *null*. When _then_.[[Callback]] is a revoked Proxy and no code runs, _thenRealm_ is used to create error objects.
+          1. Return the Record { [[Job]]: _job_, [[Realm]]: _thenRealm_ }.
+        </emu-alg>
+        <emu-note>
+          <p>This Job uses the supplied thenable and its `then` method to resolve the given promise. This process must take place as a Job to ensure that the evaluation of the `then` method occurs after evaluation of any surrounding code has completed.</p>
+        </emu-note>
       </emu-clause>
     </emu-clause>
   </emu-clause>
