@@ -254,7 +254,7 @@ export function enqueueCallback(cb: () => void) {
 }
 
 runWhenIdle(() => {
-  // All callbacks in the queue would be run with the same context if they
+  // All callbacks in the queue would be run with the current context if they
   // hadn't been wrapped.
   for (const cb of queue) {
     cb();
