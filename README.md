@@ -180,7 +180,7 @@ value of an async execution flow. `AsyncContext.wrap()` allows you to opaquely
 capture the current value of all `AsyncContext`s and execute the callback at a
 later time with as if those values were still the current values (a snapshot and
 restore). Note that even with `AsyncContext.wrap()`, you can only access the
-value associated with an `AsyncContext` object through that same object.
+value associated with an `AsyncContext` instance if you have access to that instance.
 
 ```typescript
 const context = new AsyncContext();
