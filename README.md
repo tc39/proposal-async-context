@@ -10,21 +10,22 @@ Champions:
 
 The goal of the proposal is to provide a mechanism to ergonomically track async
 contexts in JavaScript. Put another way, it allows propagating a value through
-a callstack regardless of any async execution, without needing to explicitly
+an asynchronous flow of control (that is, through a logically related series of
+operations, even through callbacks and promises), without needing to explicitly
 pass the value from task to task.
 
 Use cases for this include:
 
-- Annotating logs with information related to an asynchronous callstack.
+- Annotating logs with information related to an asynchronous control flow.
 
-- Collecting performance information across logical asynchronous threads of
-  control. This includes timing measurements, as well as OpenTelemetry. For
-  example, OpenTelemetry's
+- Collecting performance information across asynchronous control flows. This
+  includes timing measurements, as well as OpenTelemetry. For example,
+  OpenTelemetry's
   [`ZoneContextManager`](https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_context_zone_peer_dep.ZoneContextManager.html)
   is only able to achieve this by using zone.js (see the prior art section).
 
-- There are a number of use cases for browsers to track the attribution of tasks
-  in the event loop, even though an asynchronous callstack. They include:
+- There are a number of use cases for browsers to track the attribution of event
+  loop tasks through an asynchronous control flow. They include:
 
   - Optimizing the loading of critical resources in web pages requires tracking
     whether a task is transitively depended on by a critical resource.
@@ -45,9 +46,13 @@ Use cases for this include:
   - Limiting access to certain APIs transitively, such as sensitive or
     high-entropy APIs from less-trusted scripts and any tasks they might spawn.
 
-Hosts are expected to use the infrastructure in this proposal to allow tracking
-not only asynchronous callstacks, but other ways to schedule jobs on the event
-loop (such as `setTimeout`) to maximize the value of these use cases.
+If an asynchronous flow of control includes the execution of a function, it
+would also include any promise jobs created from it (such that async functions
+work as expected, sharing a single async control flow), but it might also
+include the execution of any callbacks scheduled through APIs provided by the
+host, such as `setTimeout`. Hosts are therefore expected to use the
+infrastructure in this proposal to define how asynchronous flow of control are
+defined and propagated in terms of their host APIs.
 
 ## A use case in depth: logging
 
@@ -103,15 +108,16 @@ function doSomething() {
 
 In this example, no matter how many times a user may click, we'll also see a
 perfect "[123] starting", "[123] did something" "[123] done" log. We've
-essentially implemented a synchronous context stack, able to propagate the `id`
-down through the developers call stack without them needing to manually pass or
-store the id themselves.  This pattern is extremely useful. It is not always
-ergonomic (or even always possible) to pass a value through every function call
-(think of passing React props through several intermediate components vs passing
-through a React [Context](https://reactjs.org/docs/context.html)).
+essentially implemented a synchronous control flow context, able to propagate
+the `id` down through the developers call stack without them needing to manually
+pass or store the id themselves.  This pattern is extremely useful. It is not
+always ergonomic (or even always possible) to pass a value through every
+function call (think of passing React props through several intermediate
+components vs passing through a React
+[Context](https://reactjs.org/docs/context.html)).
 
 However, this scenario breaks as soon as we introduce any async operation into
-our call stack.
+our control flow.
 
 ```typescript
 document.body.addEventListener('click', () => {
@@ -142,7 +148,9 @@ const context = new AsyncContext();
 
 export function log() {
   const currentId = context.get();
-  if (currentId === undefined) throw new Error('must be inside a run call stack');
+  if (currentId === undefined) {
+    throw new Error('must be inside a run async control flow');
+  }
   console.log(`[${currentId}]`, ...arguments);
 }
 
@@ -158,7 +166,7 @@ hop or continuation, such as a promise continuation or async callbacks.
 
 Non-goals:
 1. Async tasks scheduling and interception.
-1. Error handling & bubbling through async stacks.
+1. Error handling & bubbling through async control flows.
 
 # Proposed Solution
 
