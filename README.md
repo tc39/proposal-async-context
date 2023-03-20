@@ -21,7 +21,18 @@ Use cases for this include:
   control. This includes timing measurements, as well as OpenTelemetry. For
   example, OpenTelemetry's
   [`ZoneContextManager`](https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_context_zone_peer_dep.ZoneContextManager.html)
-  is only able to achieve this by using zone.js (see the prior art section).
+  is only able to achieve this by using zone.js (see the prior art section
+  below).
+
+- Web APIs such as
+  [Prioritized Task Scheduling](https://wicg.github.io/scheduling-apis) let
+  users schedule a task in the event loop with a given priority. However, this
+  only affects that task's priority, so users might need to propagate that
+  priority, particularly into promise jobs and callbacks.
+
+  Furthermore, having a way to keep track of async control flows in the JS
+  engine would allow these APIs to make the priority of such a task transitive,
+  so that it would automatically be used for any tasks/jobs originating from it.
 
 - There are a number of use cases for browsers to track the attribution of tasks
   in the event loop, even though an asynchronous callstack. They include:
@@ -36,14 +47,6 @@ Use cases for this include:
   - [Measuring the performance of SPA soft navigations](https://developer.chrome.com/blog/soft-navigations-experiment/)
     requires being able to tell which task initiated a particular soft
     navigation.
-
-  - Transitive task prioritization: The
-    [Prioritized Task Scheduling API](https://wicg.github.io/scheduling-apis/)
-    allows setting the priority a task should have in the event loop, but that
-    does not currently extend to task spawned from that one.
-
-  - Limiting access to certain APIs transitively, such as sensitive or
-    high-entropy APIs from less-trusted scripts and any tasks they might spawn.
 
 Hosts are expected to use the infrastructure in this proposal to allow tracking
 not only asynchronous callstacks, but other ways to schedule jobs on the event
