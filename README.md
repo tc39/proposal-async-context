@@ -180,9 +180,10 @@ class AsyncContext<T> {
 
 `AsyncContext.prototype.run()` and `AsyncContext.prototype.get()` sets and gets the current
 value of an async execution flow. `AsyncContext.wrap()` allows you to opaquely
-capture the current value of all `AsyncContexts` and execute the callback at a
+capture the current value of all `AsyncContext`s and execute the callback at a
 later time with as if those values were still the current values (a snapshot and
-restore).
+restore). Note that even with `AsyncContext.wrap()`, you can only access the
+value associated with an `AsyncContext` instance if you have access to that instance.
 
 ```typescript
 const context = new AsyncContext();
@@ -241,6 +242,28 @@ function main() {
 function randomTimeout() {
   return Math.random() * 1000;
 }
+```
+
+`AsyncContext.wrap` is useful for implementing APIs that logically "schedule" a
+callback, so the callback will be called with the context that it logically
+belongs to, regardless of the context under which it actually runs:
+
+```typescript
+let queue = [];
+
+export function enqueueCallback(cb: () => void) {
+  // Each callback is stored with the context at which it was enqueued.
+  queue.push(AsyncContext.wrap(cb));
+}
+
+runWhenIdle(() => {
+  // All callbacks in the queue would be run with the current context if they
+  // hadn't been wrapped.
+  for (const cb of queue) {
+    cb();
+  }
+  queue = [];
+});
 ```
 
 > Note: There are controversial thought on the dynamic scoping and `AsyncContext`,
