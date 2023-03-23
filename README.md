@@ -1,6 +1,6 @@
 # Async Context for JavaScript
 
-Stage: 1
+Status: Stage 2
 
 Champions:
 - Chengzhong Wu (@legendecas)
