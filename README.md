@@ -13,14 +13,14 @@ When writing synchronous JavaScript code, a reasonable expectation from
 developers is that values are consistently available over the life of the
 synchronous execution. These values may be passed explicitly (i.e., as
 parameters to the function or some nested function, or as a closed over
-variable), or implicitly (extracted from the call stack, e.g., outside the scope as a external object
-that the function or nested function has access to).
+variable), or implicitly (extracted from the call stack, e.g., outside the scope
+as a external object that the function or nested function has access to).
 
 ```javascript
 function program() {
   const value = { key: 123 };
 
-  // Explicitly pass the value to function.
+  // Explicitly pass the value to function via parameters.
   // The value is available for the full execution of the function.
   explicit(value);
 
@@ -101,8 +101,8 @@ The above problem existed already in promise callback-style code, but the
 introduction of async/await syntax has aggravated it by making the stack
 replacement almost undetectable. This problem is not generally solvable with
 user land code alone. For instance, if the call stack has already been replaced
-by the time a nested function is called, that nested function will never have a
-chance to capture the shared reference.
+by the time the function is called, that function will never have a chance to
+capture the shared reference.
 
 ```javascript
 function program() {
@@ -113,26 +113,17 @@ function program() {
   // the try-finally code.
   try {
     shared = value;
-    direct();
+    setTimeout(implicit, 0);
   } finally {
     shared = undefined;
   }
 }
 
-// Note that `direct` has no knowledge of the shared reference.
-async function direct() {
-  await 1;
-
-  // Because of the above await, the shared reference has already been
-  // reset.
-  indirect();
-}
-
 let shared;
-function indirect() {
+function implicit() {
   // By the time this code is executed, the shared reference has already
   // been reset. There is no way for `indirect` to solve this because
-  // because the bug is caused (accidentally) by the `direct` function.
+  // because the bug is caused (accidentally) by the `program` function.
   assert.throws(() => {
     assert.equal(shared.key, 123);
   });
@@ -263,7 +254,7 @@ runWhenIdle(() => {
 > Note: There are controversial thought on the dynamic scoping and
 > `AsyncContext`, checkout [SCOPING.md][] for more details.
 
-## Use cases 
+## Use cases
 
 Use cases for `AsyncContext` include:
 
