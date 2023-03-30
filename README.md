@@ -13,7 +13,7 @@ When writing synchronous JavaScript code, a reasonable expectation from
 developers is that values are consistently available over the life of the
 synchronous execution. These values may be passed explicitly (i.e., as
 parameters to the function or some nested function, or as a closed over
-variable), or implicitly (e.g., extracted outside the scope as a external object
+variable), or implicitly (extracted from the call stack, e.g., outside the scope as a external object
 that the function or nested function has access to).
 
 ```javascript
@@ -262,6 +262,38 @@ runWhenIdle(() => {
 
 > Note: There are controversial thought on the dynamic scoping and
 > `AsyncContext`, checkout [SCOPING.md][] for more details.
+
+## Use cases 
+
+Use cases for `AsyncContext` include:
+
+- Annotating logs with information related to an asynchronous callstack.
+
+- Collecting performance information across logical asynchronous threads of
+  control.
+
+- Web APIs such as
+  [Prioritized Task Scheduling](https://wicg.github.io/scheduling-apis).
+
+- There are a number of use cases for browsers to track the attribution of tasks
+  in the event loop, even though an asynchronous callstack. They include:
+
+  - Optimizing the loading of critical resources in web pages requires tracking
+    whether a task is transitively depended on by a critical resource.
+
+  - Tracking long tasks effectively with the
+    [Long Tasks API](https://w3c.github.io/longtasks) requires being able to
+    tell where a task was spawned from.
+
+  - [Measuring the performance of SPA soft navigations](https://developer.chrome.com/blog/soft-navigations-experiment/)
+    requires being able to tell which task initiated a particular soft
+    navigation.
+
+Hosts are expected to use the infrastructure in this proposal to allow tracking
+not only asynchronous callstacks, but other ways to schedule jobs on the event
+loop (such as `setTimeout`) to maximize the value of these use cases.
+
+A detailed example usecase can be found [here](./USE-CASES.md)
 
 # Examples
 
