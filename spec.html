@@ -476,6 +476,18 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
+    <emu-clause id="sec-asynccontext.prototype.name">
+      <h1>get AsyncContext.prototype.name</h1>
+      <p>`AsyncContext.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
+      <emu-alg>
+        1. Let _asyncContext_ be the *this* value.
+        1. Perform ? RequireInternalSlot(_asyncContext_, [[AsyncContextKey]]).
+        1. Let _asyncContextKey_ be _asyncContext_.[[AsyncContextKey]].
+        1. Assert: _asyncContextKey_ is a Symbol.
+        1. Return _asyncContextKey_.[[Description]].
+      </emu-alg>
+    </emu-clause>
+
     <emu-clause id="sec-properties-of-asynccontext-instances">
       <h1>Properties of AsyncContext Instances</h1>
       <p>AsyncContext instances are ordinary objects that inherit properties from the AsyncContext prototype object (the intrinsic, %AsyncContext.prototype%). AsyncContext instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-instances"></emu-xref>.</p>
