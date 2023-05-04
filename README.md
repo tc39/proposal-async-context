@@ -132,6 +132,11 @@ function implicit() {
 program();
 ```
 
+Furthermore, the async/await syntax bypasses the userland Promises and
+makes it impossible for existing tools like [Zone.js](#zonesjs) that
+[instruments](https://github.com/angular/angular/blob/main/packages/zone.js/STANDARD-APIS.md)
+the `Promise` to work with it without transpilation.
+
 This proposal introduces a general mechanism by which lost implicit call site
 information can be captured and used across transitions through the event loop,
 while allowing the developer to write async code largely as they do in cases
@@ -143,14 +148,15 @@ required for special handling async code in such cases.
 This proposal introduces APIs to propagate a value through asynchronous code,
 such as a promise continuation or async callbacks.
 
-Non-goals:
+Compared to the [Prior Arts](#prior-arts), this proposal identifies the
+following features as non-goals:
 
 1. Async tasks scheduling and interception.
 1. Error handling & bubbling through async stacks.
 
 # Proposed Solution
 
-`AsyncContext` are designed as a value store for context propagation across
+`AsyncContext` is designed as a value store for context propagation across
 logically-connected sync/async code execution.
 
 ```typescript
@@ -254,37 +260,12 @@ runWhenIdle(() => {
 > Note: There are controversial thought on the dynamic scoping and
 > `AsyncContext`, checkout [SCOPING.md][] for more details.
 
-## Use cases
-
-Use cases for `AsyncContext` include:
-
-- Annotating logs with information related to an asynchronous callstack.
-
-- Collecting performance information across logical asynchronous threads of
-  control.
-
-- Web APIs such as
-  [Prioritized Task Scheduling](https://wicg.github.io/scheduling-apis).
-
-- There are a number of use cases for browsers to track the attribution of tasks
-  in the event loop, even though an asynchronous callstack. They include:
-
-  - Optimizing the loading of critical resources in web pages requires tracking
-    whether a task is transitively depended on by a critical resource.
-
-  - Tracking long tasks effectively with the
-    [Long Tasks API](https://w3c.github.io/longtasks) requires being able to
-    tell where a task was spawned from.
-
-  - [Measuring the performance of SPA soft navigations](https://developer.chrome.com/blog/soft-navigations-experiment/)
-    requires being able to tell which task initiated a particular soft
-    navigation.
-
 Hosts are expected to use the infrastructure in this proposal to allow tracking
 not only asynchronous callstacks, but other ways to schedule jobs on the event
 loop (such as `setTimeout`) to maximize the value of these use cases.
 
-A detailed example usecase can be found [here](./USE-CASES.md)
+A detailed example of use cases can be found in the
+[Use cases document](./USE-CASES.md).
 
 # Examples
 

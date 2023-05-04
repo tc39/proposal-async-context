@@ -6,8 +6,7 @@ Use cases for `AsyncContext` include:
   control. This includes timing measurements, as well as OpenTelemetry. For
   example, OpenTelemetry's
   [`ZoneContextManager`](https://open-telemetry.github.io/opentelemetry-js/classes/_opentelemetry_context_zone_peer_dep.ZoneContextManager.html)
-  is only able to achieve this by using zone.js (see the prior art section
-  below).
+  is only able to achieve this by using zone.js (see the [prior arts section](./README.md#prior-arts)).
 
 - Web APIs such as
   [Prioritized Task Scheduling](https://wicg.github.io/scheduling-apis) let
@@ -138,3 +137,204 @@ export function run<T>(id: string, cb: () => T) {
   context.run(id, cb);
 }
 ```
+
+## Use Case: Soft Navigation Heuristics
+
+When a user interacts with the page, it's critical that the app feels fast.
+But there's no way to determine what started this chain of interaction when
+the final result is ready to patch into the DOM tree. The problem becomes
+more prominent if the interaction involves with several asynchronous
+operations since their original call stack has gone.
+
+```typescript
+// Framework listener
+doc.addEventListener('click', () => {
+  context.run(Date.now(), async () => {
+    // User code
+    const f = await fetch(dataUrl);
+    patch(doc, await f.json());
+  });
+});
+// Some framework code
+const context = new AsyncContext();
+function patch(doc, data) {
+  doLotsOfWork(doc, data, update);
+}
+function update(doc, html) {
+  doc.innerHTML = html;
+  // Calculate the duration of the user interaction from the value in the
+  // AsyncContext instance.
+  const duration = Date.now() - context.get();
+}
+```
+
+## Use Case: Transitive Task Attributes
+
+Browsers can schedule tasks with priorities attributes. However, the task
+priority attribution is not transitive at the moment.
+
+```typescript
+async function task() {
+  startWork();
+  await scheduler.yield();
+  doMoreWork();
+  // Task attributes are lost after awaiting.
+  let response = await fetch(myUrl);
+  let data = await response.json();
+  process(data);
+}
+
+scheduler.postTask(task, {priority: 'background'});
+```
+
+The task may include the following attributes:
+- Execution priority,
+- Fetch priority,
+- Privacy protection attributes.
+
+With the mechanism of `AsyncContext` in the language, tasks attributes can be
+transitively propagated.
+
+```typescript
+const res = await scheduler.postTask(task, {
+  priority: 'background',
+});
+console.log(res);
+
+async function task() {
+  // Fetch remains background priority.
+  const resp = await fetch('/hello');
+  const text = await resp.text();
+
+  // doStuffs should schedule background tasks by default.
+  return doStuffs(text);
+}
+
+async function doStuffs(text) {
+  // Some async calculation...
+  return text;
+}
+```
+
+## Use Case: Userspace telemetry
+
+Application performance monitoring libraries like [OpenTelemetry][] can save
+their tracing spans in an `AsyncContext` and retrieves the span when they determine
+what started this chain of interaction.
+
+It is a requirement that these libraries can not intrude the developer APIs
+for seamless monitoring.
+
+```typescript
+doc.addEventListener('click', () => {
+  // Create a span and records the performance attributes.
+  const span = tracer.startSpan('click');
+  context.run(span, async () => {
+    const f = await fetch(dataUrl);
+    patch(dom, await f.json());
+  });
+});
+
+const context = new AsyncContext();
+function patch(dom, data) {
+  doLotsOfWork(dom, data, update);
+}
+function update(dom, html) {
+  dom.innerHTML = html;
+  // Mark the chain of interaction as ended with the span
+  const span = context.get();
+  span?.end();
+}
+```
+
+### User Interaction
+
+OpenTelemetry instruments user interaction with document elements and connects
+subsequent network requests and history state changes with the user
+interaction.
+
+The propagation of spans can be achieved with `AsyncContext` and helps
+distinguishing the initiators (document load, or user interaction).
+
+```typescript
+registerInstrumentations({
+  instrumentations: [new UserInteractionInstrumentation()],
+});
+
+// Subsequent network requests are associated with the user-interaction.
+const btn = document.getElementById('my-btn');
+btn.addEventListener('click', () => {
+  fetch('https://httpbin.org/get')
+    .then(() => {
+      console.log('data downloaded 1');
+      return fetch('https://httpbin.org/get');
+    });
+    .then(() => {
+      console.log('data downloaded 2');
+    });
+});
+```
+
+Read more at [opentelemetry/user-interaction](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/web/opentelemetry-instrumentation-user-interaction).
+
+### Long task initiator
+
+Tracking long tasks effectively with the [Long Tasks API](https://github.com/w3c/longtasks)
+requires being able to tell where a task was spawned from.
+
+However, OpenTelemetry is not able to associate the Long Task timing entry
+with their initiating trace spans. Capturing the `AsyncContext` can help here.
+
+Notably, this proposal doesn't solve the problem solely. It provides a path
+forward to the problem and can be integrated into the Long Tasks API.
+
+```typescript
+registerInstrumentations([
+  instrumentations: [new LongTaskInstrumentation()],
+]);
+// Roughly equals to
+new PerformanceObserver(list => {...})
+  .observe({ entryTypes: ['longtask'] });
+
+// Perform a 50ms long task
+function myTask() {
+  const start = Date.now();
+  while (Date.now() - start <= 50) {}
+}
+
+myTask();
+```
+
+Read more at [opentelemetry/long-task](https://github.com/open-telemetry/opentelemetry-js-contrib/tree/main/plugins/web/opentelemetry-instrumentation-long-task).
+
+### Resource Timing Attributes
+
+OpenTelemetry instruments fetch API with network timings from [Resource Timing API](https://github.com/w3c/resource-timing/)
+associated to the initiator fetch span.
+
+Without resource timing initiator info, it is not an intuitive approach to
+associate the resource timing with the initiator spans. Capturing the
+`AsyncContext` can help here.
+
+Notably, this proposal doesn't solve the problem solely. It provides a path
+forward to the problem and can be integrated into the Long Tasks API.
+
+```typescript
+registerInstrumentations([
+  new FetchInstrumentation(),
+]);
+// Observes network events and associate them with spans.
+new PerformanceObserver(list => {
+  const entries = list.getEntries();
+  spans.forEach(span => {
+    const entry = entries.find(it => {
+      return it.name === span.name && it.startTime >= span.startTime;
+    });
+    span.recordNetworkEvent(entry);
+  });
+}).observe({ entryTypes: ['resource'] });
+```
+
+Read more at [opentelemetry/fetch](https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-instrumentation-fetch).
+
+[OpenTelemetry]: https://github.com/open-telemetry/opentelemetry-js
