@@ -159,6 +159,8 @@ class AsyncContext<T> {
 
   constructor(options: AsyncContextOptions<T>);
 
+  get name(): string;
+
   run<R>(value: T, callback: () => R): R;
 
   get(): T | undefined;
