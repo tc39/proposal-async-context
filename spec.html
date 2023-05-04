@@ -372,13 +372,21 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext">
-        <h1>AsyncContext ( )</h1>
+        <h1>AsyncContext ( _options_ )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. If _options_ is an Object, then
+            1. Let _name_ be ? Get(_options_, *"name"*).
+            1. Let _nameStr_ be ? ToString(_name_).
+            1. Let _defaultValue_ be ? Get(_options_, *"defaultValue"*).
+          1. Else,
+            1. Let _nameStr_ be the empty String.
+            1. Let _defaultValue_ be *undefined*.
           1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]] »).
-          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol.
+          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol whose [[Description]] is _nameStr_.
+          1. Set _asyncContext_.[[AsyncContextDefaultValue]] to _defaultValue_.
           1. Return _asyncContext_.
         </emu-alg>
       </emu-clause>
@@ -463,7 +471,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
           1. For each Record { [[AsyncContextKey]], [[AsyncContextValue]] } _p_ of _asyncContextMapping_, do
             1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncContext_.[[AsyncContextKey]]) is *true*, return _p_.[[AsyncContextValue]].
-          1. Return *undefined*.
+          1. Return _asyncContext_.[[AsyncContextDefaultValue]].
         </emu-alg>
       </emu-clause>
     </emu-clause>
@@ -494,6 +502,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
             </td>
             <td>
               Represents the AsyncContext instance in the surrounding agent's Agent Record's [[AsyncContextMapping]].
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncContextDefaultValue]]
+            </td>
+            <td>
+              an ECMAScript language value
+            </td>
+            <td>
+              The default value of the AsyncContext instance when no entry is found in the mapping.
             </td>
           </tr>
         </table>

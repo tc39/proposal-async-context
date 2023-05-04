@@ -157,9 +157,16 @@ logically-connected sync/async code execution.
 class AsyncContext<T> {
   static wrap<R>(callback: (...args: any[]) => R): (...args: any[]) => R;
 
+  constructor(options: AsyncContextOptions<T>);
+
   run<R>(value: T, callback: () => R): R;
 
-  get(): T;
+  get(): T | undefined;
+}
+
+interface AsyncContextOptions<T> {
+  name?: string;
+  defaultValue?: T;
 }
 ```
 
