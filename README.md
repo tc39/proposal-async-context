@@ -150,85 +150,85 @@ Non-goals:
 
 # Proposed Solution
 
-`AsyncContext` are designed as a value store for context propagation across
+`AsyncLocal` are designed as a value store for context propagation across
 logically-connected sync/async code execution.
 
 ```typescript
-class AsyncContext<T> {
-  static wrap<R>(callback: (...args: any[]) => R): (...args: any[]) => R;
-
-  constructor(options: AsyncContextOptions<T>);
+class AsyncLocal<T> {
+  constructor(options: AsyncLocalOptions<T>);
 
   get name(): string;
 
-  run<R>(value: T, callback: () => R): R;
+  run<R>(value: T, fn: () => R): R;
 
   get(): T | undefined;
 }
 
-interface AsyncContextOptions<T> {
+interface AsyncLocalOptions<T> {
   name?: string;
   defaultValue?: T;
 }
+
+class AsyncSnapshot {
+  constructor();
+
+  run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+}
 ```
 
-`AsyncContext.prototype.run()` and `AsyncContext.prototype.get()` sets and gets
-the current value of an async execution flow. `AsyncContext.wrap()` allows you
-to opaquely capture the current value of all `AsyncContext`s and execute the
-callback at a later time with as if those values were still the current values
-(a snapshot and restore). Note that even with `AsyncContext.wrap()`, you can
-only access the value associated with an `AsyncContext` instance if you have
+`AsyncLocal.prototype.run()` and `AsyncLocal.prototype.get()` sets and gets
+the current value of an async execution flow. `AsyncSnapshot` allows you
+to opaquely capture the current value of all `AsyncLocal`s and execute a
+function at a later time with as if those values were still the current values
+(a snapshot and restore). Note that even with `AsyncSnapshot`, you can
+only access the value associated with an `AsyncLocal` instance if you have
 access to that instance.
 
 ```typescript
-const context = new AsyncContext();
+const asyncLocal = new AsyncLocal();
 
 // Sets the current value to 'top', and executes the `main` function.
-context.run("top", main);
+asyncLocal.run("top", main);
 
 function main() {
-  // Context is maintained through other platform queueing.
+  // AsyncLocal is maintained through other platform queueing.
   setTimeout(() => {
-    console.log(context.get()); // => 'top'
+    console.log(asyncLocal.get()); // => 'top'
 
-    context.run("A", () => {
-      console.log(context.get()); // => 'A'
+    asyncLocal.run("A", () => {
+      console.log(asyncLocal.get()); // => 'A'
 
       setTimeout(() => {
-        console.log(context.get()); // => 'A'
+        console.log(asyncLocal.get()); // => 'A'
       }, randomTimeout());
     });
   }, randomTimeout());
 
-  // Context runs can be nested.
-  context.run("B", () => {
-    console.log(context.get()); // => 'B'
+  // AsyncLocal runs can be nested.
+  asyncLocal.run("B", () => {
+    console.log(asyncLocal.get()); // => 'B'
 
     setTimeout(() => {
-      console.log(context.get()); // => 'B'
+      console.log(asyncLocal.get()); // => 'B'
     }, randomTimeout());
   });
 
-  // Context was restored after the previous run.
-  console.log(context.get()); // => 'top'
+  // AsyncLocal was restored after the previous run.
+  console.log(asyncLocal.get()); // => 'top'
 
-  // Captures the state of all AsyncContext's at this moment.
-  const snapshotDuringTop = AsyncContext.wrap((cb) => {
-    console.log(context.get()); // => 'top'
-    cb();
-  });
+  // Captures the state of all AsyncLocal's at this moment.
+  const snapshotDuringTop = new AsyncSnapshot();
 
-  // Context runs can be nested.
-  context.run("C", () => {
-    console.log(context.get()); // => 'C'
+  asyncLocal.run("C", () => {
+    console.log(asyncLocal.get()); // => 'C'
 
-    // The snapshotDuringTop will restore all AsyncContext to their snapshot
-    // state and invoke the wrapped function. We pass a callback which it will
+    // The snapshotDuringTop will restore all AsyncLocal to their snapshot
+    // state and invoke the wrapped function. We pass a function which it will
     // invoke.
-    snapshotDuringTop(() => {
+    snapshotDuringTop.run(() => {
       // Despite being lexically nested inside 'C', the snapshot restored us to
       // to the 'top' state.
-      console.log(context.get()); // => 'top'
+      console.log(asyncLocal.get()); // => 'top'
     });
   });
 }
@@ -238,7 +238,7 @@ function randomTimeout() {
 }
 ```
 
-`AsyncContext.wrap` is useful for implementing APIs that logically "schedule" a
+`AsyncSnapshot` is useful for implementing APIs that logically "schedule" a
 callback, so the callback will be called with the context that it logically
 belongs to, regardless of the context under which it actually runs:
 
@@ -247,7 +247,10 @@ let queue = [];
 
 export function enqueueCallback(cb: () => void) {
   // Each callback is stored with the context at which it was enqueued.
-  queue.push(AsyncContext.wrap(cb));
+  const snapshot = new AsyncSnapshot();
+  queue.push(() => {
+    snapshot.run(cb);
+  });
 }
 
 runWhenIdle(() => {
@@ -261,11 +264,11 @@ runWhenIdle(() => {
 ```
 
 > Note: There are controversial thought on the dynamic scoping and
-> `AsyncContext`, checkout [SCOPING.md][] for more details.
+> `AsyncLocal`, checkout [SCOPING.md][] for more details.
 
 ## Use cases
 
-Use cases for `AsyncContext` include:
+Use cases for async context include:
 
 - Annotating logs with information related to an asynchronous callstack.
 
@@ -300,7 +303,7 @@ A detailed example usecase can be found [here](./USE-CASES.md)
 ## Determine the initiator of a task
 
 Application monitoring tools like OpenTelemetry save their tracing spans in the
-`AsyncContext` and retrieve the span when they need to determine what started
+`AsyncLocal` and retrieve the span when they need to determine what started
 this chain of interaction.
 
 These libraries can not intrude the developer APIs for seamless monitoring. The
@@ -309,7 +312,7 @@ tracing span doesn't need to be manually passing around by usercodes.
 ```typescript
 // tracer.js
 
-const context = new AsyncContext();
+const asyncLocal = new AsyncLocal();
 export function run(cb) {
   // (a)
   const span = {
@@ -317,12 +320,12 @@ export function run(cb) {
     traceId: randomUUID(),
     spanId: randomUUID(),
   };
-  context.run(span, cb);
+  asyncLocal.run(span, cb);
 }
 
 export function end() {
   // (b)
-  const span = context.get();
+  const span = asyncLocal.get();
   span?.endTime = Date.now();
 }
 ```
@@ -358,20 +361,20 @@ concurrent multi-tracking.
 
 ## Transitive task attribution
 
-User tasks can be scheduled with attributions. With `AsyncContext`, task
+User tasks can be scheduled with attributions. With `AsyncLocal`, task
 attributions are propagated in the async task flow and sub-tasks can be
 scheduled with the same priority.
 
 ```typescript
 const scheduler = {
-  context: new AsyncContext(),
+  asyncLocal: new AsyncLocal(),
   postTask(task, options) {
     // In practice, the task execution may be deferred.
-    // Here we simply run the task immediately with the context.
-    return this.context.run({ priority: options.priority }, task);
+    // Here we simply run the task immediately.
+    return this.asyncLocal.run({ priority: options.priority }, task);
   },
   currentTask() {
-    return this.context.get() ?? { priority: "default" };
+    return this.asyncLocal.get() ?? { priority: "default" };
   },
 };
 

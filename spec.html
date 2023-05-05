@@ -65,10 +65,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>[[AsyncContextMapping]]</ins>
           </td>
           <td>
-            <ins>a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)</ins>
+            <ins>a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+            <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncLocalKey]].</ins>
           </td>
         </tr>
       </table>
@@ -110,10 +110,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>[[AsyncContextSnapshot]]</ins>
             </td>
             <td>
-              <ins>a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)</ins>
+              <ins>a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)</ins>
             </td>
             <td>
-              <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncLocalKey]].</ins>
             </td>
           </tr>
           <tr>
@@ -190,146 +190,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
 </emu-clause>
 
 <ins class="block">
-<emu-clause id="sec-ordinary-and-exotic-objects-behaviours">
-  <h1>Ordinary and Exotic Objects Behaviours</h1>
-  <emu-clause id="sec-built-in-exotic-object-internal-methods-and-slots">
-    <h1>Built-in Exotic Object Internal Methods and Slots</h1>
-
-    <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects">
-      <h1>AsyncContext Wrapped Function Exotic Objects</h1>
-
-      <emu-note>
-        <p>This is based on <emu-xref href="#sec-bound-function-exotic-objects"></emu-xref></p>
-      </emu-note>
-
-      <p>An AsyncContext wrapped function exotic object is an exotic object that wraps another function object. An AsyncContext wrapped function exotic object is callable (it has a [[Call]] internal method and may have a [[Construct]] internal method). Calling an AsyncContext wrapped function exotic object generally results in a call of its wrapped function.</p>
-
-      <p>An object is a <dfn id="asynccontext-wrapped-function-exotic-object" variants="async context wrapped function exotic objects">AsyncContext wrapped function exotic object</dfn> if its [[Call]] and (if applicable) [[Construct]] internal methods use the following implementations, and its other essential internal methods use the definitions found in Ordinary Object Internal Methods and Internal Slots. These methods are installed in AsyncContextWrappedFunctionCreate.</p>
-
-      <p>Async context wrapped function exotic objects do not have the internal slots of ECMAScript function objects listed in Internal Slots of ECMAScript Function Objects. Instead they have the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>, in addition to [[Prototype]] and [[Extensible]].</p>
-      <emu-table id="table-internal-slots-of-asynccontext-wrapped-function-exotic-objects" caption="Internal Slots of AsyncContext Wrapped Function Exotic Objects">
-        <table>
-          <tr>
-            <th>
-              Internal Slot
-            </th>
-            <th>
-              Type
-            </th>
-            <th>
-              Description
-            </th>
-          </tr>
-          <tr>
-            <td>
-              [[WrappedTargetFunction]]
-            </td>
-            <td>
-              a callable Object
-            </td>
-            <td>
-              The wrapped function object.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              [[AsyncContextSnapshot]]
-            </td>
-            <td>
-              a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)
-            </td>
-            <td>
-              A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].
-            </td>
-          </tr>
-        </table>
-      </emu-table>
-
-      <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects-call-thisargument-argumentslist" type="internal method">
-        <h1>
-          [[Call]] (
-            _thisArgument_: an ECMAScript language value,
-            _argumentsList_: a List of ECMAScript language values,
-          ): either a normal completion containing an ECMAScript language value or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>for</dt>
-          <dd>an AsyncContext wrapped function exotic object _F_</dd>
-        </dl>
-        <emu-alg>
-          1. Let _target_ be F.[[WrappedTargetFunction]].
-          1. Let _snapshot_ be F.[[AsyncContextSnapshot]].
-          1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
-          1. Let _result_ be Completion(Call(_target_, _thisArgument_, _argumentsList_)).
-          1. AsyncContextSwap(_previousContextMapping_).
-          1. Return _result_.
-        </emu-alg>
-      </emu-clause>
-
-      <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects-construct-argumentslist-newtarget" type="internal method">
-        <h1>
-          [[Construct]] (
-            _argumentsList_: a List of ECMAScript language values,
-            _newTarget_: a constructor,
-          ): either a normal completion containing an Object or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>for</dt>
-          <dd>an AsyncContext wrapped function exotic object _F_</dd>
-        </dl>
-        <emu-alg>
-          1. Let _target_ be _F_.[[WrappedTargetFunction]].
-          1. Assert: IsConstructor(_target_) is *true*.
-          1. Let _snapshot_ be F.[[AsyncContextSnapshot]].
-          1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
-          1. If SameValue(_F_, _newTarget_) is *true*, set _newTarget_ to _target_.
-          1. Let _result_ be Completion(Construct(_target_, _argumentsList_, _newTarget_)).
-          1. AsyncContextSwap(_previousContextMapping_).
-          1. Return _result_.
-        </emu-alg>
-      </emu-clause>
-
-      <emu-clause id="sec-asynccontext-wrappedfunctioncreate" type="abstract operation">
-        <h1>
-          AsyncContextWrappedFunctionCreate (
-            _targetFunction_: a function object,
-            _snapshot_: a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value),
-          ): either a normal completion containing a function object or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>description</dt>
-          <dd>It is used to specify the creation of new AsyncContext wrapped function exotic objects.</dd>
-        </dl>
-        <emu-alg>
-          1. Let _proto_ be ? <emu-meta effects="user-code">_targetFunction_.[[GetPrototypeOf]]</emu-meta>().
-          1. Let _internalSlotsList_ be the list-concatenation of « [[Prototype]], [[Extensible]] » and the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>.
-          1. Let _obj_ be MakeBasicObject(_internalSlotsList_).
-          1. Set _obj_.[[Prototype]] to _proto_.
-          1. Set _obj_.[[Call]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-call-thisargument-argumentslist"></emu-xref>.
-          1. If IsConstructor(_targetFunction_) is *true*, then
-            1. Set _obj_.[[Construct]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-construct-argumentslist-newtarget"></emu-xref>.
-          1. Set _obj_.[[WrappedTargetFunction]] to _targetFunction_.
-          1. Set _obj_.[[AsyncContextSnapshot]] to _snapshot_.
-          1. Return _obj_.
-        </emu-alg>
-      </emu-clause>
-    </emu-clause>
-  </emu-clause>
-</emu-clause>
-</ins>
-
-<ins class="block">
 <emu-clause id="sec-control-abstraction-objects">
   <h1>Control Abstraction Objects</h1>
-  <emu-clause id="sec-asynccontext-objects">
-    <h1>AsyncContext Objects</h1>
+  <emu-clause id="sec-asyncsnapshot-objects">
+    <h1>AsyncSnapshot Objects</h1>
 
-    <emu-clause id="sec-asynccontext-abstract-operations">
-      <h1>AsyncContext Abstract Operations</h1>
+    <emu-clause id="sec-asyncsnapshot-abstract-operations">
+      <h1>AsyncSnapshot Abstract Operations</h1>
       <emu-clause id="sec-asynccontext-snapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
-          ): a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)
+          ): a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -344,8 +215,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontext-swap" type="abstract operation">
         <h1>
           AsyncContextSwap (
-            _snapshot_: a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)
-          ): a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)
+            _snapshot_: a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
+          ): a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -360,139 +231,62 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-asynccontext-constructor">
-      <h1>The AsyncContext Constructor</h1>
-      <p>The AsyncContext constructor:</p>
+    <emu-clause id="sec-asyncsnapshot-constructor">
+      <h1>The AsyncSnapshot Constructor</h1>
+      <p>The AsyncSnapshot constructor:</p>
       <ul>
-        <li>is <dfn>%AsyncContext%</dfn>.</li>
-        <li>is the initial value of the *"AsyncContext"* property of the global object.</li>
-        <li>creates and initializes a new AsyncContext when called as a constructor.</li>
+        <li>is <dfn>%AsyncSnapshot%</dfn>.</li>
+        <li>is the initial value of the *"AsyncSnapshot"* property of the global object.</li>
+        <li>creates and initializes a new AsyncSnapshot when called as a constructor.</li>
         <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncContext behaviour must include a `super` call to the AsyncContext constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncContext` and `AsyncContext.prototype` built-in methods.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncSnapshot behaviour must include a `super` call to the AsyncSnapshot constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncSnapshot` and `AsyncSnapshot.prototype` built-in methods.</li>
       </ul>
 
-      <emu-clause id="sec-asynccontext">
-        <h1>AsyncContext ( _options_ )</h1>
+      <emu-clause id="sec-asyncsnapshot">
+        <h1>AsyncSnapshot ( )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
-          1. If _options_ is an Object, then
-            1. Let _name_ be ? Get(_options_, *"name"*).
-            1. Let _nameStr_ be ? ToString(_name_).
-            1. Let _defaultValue_ be ? Get(_options_, *"defaultValue"*).
-          1. Else,
-            1. Let _nameStr_ be the empty String.
-            1. Let _defaultValue_ be *undefined*.
-          1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]] »).
-          1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol whose [[Description]] is _nameStr_.
-          1. Set _asyncContext_.[[AsyncContextDefaultValue]] to _defaultValue_.
-          1. Return _asyncContext_.
-        </emu-alg>
-      </emu-clause>
-    </emu-clause>
-
-    <emu-clause id="sec-properties-of-the-asynccontext-constructor">
-      <h1>Properties of the AsyncContext Constructor</h1>
-      <p>The AsyncContext constructor:</p>
-      <ul>
-        <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
-        <li>has the following properties:</li>
-      </ul>
-
-      <emu-clause id="sec-asynccontext-wrap">
-        <h1>AsyncContext.wrap ( _target_ )</h1>
-        <p>This function returns a new function which opaquely captures the current value of all AsyncContexts and restores the captured value when being invoked.</p>
-
-        <emu-alg>
           1. Let _snapshot_ be AsyncContextSnapshot().
-          1. If IsCallable(_target_) is false, throw a TypeError exception.
-          1. Let _F_ be ? AsyncContextWrappedFunctionCreate(_target_, _snapshot_).
-          1. Let _L_ be 0.
-          1. Let _targetHasLength_ be ? HasOwnProperty(_target_, *"length"*).
-          1. If _targetHasLength_ is *true*, then
-            1. Let _targetLen_ be ? Get(_target_, *"length"*).
-            1. If _targetLen_ is a Number, then
-              1. If _targetLen_ is *+∞*<sub>𝔽</sub>, set _L_ to +∞.
-              1. Else if _targetLen_ is *-∞*<sub>𝔽</sub>, set _L_ to 0.
-              1. Else,
-                1. Let _targetLenAsInt_ be ! ToIntegerOrInfinity(_targetLen_).
-                1. Assert: _targetLenAsInt_ is finite.
-                1. Set _L_ to _targetLenAsInt_.
-          1. Perform SetFunctionLength(_F_, _L_).
-          1. Let _targetName_ be ? Get(_target_, *"name"*).
-          1. If _targetName_ is not a String, set _targetName_ to the empty String.
-          1. Perform SetFunctionName(_F_, _targetName_, *"wrapped"*).
-          1. Return _F_.
+          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncSnapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
+          1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshot_.
+          1. Return _asyncSnapshot_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-the-asynccontext-prototype-object">
-      <h1>Properties of the AsyncContext Prototype Object</h1>
-      <p>The <dfn>AsyncContext prototype object</dfn>:</p>
+    <emu-clause id="sec-properties-of-the-asyncsnapshot-prototype-object">
+      <h1>Properties of the AsyncSnapshot Prototype Object</h1>
+      <p>The <dfn>AsyncSnapshot prototype object</dfn>:</p>
       <ul>
-        <li>is <dfn>%AsyncContext.prototype%</dfn>.</li>
+        <li>is <dfn>%AsyncSnapshot.prototype%</dfn>.</li>
         <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
         <li>is an ordinary object.</li>
-        <li>does not have any of the other internal slots of AsyncContext instances.</li>
+        <li>does not have any of the other internal slots of AsyncSnapshot instances.</li>
       </ul>
 
-      <emu-clause id="sec-asynccontext.prototype.run">
-        <h1>AsyncContext.prototype.run ( _value_, _func_, ..._args_ )</h1>
+      <emu-clause id="sec-asyncsnapshot.prototype.run">
+        <h1>AsyncSnapshot.prototype.run ( _func_, ..._args_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
-          1. Let _asyncContext_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncContext_, [[AsyncContextKey]]).
-          1. Let _asyncContextKey_ be _asyncContext_.[[AsyncContextKey]].
-          1. Let _previousContextMapping_ be AsyncContextSnapshot().
-          1. Let _asyncContextMapping_ be a new empty List.
-          1. For each Record { [[AsyncContextKey]], [[AsyncContextValue]] } _p_ of _previousContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncContextKey_) is *false*, then
-              1. Let _q_ be the Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
-              1. Append _q_ to _asyncContextMapping_.
-          1. Assert: _asyncContextMapping_ does not contain a Record whose [[AsyncContextKey]] is _asyncContextKey_.
-          1. Let _p_ be the Record { [[AsyncContextKey]]: _asyncContextKey_, [[AsyncContextValue]]: _value_ }.
-          1. Append _p_ to _asyncContextMapping_.
-          1. AsyncContextSwap(_asyncContextMapping_).
+          1. Let _asyncSnapshot_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
+          1. Let _snapshot_ be _asyncSnapshot_.[[AsyncSnapshotMapping]].
+          1. Let _contextMapping_ be AsyncContextSnapshot().
+          1. AsyncContextSwap(_snapshot_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. AsyncContextSwap(_contextMapping_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
-
-      <emu-clause id="sec-asynccontext.prototype.get">
-        <h1>AsyncContext.prototype.get ( )</h1>
-        <p>This method performs the following steps when called:</p>
-        <emu-alg>
-          1. Let _asyncContext_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncContext_, [[AsyncContextKey]]).
-          1. Let _agentRecord_ be the surrounding agent's Agent Record.
-          1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. For each Record { [[AsyncContextKey]], [[AsyncContextValue]] } _p_ of _asyncContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncContext_.[[AsyncContextKey]]) is *true*, return _p_.[[AsyncContextValue]].
-          1. Return _asyncContext_.[[AsyncContextDefaultValue]].
-        </emu-alg>
-      </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-asynccontext.prototype.name">
-      <h1>get AsyncContext.prototype.name</h1>
-      <p>`AsyncContext.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
-      <emu-alg>
-        1. Let _asyncContext_ be the *this* value.
-        1. Perform ? RequireInternalSlot(_asyncContext_, [[AsyncContextKey]]).
-        1. Let _asyncContextKey_ be _asyncContext_.[[AsyncContextKey]].
-        1. Assert: _asyncContextKey_ is a Symbol.
-        1. Return _asyncContextKey_.[[Description]].
-      </emu-alg>
-    </emu-clause>
+    <emu-clause id="sec-properties-of-asyncsnapshot-instances">
+      <h1>Properties of AsyncSnapshot Instances</h1>
+      <p>AsyncSnapshot instances are ordinary objects that inherit properties from the AsyncSnapshot prototype object (the intrinsic, %AsyncSnapshot.prototype%). AsyncSnapshot instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asyncsnapshot-instances"></emu-xref>.</p>
 
-    <emu-clause id="sec-properties-of-asynccontext-instances">
-      <h1>Properties of AsyncContext Instances</h1>
-      <p>AsyncContext instances are ordinary objects that inherit properties from the AsyncContext prototype object (the intrinsic, %AsyncContext.prototype%). AsyncContext instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-instances"></emu-xref>.</p>
-
-      <emu-table id="table-internal-slots-of-asynccontext-instances" caption="Internal Slots of AsyncContext Instances">
+      <emu-table id="table-internal-slots-of-asyncsnapshot-instances" caption="Internal Slots of AsyncSnapshot Instances">
         <table>
           <tr>
             <th>
@@ -507,24 +301,152 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td>
-              [[AsyncContextKey]]
+              [[AsyncSnapshotMapping]]
+            </td>
+            <td>
+              a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
+            </td>
+            <td>
+              Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncSnapshot instance.
+            </td>
+          </tr>
+        </table>
+      </emu-table>
+    </emu-clause>
+  </emu-clause>
+
+  <emu-clause id="sec-asynclocal-objects">
+    <h1>AsyncLocal Objects</h1>
+
+    <emu-clause id="sec-asynclocal-constructor">
+      <h1>The AsyncLocal Constructor</h1>
+      <p>The AsyncLocal constructor:</p>
+      <ul>
+        <li>is <dfn>%AsyncLocal%</dfn>.</li>
+        <li>is the initial value of the *"AsyncLocal"* property of the global object.</li>
+        <li>creates and initializes a new AsyncLocal when called as a constructor.</li>
+        <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncLocal behaviour must include a `super` call to the AsyncLocal constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncLocal` and `AsyncLocal.prototype` built-in methods.</li>
+      </ul>
+
+      <emu-clause id="sec-asynclocal">
+        <h1>AsyncLocal ( _options_ )</h1>
+        <p>This function performs the following steps when called:</p>
+
+        <emu-alg>
+          1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. If _options_ is an Object, then
+            1. Let _name_ be ? Get(_options_, *"name"*).
+            1. Let _nameStr_ be ? ToString(_name_).
+            1. Let _defaultValue_ be ? Get(_options_, *"defaultValue"*).
+          1. Else,
+            1. Let _nameStr_ be the empty String.
+            1. Let _defaultValue_ be *undefined*.
+          1. Let _asyncLocal_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncLocal.prototype%"*, « [[AsyncLocalKey]], [[AsyncLocalDefaultValue]] »).
+          1. Set _asyncLocal_.[[AsyncLocalKey]] to a new Symbol whose [[Description]] is _nameStr_.
+          1. Set _asyncLocal_.[[AsyncLocalDefaultValue]] to _defaultValue_.
+          1. Return _asyncLocal_.
+        </emu-alg>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-properties-of-the-asynclocal-prototype-object">
+      <h1>Properties of the AsyncLocal Prototype Object</h1>
+      <p>The <dfn>AsyncLocal prototype object</dfn>:</p>
+      <ul>
+        <li>is <dfn>%AsyncLocal.prototype%</dfn>.</li>
+        <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
+        <li>is an ordinary object.</li>
+        <li>does not have any of the other internal slots of AsyncLocal instances.</li>
+      </ul>
+
+      <emu-clause id="sec-asynclocal.prototype.run">
+        <h1>AsyncLocal.prototype.run ( _value_, _func_, ..._args_ )</h1>
+        <p>This method performs the following steps when called:</p>
+        <emu-alg>
+          1. Let _asyncLocal_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
+          1. Let _AsyncLocalKey_ be _asyncLocal_.[[AsyncLocalKey]].
+          1. Let _previousContextMapping_ be AsyncContextSnapshot().
+          1. Let _asyncContextMapping_ be a new empty List.
+          1. For each Record { [[AsyncLocalKey]], [[AsyncLocalValue]] } _p_ of _previousContextMapping_, do
+            1. If SameValueZero(_p_.[[AsyncLocalKey]], _AsyncLocalKey_) is *false*, then
+              1. Let _q_ be the Record { [[AsyncLocalKey]]: _p_.[[AsyncLocalKey]], [[AsyncLocalValue]]: _p_.[[AsyncLocalValue]] }.
+              1. Append _q_ to _asyncContextMapping_.
+          1. Assert: _asyncContextMapping_ does not contain a Record whose [[AsyncLocalKey]] is _AsyncLocalKey_.
+          1. Let _p_ be the Record { [[AsyncLocalKey]]: _AsyncLocalKey_, [[AsyncLocalValue]]: _value_ }.
+          1. Append _p_ to _asyncContextMapping_.
+          1. AsyncContextSwap(_asyncContextMapping_).
+          1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
+          1. AsyncContextSwap(_previousContextMapping_).
+          1. Return _result_.
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-asynclocal.prototype.name">
+        <h1>get AsyncLocal.prototype.name</h1>
+        <p>`AsyncLocal.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
+        <emu-alg>
+          1. Let _asyncLocal_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
+          1. Let _asyncLocalKey_ be _asyncLocal_.[[AsyncLocalKey]].
+          1. Assert: _asyncLocalKey_ is a Symbol.
+          1. Return _asyncLocalKey_.[[Description]].
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-asynclocal.prototype.get">
+        <h1>AsyncLocal.prototype.get ( )</h1>
+        <p>This method performs the following steps when called:</p>
+        <emu-alg>
+          1. Let _asyncLocal_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
+          1. Let _agentRecord_ be the surrounding agent's Agent Record.
+          1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
+          1. For each Record { [[AsyncLocalKey]], [[AsyncLocalValue]] } _p_ of _asyncContextMapping_, do
+            1. If SameValueZero(_p_.[[AsyncLocalKey]], _asyncLocal_.[[AsyncLocalKey]]) is *true*, return _p_.[[AsyncLocalValue]].
+          1. Return _asyncLocal_.[[AsyncLocalDefaultValue]].
+        </emu-alg>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-properties-of-asynclocal-instances">
+      <h1>Properties of AsyncLocal Instances</h1>
+      <p>AsyncLocal instances are ordinary objects that inherit properties from the AsyncLocal prototype object (the intrinsic, %AsyncLocal.prototype%). AsyncLocal instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynclocal-instances"></emu-xref>.</p>
+
+      <emu-table id="table-internal-slots-of-asynclocal-instances" caption="Internal Slots of AsyncLocal Instances">
+        <table>
+          <tr>
+            <th>
+              Internal Slot
+            </th>
+            <th>
+              Type
+            </th>
+            <th>
+              Description
+            </th>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncLocalKey]]
             </td>
             <td>
               a Symbol
             </td>
             <td>
-              Represents the AsyncContext instance in the surrounding agent's Agent Record's [[AsyncContextMapping]].
+              Represents the AsyncLocal instance in the surrounding agent's Agent Record's [[AsyncContextMapping]].
             </td>
           </tr>
           <tr>
             <td>
-              [[AsyncContextDefaultValue]]
+              [[AsyncLocalDefaultValue]]
             </td>
             <td>
               an ECMAScript language value
             </td>
             <td>
-              The default value of the AsyncContext instance when no entry is found in the mapping.
+              The default value of the AsyncLocal instance when no entry is found in the mapping.
             </td>
           </tr>
         </table>

@@ -1,8 +1,8 @@
-# Scoping of AsyncContext
+# Scoping of AsyncLocal
 
-The major concerns of `AsyncContext` advancing to Stage 1 of TC39 proposal
+The major concerns of `AsyncLocal` advancing to Stage 1 of TC39 proposal
 process is that there are potential dynamic scoping of the semantics of
-`AsyncContext`.  This document is about defining the scoping of `AsyncContext`.
+`AsyncLocal`.  This document is about defining the scoping of `AsyncLocal`.
 
 ### Dynamic Scoping
 
@@ -22,61 +22,61 @@ $ echo $x # does this print 1, or 2?
 1
 ```
 
-However, the naming scope of an async context is identical to a regular variable
+However, the naming scope of an `AsyncLocal` is identical to a regular variable
 in JavaScript. Since JavaScript variables are lexically scoped, the naming of
-async context instances are lexically scoped too. It is not possible to access a
-value inside an async context without explicit access to the async context
+`AsyncLocal` instances are lexically scoped too. It is not possible to access a
+value inside an `AsyncLocal` without explicit access to the `AsyncLocal` instance
 itself.
 
 ```typescript
-const context = new AsyncContext();
+const asyncLocal = new AsyncLocal();
 
-context.run(1, f);
-console.log(context.get()); // => undefined
+asyncLocal.run(1, f);
+console.log(asyncLocal.get()); // => undefined
 
 function g() {
-  console.log(context.get()); // => 1
+  console.log(asyncLocal.get()); // => 1
 }
 
 function f() {
-  // Intentionally named the same "context"
-  const context = new AsyncContext();
-  context.run(2, g);
+  // Intentionally named the same "asyncLocal"
+  const asyncLocal = new AsyncLocal();
+  asyncLocal.run(2, g);
 }
 ```
 
-Hence, knowing the name of an async context variable does not give you the
-ability to change that context. You must have direct access to it in order to
-affect it.
+Hence, knowing the name of an `AsyncLocal` variable does not give you the
+ability to change the value of that variable. You must have direct access to it
+in order to affect it.
 
 ```typescript
-const context = new AsyncContext();
+const asyncLocal = new AsyncLocal();
 
-context.run(1, f);
+asyncLocal.run(1, f);
 
-console.log(context.get()); // => undefined;
+console.log(asyncLocal.get()); // => undefined;
 
 function f() {
-  const context = new AsyncContext();
-  context.run(2, g);
+  const asyncLocal = new AsyncLocal();
+  asyncLocal.run(2, g);
 
   function g() {
-    console.log(context.get(); // => 2;
+    console.log(asyncLocal.get()); // => 2;
   }
 }
 ```
 
 ### Dynamic Scoping: dependency on caller
 
-One argument on the dynamic scoping is that the values in `AsyncContext` can be
+One argument on the dynamic scoping is that the values in `AsyncLocal` can be
 changed depending on which the caller is.
 
-However, the definition of whether the value of an async context can be changed
+However, the definition of whether the value of an `AsyncLocal` can be changed
 has the same meaning with a regular JavaScript variable: anyone with direct
 access to a variable has the ability to change the variable.
 
 ```typescript
-class SyncContext {
+class SyncLocal {
   #current;
 
   get() {
@@ -94,30 +94,30 @@ class SyncContext {
   }
 }
 
-const context = new SyncContext();
+const syncLocal = new SyncLocal();
 
-context.run(1, f);
+syncLocal.run(1, f);
 
-console.log(context.get()); // => undefined;
+console.log(syncLocal.get()); // => undefined;
 
 function g() {
-  console.log(context.get()); // => 1
+  console.log(syncLocal.get()); // => 1
 }
 
 function f() {
-  // Intentionally named the same "context"
-  const context = new AsyncContext();
-  context.run(2, g);
+  // Intentionally named the same "syncLocal"
+  const syncLocal = new AsyncLocal();
+  syncLocal.run(2, g);
 }
 ```
 
-If this userland `SyncContext` is acceptable, than adding an `AsyncContext`
+If this userland `SyncLocal` is acceptable, than adding an `AsyncLocal`
 that can operate across sync/async execution should be no different.
 
 ### Summary
 
-There are no differences regarding naming scope of async contexts compared to
-regular JavaScript variables. Only code with direct access to `AsyncContex`
+There are no differences regarding naming scope of `AsyncLocal` compared to
+regular JavaScript variables. Only code with direct access to `AsyncLocal`
 instances can modify the value, and only for code execution nested inside a new
-`context.run()`. Further, the capability to modify a local variable which you
+`asyncLocal.run()`. Further, the capability to modify a local variable which you
 have direct access to is already possible in sync code execution.
