@@ -7,6 +7,60 @@ stage: 1
 contributors: Chengzhong Wu, Justin Ridgewell
 </pre>
 
+<emu-clause id="sec-ecmascript-data-types-and-values">
+  <h1>ECMAScript Data Types and Values</h1>
+
+  <emu-clause id="sec-ecmascript-specification-types">
+    <h1>ECMAScript Specification Types</h1>
+
+    <ins class="block">
+    <emu-clause id="sec-asynccontext-mapping-record-specification-type">
+      <h1>The Async Context Mapping Record Specification Type</h1>
+      <p>The <dfn variants="Async Context Mapping Records">Async Context Mapping Record</dfn> type is used to represent an AsyncLocal value mapping in the surrounding Agent's [[AsyncContextMapping]].</p>
+      <p>A Async Context Mapping Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
+
+      <emu-table id="table-asynccontext-mapping-record-fields" caption="Async Context Mapping Record Fields">
+        <table>
+          <tr>
+            <th>
+              Field Name
+            </th>
+            <th>
+              Value
+            </th>
+            <th>
+              Meaning
+            </th>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncContextKey]]
+            </td>
+            <td>
+              an AsyncLocal instance
+            </td>
+            <td>
+              The name of the AsyncLocal instance.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncContextValue]]
+            </td>
+            <td>
+              an ECMAScript language value
+            </td>
+            <td>
+              The default value of the AsyncLocal instance when no entry is found in the mapping.
+            </td>
+          </tr>
+        </table>
+      </emu-table>
+    </emu-clause>
+    </ins>
+  </emu-clause>
+</emu-clause>
+
 <emu-clause id="sec-executable-code-and-execution-contexts">
   <h1>Executable Code and Execution Contexts</h1>
 
@@ -65,10 +119,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>[[AsyncContextMapping]]</ins>
           </td>
           <td>
-            <ins>a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)</ins>
+            <ins>a List of Async Context Mapping Records</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncLocalKey]].</ins>
+            <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
           </td>
         </tr>
       </table>
@@ -110,10 +164,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>[[AsyncContextSnapshot]]</ins>
             </td>
             <td>
-              <ins>a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)</ins>
+              <ins>a List of Async Context Mapping Records</ins>
             </td>
             <td>
-              <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncLocalKey]].</ins>
+              <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
             </td>
           </tr>
           <tr>
@@ -147,8 +201,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <p>The default implementation of HostMakeJobCallback performs the following steps when called:</p>
       <emu-alg>
         1. <del>Return the JobCallback Record { [[Callback]]: _callback_, [[HostDefined]]: ~empty~ }.</del>
-        1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
-        1. <ins>Return the JobCallback Record { [[Callback]]: _callback_, [[AsyncContextSnapshot]]: _snapshot_, [[HostDefined]]: ~empty~ }.</ins>
+        1. <ins>Let _snapshotMapping_ be AsyncContextSnapshot().</ins>
+        1. <ins>Return the JobCallback Record { [[Callback]]: _callback_, [[AsyncContextSnapshot]]: _snapshotMapping_, [[HostDefined]]: ~empty~ }.</ins>
       </emu-alg>
       <p>ECMAScript hosts that are not web browsers must use the default implementation of HostMakeJobCallback.</p>
       <emu-note>
@@ -189,9 +243,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 </emu-clause>
 
-<ins class="block">
 <emu-clause id="sec-control-abstraction-objects">
   <h1>Control Abstraction Objects</h1>
+  <ins class="block">
   <emu-clause id="sec-asyncsnapshot-objects">
     <h1>AsyncSnapshot Objects</h1>
 
@@ -200,7 +254,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontext-snapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
-          ): a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
+          ): a List of Async Context Mapping Records
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -215,17 +269,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontext-swap" type="abstract operation">
         <h1>
           AsyncContextSwap (
-            _snapshot_: a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
-          ): a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
+            _snapshotMapping_: a List of Async Context Mapping Records
+          ): a List of Async Context Mapping Records
         </h1>
         <dl class="header">
           <dt>description</dt>
-          <dd>It is used to swap the surrounding agent's Agent Record's [[AsyncContextMapping]] with the _snapshot_.</dd>
+          <dd>It is used to swap the surrounding agent's Agent Record's [[AsyncContextMapping]] with the _snapshotMapping_.</dd>
         </dl>
         <emu-alg>
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. Set _agentRecord_.[[AsyncContextMapping]] to _snapshot_.
+          1. Set _agentRecord_.[[AsyncContextMapping]] to _snapshotMapping_.
           1. Return _asyncContextMapping_.
         </emu-alg>
       </emu-clause>
@@ -248,9 +302,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
-          1. Let _snapshot_ be AsyncContextSnapshot().
+          1. Let _snapshotMapping_ be AsyncContextSnapshot().
           1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncSnapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
-          1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshot_.
+          1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshotMapping_.
           1. Return _asyncSnapshot_.
         </emu-alg>
       </emu-clause>
@@ -272,11 +326,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
-          1. Let _snapshot_ be _asyncSnapshot_.[[AsyncSnapshotMapping]].
-          1. Let _contextMapping_ be AsyncContextSnapshot().
-          1. AsyncContextSwap(_snapshot_).
+          1. Let _snapshotMapping_ be _asyncSnapshot_.[[AsyncSnapshotMapping]].
+          1. Let _previousContextMapping_ be AsyncContextSnapshot().
+          1. AsyncContextSwap(_snapshotMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_contextMapping_).
+          1. AsyncContextSwap(_previousContextMapping_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
@@ -304,7 +358,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               [[AsyncSnapshotMapping]]
             </td>
             <td>
-              a List of Records with fields [[AsyncLocalKey]] (a Symbol) and [[AsyncLocalValue]] (an ECMAScript language value)
+              a List of Async Context Mapping Records
             </td>
             <td>
               Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncSnapshot instance.
@@ -342,8 +396,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Else,
             1. Let _nameStr_ be the empty String.
             1. Let _defaultValue_ be *undefined*.
-          1. Let _asyncLocal_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncLocal.prototype%"*, « [[AsyncLocalKey]], [[AsyncLocalDefaultValue]] »).
-          1. Set _asyncLocal_.[[AsyncLocalKey]] to a new Symbol whose [[Description]] is _nameStr_.
+          1. Let _asyncLocal_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncLocal.prototype%"*, « [[AsyncLocalName]], [[AsyncLocalDefaultValue]] »).
+          1. Set _asyncLocal_.[[AsyncLocalName]] to _nameStr_.
           1. Set _asyncLocal_.[[AsyncLocalDefaultValue]] to _defaultValue_.
           1. Return _asyncLocal_.
         </emu-alg>
@@ -365,16 +419,15 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
-          1. Let _AsyncLocalKey_ be _asyncLocal_.[[AsyncLocalKey]].
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
           1. Let _previousContextMapping_ be AsyncContextSnapshot().
           1. Let _asyncContextMapping_ be a new empty List.
-          1. For each Record { [[AsyncLocalKey]], [[AsyncLocalValue]] } _p_ of _previousContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncLocalKey]], _AsyncLocalKey_) is *false*, then
-              1. Let _q_ be the Record { [[AsyncLocalKey]]: _p_.[[AsyncLocalKey]], [[AsyncLocalValue]]: _p_.[[AsyncLocalValue]] }.
+          1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
+            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncLocal_) is *false*, then
+              1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
               1. Append _q_ to _asyncContextMapping_.
-          1. Assert: _asyncContextMapping_ does not contain a Record whose [[AsyncLocalKey]] is _AsyncLocalKey_.
-          1. Let _p_ be the Record { [[AsyncLocalKey]]: _AsyncLocalKey_, [[AsyncLocalValue]]: _value_ }.
+          1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncLocal_.
+          1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncLocal_, [[AsyncContextValue]]: _value_ }.
           1. Append _p_ to _asyncContextMapping_.
           1. AsyncContextSwap(_asyncContextMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
@@ -388,10 +441,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <p>`AsyncLocal.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
-          1. Let _asyncLocalKey_ be _asyncLocal_.[[AsyncLocalKey]].
-          1. Assert: _asyncLocalKey_ is a Symbol.
-          1. Return _asyncLocalKey_.[[Description]].
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
+          1. Return _asyncLocal_.[[AsyncLocalName]].
         </emu-alg>
       </emu-clause>
 
@@ -400,11 +451,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalKey]]).
+          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. For each Record { [[AsyncLocalKey]], [[AsyncLocalValue]] } _p_ of _asyncContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncLocalKey]], _asyncLocal_.[[AsyncLocalKey]]) is *true*, return _p_.[[AsyncLocalValue]].
+          1. For each Async Context Mapping Record _p_ of _asyncContextMapping_, do
+            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncLocal_) is *true*, return _p_.[[AsyncContextValue]].
           1. Return _asyncLocal_.[[AsyncLocalDefaultValue]].
         </emu-alg>
       </emu-clause>
@@ -429,13 +480,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td>
-              [[AsyncLocalKey]]
+              [[AsyncLocalName]]
             </td>
             <td>
-              a Symbol
+              a String
             </td>
             <td>
-              Represents the AsyncLocal instance in the surrounding agent's Agent Record's [[AsyncContextMapping]].
+              The name of the AsyncLocal instance.
             </td>
           </tr>
           <tr>
@@ -453,6 +504,5 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-table>
     </emu-clause>
   </emu-clause>
+  </ins>
 </emu-clause>
-</ins>
-
