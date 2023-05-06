@@ -29,19 +29,19 @@ value inside an `AsyncLocal` without explicit access to the `AsyncLocal` instanc
 itself.
 
 ```typescript
-const asyncLocal = new AsyncLocal();
+const local = new AsyncLocal();
 
-asyncLocal.run(1, f);
-console.log(asyncLocal.get()); // => undefined
+local.run(1, f);
+console.log(local.get()); // => undefined
 
 function g() {
-  console.log(asyncLocal.get()); // => 1
+  console.log(local.get()); // => 1
 }
 
 function f() {
-  // Intentionally named the same "asyncLocal"
-  const asyncLocal = new AsyncLocal();
-  asyncLocal.run(2, g);
+  // Intentionally named the same "local"
+  const local = new AsyncLocal();
+  local.run(2, g);
 }
 ```
 
@@ -50,18 +50,18 @@ ability to change the value of that variable. You must have direct access to it
 in order to affect it.
 
 ```typescript
-const asyncLocal = new AsyncLocal();
+const local = new AsyncLocal();
 
-asyncLocal.run(1, f);
+local.run(1, f);
 
-console.log(asyncLocal.get()); // => undefined;
+console.log(local.get()); // => undefined;
 
 function f() {
-  const asyncLocal = new AsyncLocal();
-  asyncLocal.run(2, g);
+  const local = new AsyncLocal();
+  local.run(2, g);
 
   function g() {
-    console.log(asyncLocal.get()); // => 2;
+    console.log(local.get()); // => 2;
   }
 }
 ```
@@ -119,5 +119,5 @@ that can operate across sync/async execution should be no different.
 There are no differences regarding naming scope of `AsyncLocal` compared to
 regular JavaScript variables. Only code with direct access to `AsyncLocal`
 instances can modify the value, and only for code execution nested inside a new
-`asyncLocal.run()`. Further, the capability to modify a local variable which you
+`local.run()`. Further, the capability to modify a local variable which you
 have direct access to is already possible in sync code execution.

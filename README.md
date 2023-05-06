@@ -185,42 +185,42 @@ only access the value associated with an `AsyncLocal` instance if you have
 access to that instance.
 
 ```typescript
-const asyncLocal = new AsyncLocal();
+const local = new AsyncLocal();
 
 // Sets the current value to 'top', and executes the `main` function.
-asyncLocal.run("top", main);
+local.run("top", main);
 
 function main() {
   // AsyncLocal is maintained through other platform queueing.
   setTimeout(() => {
-    console.log(asyncLocal.get()); // => 'top'
+    console.log(local.get()); // => 'top'
 
-    asyncLocal.run("A", () => {
-      console.log(asyncLocal.get()); // => 'A'
+    local.run("A", () => {
+      console.log(local.get()); // => 'A'
 
       setTimeout(() => {
-        console.log(asyncLocal.get()); // => 'A'
+        console.log(local.get()); // => 'A'
       }, randomTimeout());
     });
   }, randomTimeout());
 
   // AsyncLocal runs can be nested.
-  asyncLocal.run("B", () => {
-    console.log(asyncLocal.get()); // => 'B'
+  local.run("B", () => {
+    console.log(local.get()); // => 'B'
 
     setTimeout(() => {
-      console.log(asyncLocal.get()); // => 'B'
+      console.log(local.get()); // => 'B'
     }, randomTimeout());
   });
 
   // AsyncLocal was restored after the previous run.
-  console.log(asyncLocal.get()); // => 'top'
+  console.log(local.get()); // => 'top'
 
   // Captures the state of all AsyncLocal's at this moment.
   const snapshotDuringTop = new AsyncSnapshot();
 
-  asyncLocal.run("C", () => {
-    console.log(asyncLocal.get()); // => 'C'
+  local.run("C", () => {
+    console.log(local.get()); // => 'C'
 
     // The snapshotDuringTop will restore all AsyncLocal to their snapshot
     // state and invoke the wrapped function. We pass a function which it will
@@ -228,7 +228,7 @@ function main() {
     snapshotDuringTop.run(() => {
       // Despite being lexically nested inside 'C', the snapshot restored us to
       // to the 'top' state.
-      console.log(asyncLocal.get()); // => 'top'
+      console.log(local.get()); // => 'top'
     });
   });
 }
@@ -312,7 +312,7 @@ tracing span doesn't need to be manually passing around by usercodes.
 ```typescript
 // tracer.js
 
-const asyncLocal = new AsyncLocal();
+const local = new AsyncLocal();
 export function run(cb) {
   // (a)
   const span = {
@@ -320,12 +320,12 @@ export function run(cb) {
     traceId: randomUUID(),
     spanId: randomUUID(),
   };
-  asyncLocal.run(span, cb);
+  local.run(span, cb);
 }
 
 export function end() {
   // (b)
-  const span = asyncLocal.get();
+  const span = local.get();
   span?.endTime = Date.now();
 }
 ```
@@ -367,14 +367,14 @@ scheduled with the same priority.
 
 ```typescript
 const scheduler = {
-  asyncLocal: new AsyncLocal(),
+  local: new AsyncLocal(),
   postTask(task, options) {
     // In practice, the task execution may be deferred.
     // Here we simply run the task immediately.
-    return this.asyncLocal.run({ priority: options.priority }, task);
+    return this.local.run({ priority: options.priority }, task);
   },
   currentTask() {
-    return this.asyncLocal.get() ?? { priority: "default" };
+    return this.local.get() ?? { priority: "default" };
   },
 };
 
