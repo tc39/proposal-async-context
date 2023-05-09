@@ -289,9 +289,9 @@ Notably, this proposal doesn't solve the problem solely. It provides a path
 forward to the problem and can be integrated into the Long Tasks API.
 
 ```typescript
-registerInstrumentations([
+registerInstrumentations({
   instrumentations: [new LongTaskInstrumentation()],
-]);
+});
 // Roughly equals to
 new PerformanceObserver(list => {...})
   .observe({ entryTypes: ['longtask'] });
@@ -320,9 +320,9 @@ Notably, this proposal doesn't solve the problem solely. It provides a path
 forward to the problem and can be integrated into the Long Tasks API.
 
 ```typescript
-registerInstrumentations([
-  new FetchInstrumentation(),
-]);
+registerInstrumentations({
+  instrumentations: [new FetchInstrumentation()],
+});
 // Observes network events and associate them with spans.
 new PerformanceObserver(list => {
   const entries = list.getEntries();
