@@ -40,7 +40,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               an AsyncLocal instance
             </td>
             <td>
-              The name of the AsyncLocal instance.
+              The AsyncLocal instance as the key in the mapping.
             </td>
           </tr>
           <tr>
@@ -51,7 +51,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               an ECMAScript language value
             </td>
             <td>
-              The default value of the AsyncLocal instance when no entry is found in the mapping.
+              The value of the AsyncLocal instance in the mapping.
             </td>
           </tr>
         </table>
@@ -122,7 +122,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>a List of Async Context Mapping Records</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+            <ins>A map from the AsyncLocal instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
           </td>
         </tr>
       </table>
@@ -167,7 +167,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>a List of Async Context Mapping Records</ins>
             </td>
             <td>
-              <ins>A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              <ins>A map from the AsyncLocal instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
             </td>
           </tr>
           <tr>
@@ -320,8 +320,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <li>does not have any of the other internal slots of AsyncSnapshot instances.</li>
       </ul>
 
-      <emu-clause id="sec-asyncsnapshot.prototype.run">
-        <h1>AsyncSnapshot.prototype.run ( _func_, ..._args_ )</h1>
+      <emu-clause id="sec-asyncsnapshot.prototype.restore">
+        <h1>AsyncSnapshot.prototype.restore ( _func_, ..._args_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
@@ -380,7 +380,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <li>is the initial value of the *"AsyncLocal"* property of the global object.</li>
         <li>creates and initializes a new AsyncLocal when called as a constructor.</li>
         <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncLocal behaviour must include a `super` call to the AsyncLocal constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncLocal` and `AsyncLocal.prototype` built-in methods.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncLocal behaviour must include a `super` call to the AsyncLocal constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncLocal.prototype` built-in methods.</li>
       </ul>
 
       <emu-clause id="sec-asynclocal">
@@ -389,13 +389,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. Let _nameStr_ be the empty String.
+          1. Let _defaultValue_ be *undefined*.
           1. If _options_ is an Object, then
-            1. Let _name_ be ? Get(_options_, *"name"*).
-            1. Let _nameStr_ be ? ToString(_name_).
+            1. Let _namePresent_ be ? HasProperty(_options_, *"name"*).
+            1. If _namePresent_ is *true*, then
+              1. Let _name_ be ? Get(_options_, *"name"*).
+              1. Let _nameStr_ be ? ToString(_name_).
             1. Let _defaultValue_ be ? Get(_options_, *"defaultValue"*).
-          1. Else,
-            1. Let _nameStr_ be the empty String.
-            1. Let _defaultValue_ be *undefined*.
           1. Let _asyncLocal_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncLocal.prototype%"*, « [[AsyncLocalName]], [[AsyncLocalDefaultValue]] »).
           1. Set _asyncLocal_.[[AsyncLocalName]] to _nameStr_.
           1. Set _asyncLocal_.[[AsyncLocalDefaultValue]] to _defaultValue_.

@@ -172,7 +172,7 @@ interface AsyncLocalOptions<T> {
 class AsyncSnapshot {
   constructor();
 
-  run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+  restore<R>(fn: (...args: any[]) => R, ...args: any[]): R;
 }
 ```
 
@@ -225,7 +225,7 @@ function main() {
     // The snapshotDuringTop will restore all AsyncLocal to their snapshot
     // state and invoke the wrapped function. We pass a function which it will
     // invoke.
-    snapshotDuringTop.run(() => {
+    snapshotDuringTop.restore(() => {
       // Despite being lexically nested inside 'C', the snapshot restored us to
       // to the 'top' state.
       console.log(local.get()); // => 'top'
@@ -249,7 +249,7 @@ export function enqueueCallback(cb: () => void) {
   // Each callback is stored with the context at which it was enqueued.
   const snapshot = new AsyncSnapshot();
   queue.push(() => {
-    snapshot.run(cb);
+    snapshot.restore(cb);
   });
 }
 
