@@ -384,7 +384,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Else,
             1. Let _nameStr_ be the empty String.
             1. Let _defaultValue_ be *undefined*.
-          1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]] »).
+          1. Let _asyncContext_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.prototype%"*, « [[AsyncContextKey]], [[AsyncContextDefaultValue]] »).
           1. Set _asyncContext_.[[AsyncContextKey]] to a new Symbol whose [[Description]] is _nameStr_.
           1. Set _asyncContext_.[[AsyncContextDefaultValue]] to _defaultValue_.
           1. Return _asyncContext_.
