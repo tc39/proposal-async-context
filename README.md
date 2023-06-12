@@ -150,85 +150,87 @@ Non-goals:
 
 # Proposed Solution
 
-`AsyncLocal` are designed as a value store for context propagation across
+`AsyncContext.Variable` are designed as a value store for context propagation across
 logically-connected sync/async code execution.
 
 ```typescript
-class AsyncLocal<T> {
-  constructor(options: AsyncLocalOptions<T>);
+namespace AsyncContext {
+  class Variable<T> {
+    constructor(options: AsyncVariableOptions<T>);
 
-  get name(): string;
+    get name(): string;
 
-  run<R>(value: T, fn: () => R): R;
+    run<R>(value: T, fn: () => R): R;
 
-  get(): T | undefined;
-}
+    get(): T | undefined;
+  }
 
-interface AsyncLocalOptions<T> {
-  name?: string;
-  defaultValue?: T;
-}
+  interface AsyncVariableOptions<T> {
+    name?: string;
+    defaultValue?: T;
+  }
 
-class AsyncSnapshot {
-  constructor();
+  class Snapshot {
+    constructor();
 
-  restore<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+    restore<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+  }
 }
 ```
 
-`AsyncLocal.prototype.run()` and `AsyncLocal.prototype.get()` sets and gets
-the current value of an async execution flow. `AsyncSnapshot` allows you
-to opaquely capture the current value of all `AsyncLocal`s and execute a
+`AsyncContext.Variable.prototype.run()` and `AsyncContext.Variable.prototype.get()` sets and gets
+the current value of an async execution flow. `AsyncContext.Snapshot` allows you
+to opaquely capture the current value of all `AsyncContext.Variable`s and execute a
 function at a later time with as if those values were still the current values
-(a snapshot and restore). Note that even with `AsyncSnapshot`, you can
-only access the value associated with an `AsyncLocal` instance if you have
+(a snapshot and restore). Note that even with `AsyncContext.Snapshot`, you can
+only access the value associated with an `AsyncContext.Variable` instance if you have
 access to that instance.
 
 ```typescript
-const local = new AsyncLocal();
+const asyncVar = new AsyncContext.Variable();
 
 // Sets the current value to 'top', and executes the `main` function.
-local.run("top", main);
+asyncVar.run("top", main);
 
 function main() {
-  // AsyncLocal is maintained through other platform queueing.
+  // AsyncContext.Variable is maintained through other platform queueing.
   setTimeout(() => {
-    console.log(local.get()); // => 'top'
+    console.log(asyncVar.get()); // => 'top'
 
-    local.run("A", () => {
-      console.log(local.get()); // => 'A'
+    asyncVar.run("A", () => {
+      console.log(asyncVar.get()); // => 'A'
 
       setTimeout(() => {
-        console.log(local.get()); // => 'A'
+        console.log(asyncVar.get()); // => 'A'
       }, randomTimeout());
     });
   }, randomTimeout());
 
-  // AsyncLocal runs can be nested.
-  local.run("B", () => {
-    console.log(local.get()); // => 'B'
+  // AsyncContext.Variable runs can be nested.
+  asyncVar.run("B", () => {
+    console.log(asyncVar.get()); // => 'B'
 
     setTimeout(() => {
-      console.log(local.get()); // => 'B'
+      console.log(asyncVar.get()); // => 'B'
     }, randomTimeout());
   });
 
-  // AsyncLocal was restored after the previous run.
-  console.log(local.get()); // => 'top'
+  // AsyncContext.Variable was restored after the previous run.
+  console.log(asyncVar.get()); // => 'top'
 
-  // Captures the state of all AsyncLocal's at this moment.
-  const snapshotDuringTop = new AsyncSnapshot();
+  // Captures the state of all AsyncContext.Variable's at this moment.
+  const snapshotDuringTop = new AsyncContext.Snapshot();
 
-  local.run("C", () => {
-    console.log(local.get()); // => 'C'
+  asyncVar.run("C", () => {
+    console.log(asyncVar.get()); // => 'C'
 
-    // The snapshotDuringTop will restore all AsyncLocal to their snapshot
+    // The snapshotDuringTop will restore all AsyncContext.Variable to their snapshot
     // state and invoke the wrapped function. We pass a function which it will
     // invoke.
     snapshotDuringTop.restore(() => {
       // Despite being lexically nested inside 'C', the snapshot restored us to
       // to the 'top' state.
-      console.log(local.get()); // => 'top'
+      console.log(asyncVar.get()); // => 'top'
     });
   });
 }
@@ -238,7 +240,7 @@ function randomTimeout() {
 }
 ```
 
-`AsyncSnapshot` is useful for implementing APIs that logically "schedule" a
+`AsyncContext.Snapshot` is useful for implementing APIs that logically "schedule" a
 callback, so the callback will be called with the context that it logically
 belongs to, regardless of the context under which it actually runs:
 
@@ -247,7 +249,7 @@ let queue = [];
 
 export function enqueueCallback(cb: () => void) {
   // Each callback is stored with the context at which it was enqueued.
-  const snapshot = new AsyncSnapshot();
+  const snapshot = new AsyncContext.Snapshot();
   queue.push(() => {
     snapshot.restore(cb);
   });
@@ -264,7 +266,7 @@ runWhenIdle(() => {
 ```
 
 > Note: There are controversial thought on the dynamic scoping and
-> `AsyncLocal`, checkout [SCOPING.md][] for more details.
+> `AsyncContext.Variable`, checkout [SCOPING.md][] for more details.
 
 ## Use cases
 
@@ -303,7 +305,7 @@ A detailed example usecase can be found [here](./USE-CASES.md)
 ## Determine the initiator of a task
 
 Application monitoring tools like OpenTelemetry save their tracing spans in the
-`AsyncLocal` and retrieve the span when they need to determine what started
+`AsyncContext.Variable` and retrieve the span when they need to determine what started
 this chain of interaction.
 
 These libraries can not intrude the developer APIs for seamless monitoring. The
@@ -312,7 +314,7 @@ tracing span doesn't need to be manually passing around by usercodes.
 ```typescript
 // tracer.js
 
-const local = new AsyncLocal();
+const asyncVar = new AsyncContext.Variable();
 export function run(cb) {
   // (a)
   const span = {
@@ -320,12 +322,12 @@ export function run(cb) {
     traceId: randomUUID(),
     spanId: randomUUID(),
   };
-  local.run(span, cb);
+  asyncVar.run(span, cb);
 }
 
 export function end() {
   // (b)
-  const span = local.get();
+  const span = asyncVar.get();
   span?.endTime = Date.now();
 }
 ```
@@ -361,20 +363,20 @@ concurrent multi-tracking.
 
 ## Transitive task attribution
 
-User tasks can be scheduled with attributions. With `AsyncLocal`, task
+User tasks can be scheduled with attributions. With `AsyncContext.Variable`, task
 attributions are propagated in the async task flow and sub-tasks can be
 scheduled with the same priority.
 
 ```typescript
 const scheduler = {
-  local: new AsyncLocal(),
+  asyncVar: new AsyncContext.Variable(),
   postTask(task, options) {
     // In practice, the task execution may be deferred.
     // Here we simply run the task immediately.
-    return this.local.run({ priority: options.priority }, task);
+    return this.asyncVar.run({ priority: options.priority }, task);
   },
   currentTask() {
-    return this.local.get() ?? { priority: "default" };
+    return this.asyncVar.get() ?? { priority: "default" };
   },
 };
 

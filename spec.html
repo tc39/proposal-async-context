@@ -16,8 +16,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <ins class="block">
     <emu-clause id="sec-asynccontext-mapping-record-specification-type">
       <h1>The Async Context Mapping Record Specification Type</h1>
-      <p>The <dfn variants="Async Context Mapping Records">Async Context Mapping Record</dfn> type is used to represent an AsyncLocal value mapping in the surrounding Agent's [[AsyncContextMapping]].</p>
-      <p>A Async Context Mapping Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
+      <p>The <dfn variants="Async Context Mapping Records">Async Context Mapping Record</dfn> type is used to represent an AsyncContext.Variable value mapping in the surrounding Agent's [[AsyncContextMapping]].</p>
+      <p>An Async Context Mapping Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
 
       <emu-table id="table-asynccontext-mapping-record-fields" caption="Async Context Mapping Record Fields">
         <table>
@@ -37,10 +37,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
               [[AsyncContextKey]]
             </td>
             <td>
-              an AsyncLocal instance
+              an AsyncContext.Variable instance
             </td>
             <td>
-              The AsyncLocal instance as the key in the mapping.
+              The AsyncContext.Variable instance as the key in the mapping.
             </td>
           </tr>
           <tr>
@@ -51,7 +51,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               an ECMAScript language value
             </td>
             <td>
-              The value of the AsyncLocal instance in the mapping.
+              The value of the AsyncContext.Variable instance in the mapping.
             </td>
           </tr>
         </table>
@@ -122,7 +122,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>a List of Async Context Mapping Records</ins>
           </td>
           <td>
-            <ins>A map from the AsyncLocal instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
+            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
           </td>
         </tr>
       </table>
@@ -167,7 +167,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>a List of Async Context Mapping Records</ins>
             </td>
             <td>
-              <ins>A map from the AsyncLocal instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
             </td>
           </tr>
           <tr>
@@ -246,12 +246,23 @@ contributors: Chengzhong Wu, Justin Ridgewell
 <emu-clause id="sec-control-abstraction-objects">
   <h1>Control Abstraction Objects</h1>
   <ins class="block">
-  <emu-clause id="sec-asyncsnapshot-objects">
-    <h1>AsyncSnapshot Objects</h1>
 
-    <emu-clause id="sec-asyncsnapshot-abstract-operations">
-      <h1>AsyncSnapshot Abstract Operations</h1>
-      <emu-clause id="sec-asynccontext-snapshot" type="abstract operation">
+  <emu-clause id="sec-asynccontext-object">
+    <h1>The AsyncContext Object</h1>
+    <p>The AsyncContext object:</p>
+    <ul>
+      <li>is the intrinsic object <dfn>%AsyncContext%</dfn>.</li>
+      <li>is the initial value of the *"AsyncContext"* property of the global object.</li>
+      <li>is an ordinary object.</li>
+      <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
+      <li>is not a function object.</li>
+      <li>does not have a [[Construct]] internal method; it cannot be used as a constructor with the `new` operator.</li>
+      <li>does not have a [[Call]] internal method; it cannot be invoked as a function.</li>
+    </ul>
+
+    <emu-clause id="sec-asynccontext-abstract-operations">
+      <h1>AsyncContext Abstract Operations</h1>
+      <emu-clause id="sec-asynccontextsnapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
           ): a List of Async Context Mapping Records
@@ -266,7 +277,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynccontext-swap" type="abstract operation">
+      <emu-clause id="sec-asynccontextswap" type="abstract operation">
         <h1>
           AsyncContextSwap (
             _snapshotMapping_: a List of Async Context Mapping Records
@@ -285,50 +296,66 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-asyncsnapshot-constructor">
-      <h1>The AsyncSnapshot Constructor</h1>
-      <p>The AsyncSnapshot constructor:</p>
+    <emu-clause id="sec-properties-of-the-asynccontext-object">
+      <h1>Constructor Properties of the AsyncContext Object</h1>
+
+      <emu-clause id="sec-asynccontext.snapshot">
+        <h1>AsyncContext.Snapshot ( . . . )</h1>
+        <p>See <emu-xref href="#sec-asynccontext-snapshot-objects"></emu-xref>.</p>
+      </emu-clause>
+
+      <emu-clause id="sec-asynccontext.variable">
+        <h1>AsyncContext.Variable ( . . . )</h1>
+        <p>See <emu-xref href="#sec-asynccontext-variable-objects"></emu-xref>.</p>
+      </emu-clause>
+    </emu-clause>
+  </emu-clause>
+
+  <emu-clause id="sec-asynccontext-snapshot-objects">
+    <h1>AsyncContext.Snapshot Objects</h1>
+
+    <emu-clause id="sec-asynccontext-snapshot-constructor">
+      <h1>The AsyncContext.Snapshot Constructor</h1>
+      <p>The AsyncContext.Snapshot constructor:</p>
       <ul>
-        <li>is <dfn>%AsyncSnapshot%</dfn>.</li>
-        <li>is the initial value of the *"AsyncSnapshot"* property of the global object.</li>
-        <li>creates and initializes a new AsyncSnapshot when called as a constructor.</li>
+        <li>is <dfn>%AsyncContext.Snapshot%</dfn>.</li>
+        <li>is the initial value of the *"AsyncContext.Snapshot"* property of the %AsyncContext% object.</li>
+        <li>creates and initializes a new AsyncContext.Snapshot when called as a constructor.</li>
         <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncSnapshot behaviour must include a `super` call to the AsyncSnapshot constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncSnapshot` and `AsyncSnapshot.prototype` built-in methods.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncContext.Snapshot behaviour must include a `super` call to the AsyncContext.Snapshot constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncContext.Snapshot` and `AsyncContext.Snapshot.prototype` built-in methods.</li>
       </ul>
 
-      <emu-clause id="sec-asyncsnapshot">
-        <h1>AsyncSnapshot ( )</h1>
+      <emu-clause id="sec-asynccontext-snapshot">
+        <h1>AsyncContext.Snapshot ( )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
           1. Let _snapshotMapping_ be AsyncContextSnapshot().
-          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncSnapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
+          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.Snapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
           1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshotMapping_.
           1. Return _asyncSnapshot_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-the-asyncsnapshot-prototype-object">
-      <h1>Properties of the AsyncSnapshot Prototype Object</h1>
-      <p>The <dfn>AsyncSnapshot prototype object</dfn>:</p>
+    <emu-clause id="sec-properties-of-the-asynccontext-snapshot-prototype-object">
+      <h1>Properties of the AsyncContext.Snapshot Prototype Object</h1>
+      <p>The <dfn>AsyncContext.Snapshot prototype object</dfn>:</p>
       <ul>
-        <li>is <dfn>%AsyncSnapshot.prototype%</dfn>.</li>
+        <li>is <dfn>%AsyncContext.Snapshot.prototype%</dfn>.</li>
         <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
         <li>is an ordinary object.</li>
-        <li>does not have any of the other internal slots of AsyncSnapshot instances.</li>
+        <li>does not have any of the other internal slots of AsyncContext.Snapshot instances.</li>
       </ul>
 
-      <emu-clause id="sec-asyncsnapshot.prototype.restore">
-        <h1>AsyncSnapshot.prototype.restore ( _func_, ..._args_ )</h1>
+      <emu-clause id="sec-asynccontext-snapshot.prototype.restore">
+        <h1>AsyncContext.Snapshot.prototype.restore ( _func_, ..._args_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
-          1. Let _snapshotMapping_ be _asyncSnapshot_.[[AsyncSnapshotMapping]].
-          1. Let _previousContextMapping_ be AsyncContextSnapshot().
-          1. AsyncContextSwap(_snapshotMapping_).
+          1. Let _previousContextMapping_ be AsyncContextSwap(_asyncSnapshot_.[[AsyncSnapshotMapping]]).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
           1. AsyncContextSwap(_previousContextMapping_).
           1. Return _result_.
@@ -336,11 +363,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-asyncsnapshot-instances">
-      <h1>Properties of AsyncSnapshot Instances</h1>
-      <p>AsyncSnapshot instances are ordinary objects that inherit properties from the AsyncSnapshot prototype object (the intrinsic, %AsyncSnapshot.prototype%). AsyncSnapshot instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asyncsnapshot-instances"></emu-xref>.</p>
+    <emu-clause id="sec-properties-of-asynccontext-snapshot-instances">
+      <h1>Properties of AsyncContext.Snapshot Instances</h1>
+      <p>AsyncContext.Snapshot instances are ordinary objects that inherit properties from the AsyncContext.Snapshot prototype object (the intrinsic, %AsyncContext.Snapshot.prototype%). AsyncContext.Snapshot instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-snapshot-instances"></emu-xref>.</p>
 
-      <emu-table id="table-internal-slots-of-asyncsnapshot-instances" caption="Internal Slots of AsyncSnapshot Instances">
+      <emu-table id="table-internal-slots-of-asynccontext-snapshot-instances" caption="Internal Slots of AsyncContext-Snapshot Instances">
         <table>
           <tr>
             <th>
@@ -361,7 +388,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               a List of Async Context Mapping Records
             </td>
             <td>
-              Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncSnapshot instance.
+              Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncContext.Snapshot instance.
             </td>
           </tr>
         </table>
@@ -369,22 +396,22 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
   </emu-clause>
 
-  <emu-clause id="sec-asynclocal-objects">
-    <h1>AsyncLocal Objects</h1>
+  <emu-clause id="sec-asynccontext-variable-objects">
+    <h1>AsyncContext.Variable Objects</h1>
 
-    <emu-clause id="sec-asynclocal-constructor">
-      <h1>The AsyncLocal Constructor</h1>
-      <p>The AsyncLocal constructor:</p>
+    <emu-clause id="sec-asynccontext-variable-constructor">
+      <h1>The AsyncContext.Variable Constructor</h1>
+      <p>The AsyncContext.Variable constructor:</p>
       <ul>
-        <li>is <dfn>%AsyncLocal%</dfn>.</li>
-        <li>is the initial value of the *"AsyncLocal"* property of the global object.</li>
-        <li>creates and initializes a new AsyncLocal when called as a constructor.</li>
+        <li>is <dfn>%AsyncContext.Variable%</dfn>.</li>
+        <li>is the initial value of the *"AsyncContext.Variable"* property of the %AsyncContext% object.</li>
+        <li>creates and initializes a new AsyncContext.Variable when called as a constructor.</li>
         <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncLocal behaviour must include a `super` call to the AsyncLocal constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncLocal.prototype` built-in methods.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified AsyncContext.Variable behaviour must include a `super` call to the AsyncContext.Variable constructor to create and initialize the subclass instance with the internal state necessary to support the `AsyncContext.Variable.prototype` built-in methods.</li>
       </ul>
 
-      <emu-clause id="sec-asynclocal">
-        <h1>AsyncLocal ( _options_ )</h1>
+      <emu-clause id="sec-asynccontext-variable">
+        <h1>AsyncContext.Variable ( _options_ )</h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
@@ -395,40 +422,40 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _namePresent_ be ? HasProperty(_options_, *"name"*).
             1. If _namePresent_ is *true*, then
               1. Let _name_ be ? Get(_options_, *"name"*).
-              1. Let _nameStr_ be ? ToString(_name_).
-            1. Let _defaultValue_ be ? Get(_options_, *"defaultValue"*).
-          1. Let _asyncLocal_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncLocal.prototype%"*, « [[AsyncLocalName]], [[AsyncLocalDefaultValue]] »).
-          1. Set _asyncLocal_.[[AsyncLocalName]] to _nameStr_.
-          1. Set _asyncLocal_.[[AsyncLocalDefaultValue]] to _defaultValue_.
-          1. Return _asyncLocal_.
+              1. Set _nameStr_ to ? ToString(_name_).
+            1. SEt _defaultValue_ to ? Get(_options_, *"defaultValue"*).
+          1. Let _asyncVariable_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.Variable.prototype%"*, « [[AsyncVariableName]], [[AsyncVariableDefaultValue]] »).
+          1. Set _asyncVariable_.[[AsyncVariableName]] to _nameStr_.
+          1. Set _asyncVariable_.[[AsyncVariableDefaultValue]] to _defaultValue_.
+          1. Return _asyncVariable_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-the-asynclocal-prototype-object">
-      <h1>Properties of the AsyncLocal Prototype Object</h1>
-      <p>The <dfn>AsyncLocal prototype object</dfn>:</p>
+    <emu-clause id="sec-properties-of-the-asynccontext-variable-prototype-object">
+      <h1>Properties of the AsyncContext.Variable Prototype Object</h1>
+      <p>The <dfn>AsyncContext.Variable prototype object</dfn>:</p>
       <ul>
-        <li>is <dfn>%AsyncLocal.prototype%</dfn>.</li>
+        <li>is <dfn>%AsyncContext.Variable.prototype%</dfn>.</li>
         <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
         <li>is an ordinary object.</li>
-        <li>does not have any of the other internal slots of AsyncLocal instances.</li>
+        <li>does not have any of the other internal slots of AsyncContext.Variable instances.</li>
       </ul>
 
-      <emu-clause id="sec-asynclocal.prototype.run">
-        <h1>AsyncLocal.prototype.run ( _value_, _func_, ..._args_ )</h1>
+      <emu-clause id="sec-asynccontext-variable.prototype.run">
+        <h1>AsyncContext.Variable.prototype.run ( _value_, _func_, ..._args_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
-          1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
+          1. Let _asyncVariable_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
           1. Let _previousContextMapping_ be AsyncContextSnapshot().
           1. Let _asyncContextMapping_ be a new empty List.
           1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncLocal_) is *false*, then
+            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *false*, then
               1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
               1. Append _q_ to _asyncContextMapping_.
-          1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncLocal_.
-          1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncLocal_, [[AsyncContextValue]]: _value_ }.
+          1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncVariable_.
+          1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncVariable_, [[AsyncContextValue]]: _value_ }.
           1. Append _p_ to _asyncContextMapping_.
           1. AsyncContextSwap(_asyncContextMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
@@ -437,36 +464,36 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynclocal.prototype.name">
-        <h1>get AsyncLocal.prototype.name</h1>
-        <p>`AsyncLocal.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
+      <emu-clause id="sec-asynccontext-variable.prototype.name">
+        <h1>get AsyncContext.Variable.prototype.name</h1>
+        <p>`AsyncContext.Variable.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
         <emu-alg>
-          1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
-          1. Return _asyncLocal_.[[AsyncLocalName]].
+          1. Let _asyncVariable_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
+          1. Return _asyncVariable_.[[AsyncVariableName]].
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynclocal.prototype.get">
-        <h1>AsyncLocal.prototype.get ( )</h1>
+      <emu-clause id="sec-asynccontext-variable.prototype.get">
+        <h1>AsyncContext.Variable.prototype.get ( )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
-          1. Let _asyncLocal_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncLocal_, [[AsyncLocalName]]).
+          1. Let _asyncVariable_ be the *this* value.
+          1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableDefaultValue]]).
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
           1. For each Async Context Mapping Record _p_ of _asyncContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncLocal_) is *true*, return _p_.[[AsyncContextValue]].
-          1. Return _asyncLocal_.[[AsyncLocalDefaultValue]].
+            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *true*, return _p_.[[AsyncContextValue]].
+          1. Return _asyncVariable_.[[AsyncVariableDefaultValue]].
         </emu-alg>
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-asynclocal-instances">
-      <h1>Properties of AsyncLocal Instances</h1>
-      <p>AsyncLocal instances are ordinary objects that inherit properties from the AsyncLocal prototype object (the intrinsic, %AsyncLocal.prototype%). AsyncLocal instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynclocal-instances"></emu-xref>.</p>
+    <emu-clause id="sec-properties-of-asynccontext-variable-instances">
+      <h1>Properties of AsyncContext.Variable Instances</h1>
+      <p>AsyncContext.Variable instances are ordinary objects that inherit properties from the AsyncContext.Variable prototype object (the intrinsic, %AsyncContext.Variable.prototype%). AsyncContext.Variable instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-variable-instances"></emu-xref>.</p>
 
-      <emu-table id="table-internal-slots-of-asynclocal-instances" caption="Internal Slots of AsyncLocal Instances">
+      <emu-table id="table-internal-slots-of-asynccontext-variable-instances" caption="Internal Slots of AsyncContext.Variable Instances">
         <table>
           <tr>
             <th>
@@ -481,24 +508,24 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td>
-              [[AsyncLocalName]]
+              [[AsyncVariableName]]
             </td>
             <td>
               a String
             </td>
             <td>
-              The name of the AsyncLocal instance.
+              The name of the AsyncContext.Variable instance.
             </td>
           </tr>
           <tr>
             <td>
-              [[AsyncLocalDefaultValue]]
+              [[AsyncVariableDefaultValue]]
             </td>
             <td>
               an ECMAScript language value
             </td>
             <td>
-              The default value of the AsyncLocal instance when no entry is found in the mapping.
+              The default value of the AsyncContext.Variable instance when no entry is found in the mapping.
             </td>
           </tr>
         </table>
