@@ -173,7 +173,7 @@ namespace AsyncContext {
   class Snapshot {
     constructor();
 
-    restore<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+    run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
   }
 }
 ```
@@ -227,7 +227,7 @@ function main() {
     // The snapshotDuringTop will restore all AsyncContext.Variable to their snapshot
     // state and invoke the wrapped function. We pass a function which it will
     // invoke.
-    snapshotDuringTop.restore(() => {
+    snapshotDuringTop.run(() => {
       // Despite being lexically nested inside 'C', the snapshot restored us to
       // to the 'top' state.
       console.log(asyncVar.get()); // => 'top'
@@ -250,7 +250,7 @@ let queue = [];
 export function enqueueCallback(cb: () => void) {
   // Each callback is stored with the context at which it was enqueued.
   const snapshot = new AsyncContext.Snapshot();
-  queue.push(() => snapshot.restore(cb));
+  queue.push(() => snapshot.run(cb));
 }
 
 runWhenIdle(() => {
