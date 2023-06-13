@@ -150,7 +150,7 @@ Non-goals:
 
 # Proposed Solution
 
-`AsyncContext.Variable` are designed as a value store for context propagation across
+`AsyncContext` are designed as a value store for context propagation across
 logically-connected sync/async code execution.
 
 ```typescript
@@ -178,12 +178,12 @@ namespace AsyncContext {
 }
 ```
 
-`AsyncContext.Variable.prototype.run()` and `AsyncContext.Variable.prototype.get()` sets and gets
-the current value of an async execution flow. `AsyncContext.Snapshot` allows you
-to opaquely capture the current value of all `AsyncContext.Variable`s and execute a
+`Variable.prototype.run()` and `Variable.prototype.get()` sets and gets
+the current value of an async execution flow. `Snapshot` allows you
+to opaquely capture the current value of all `Variable`s and execute a
 function at a later time with as if those values were still the current values
-(a snapshot and restore). Note that even with `AsyncContext.Snapshot`, you can
-only access the value associated with an `AsyncContext.Variable` instance if you have
+(a snapshot and restore). Note that even with `Snapshot`, you can
+only access the value associated with an `Variable` instance if you have
 access to that instance.
 
 ```typescript
@@ -240,7 +240,7 @@ function randomTimeout() {
 }
 ```
 
-`AsyncContext.Snapshot` is useful for implementing APIs that logically "schedule" a
+`Snapshot` is useful for implementing APIs that logically "schedule" a
 callback, so the callback will be called with the context that it logically
 belongs to, regardless of the context under which it actually runs:
 
@@ -250,9 +250,7 @@ let queue = [];
 export function enqueueCallback(cb: () => void) {
   // Each callback is stored with the context at which it was enqueued.
   const snapshot = new AsyncContext.Snapshot();
-  queue.push(() => {
-    snapshot.restore(cb);
-  });
+  queue.push(() => snapshot.restore(cb));
 }
 
 runWhenIdle(() => {
@@ -266,7 +264,7 @@ runWhenIdle(() => {
 ```
 
 > Note: There are controversial thought on the dynamic scoping and
-> `AsyncContext.Variable`, checkout [SCOPING.md][] for more details.
+> `Variable`, checkout [SCOPING.md][] for more details.
 
 ## Use cases
 
