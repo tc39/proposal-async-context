@@ -160,7 +160,7 @@ namespace AsyncContext {
 
     get name(): string;
 
-    run<R>(value: T, fn: () => R): R;
+    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
 
     get(): T | undefined;
   }
