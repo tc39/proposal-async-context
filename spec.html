@@ -423,7 +423,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. If _namePresent_ is *true*, then
               1. Let _name_ be ? Get(_options_, *"name"*).
               1. Set _nameStr_ to ? ToString(_name_).
-            1. SEt _defaultValue_ to ? Get(_options_, *"defaultValue"*).
+            1. Set _defaultValue_ to ? Get(_options_, *"defaultValue"*).
           1. Let _asyncVariable_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.Variable.prototype%"*, « [[AsyncVariableName]], [[AsyncVariableDefaultValue]] »).
           1. Set _asyncVariable_.[[AsyncVariableName]] to _nameStr_.
           1. Set _asyncVariable_.[[AsyncVariableDefaultValue]] to _defaultValue_.
