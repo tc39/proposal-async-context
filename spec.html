@@ -296,7 +296,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
-    <emu-clause id="sec-properties-of-the-asynccontext-object">
+    <emu-clause id="sec-constructor-properties-of-the-asynccontext-object">
       <h1>Constructor Properties of the AsyncContext Object</h1>
 
       <emu-clause id="sec-asynccontext.snapshot">
@@ -307,6 +307,16 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontext.variable">
         <h1>AsyncContext.Variable ( . . . )</h1>
         <p>See <emu-xref href="#sec-asynccontext-variable-objects"></emu-xref>.</p>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-value-properties-of-the-asynccontext-object">
+      <h1>Value Properties of the AsyncContext Object</h1>
+
+      <emu-clause id="sec-asynccontext-@@tostringtag">
+        <h1>AsyncContext [ @@toStringTag ]</h1>
+        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext"*.</p>
+        <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
   </emu-clause>
@@ -360,6 +370,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. AsyncContextSwap(_previousContextMapping_).
           1. Return _result_.
         </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-asynccontext-snapshot.prototype-@@tostringtag">
+        <h1>AsyncContext.Snapshot.prototype [ @@toStringTag ]</h1>
+        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext.Snapshot"*.</p>
+        <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
 
@@ -486,6 +502,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *true*, return _p_.[[AsyncContextValue]].
           1. Return _asyncVariable_.[[AsyncVariableDefaultValue]].
         </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-asynccontext-variable.prototype-@@tostringtag">
+        <h1>AsyncContext.Variable.prototype [ @@toStringTag ]</h1>
+        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext.Variable"*.</p>
+        <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
 
