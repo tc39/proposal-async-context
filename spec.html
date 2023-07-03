@@ -349,6 +349,21 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
+    <emu-clause id="sec-properties-of-the-asynccontext-snapshot-constructor">
+      <h1>Properties of the AsyncContext.Snapshot Constructor</h1>
+      <p>The AsyncContext.Snapshot constructor:</p>
+      <ul>
+        <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
+        <li>has the following properties:</li>
+      </ul>
+
+      <emu-clause id="sec-asynccontext-snapshot.prototype">
+        <h1>AsyncContext.Snapshot.prototype</h1>
+        <p>The initial value of `AsyncContext.Snapshot.prototype` is the AsyncContext.Snapshot prototype object.</p>
+        <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+      </emu-clause>
+    </emu-clause>
+
     <emu-clause id="sec-properties-of-the-asynccontext-snapshot-prototype-object">
       <h1>Properties of the AsyncContext.Snapshot Prototype Object</h1>
       <p>The <dfn>AsyncContext.Snapshot prototype object</dfn>:</p>
@@ -358,6 +373,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <li>is an ordinary object.</li>
         <li>does not have any of the other internal slots of AsyncContext.Snapshot instances.</li>
       </ul>
+
+      <emu-clause id="sec-asynccontext-snapshot.prototype.constructor">
+        <h1>AsyncContext.Snapshot.prototype.constructor</h1>
+        <p>The initial value of `AsyncContext.Snapshot.prototype.constructor` is %AsyncContext.Snapshot%.</p>
+      </emu-clause>
 
       <emu-clause id="sec-asynccontext-snapshot.prototype.run">
         <h1>AsyncContext.Snapshot.prototype.run ( _func_, ..._args_ )</h1>
@@ -448,6 +468,21 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
+    <emu-clause id="sec-properties-of-the-asynccontext-variable-constructor">
+      <h1>Properties of the AsyncContext.Variable Constructor</h1>
+      <p>The AsyncContext.Variable constructor:</p>
+      <ul>
+        <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
+        <li>has the following properties:</li>
+      </ul>
+
+      <emu-clause id="sec-asynccontext-variable.prototype">
+        <h1>AsyncContext.Variable.prototype</h1>
+        <p>The initial value of `AsyncContext.Variable.prototype` is the AsyncContext.Variable prototype object.</p>
+        <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+      </emu-clause>
+    </emu-clause>
+
     <emu-clause id="sec-properties-of-the-asynccontext-variable-prototype-object">
       <h1>Properties of the AsyncContext.Variable Prototype Object</h1>
       <p>The <dfn>AsyncContext.Variable prototype object</dfn>:</p>
@@ -457,6 +492,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <li>is an ordinary object.</li>
         <li>does not have any of the other internal slots of AsyncContext.Variable instances.</li>
       </ul>
+
+      <emu-clause id="sec-asynccontext-variable.prototype.constructor">
+        <h1>AsyncContext.Variable.prototype.constructor</h1>
+        <p>The initial value of `AsyncContext.Variable.prototype.constructor` is %AsyncContext.Variable%.</p>
+      </emu-clause>
 
       <emu-clause id="sec-asynccontext-variable.prototype.run">
         <h1>AsyncContext.Variable.prototype.run ( _value_, _func_, ..._args_ )</h1>
