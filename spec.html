@@ -298,6 +298,43 @@ contributors: Chengzhong Wu, Justin Ridgewell
 <emu-clause id="sec-control-abstraction-objects">
   <h1>Control Abstraction Objects</h1>
 
+  <emu-clause id="sec-promise-objects">
+    <h1>Promise Objects</h1>
+
+    <emu-clause id="sec-promise-abstract-operations">
+      <h1>Promise Abstract Operations</h1>
+
+      <emu-clause id="sec-host-promise-rejection-tracker" type="host-defined abstract operation">
+        <h1>
+          HostPromiseRejectionTracker (
+            _promise_: a Promise,
+            _operation_: *"reject"* or *"handle"*,
+          ): ~unused~
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It allows host environments to track promise rejections.</dd>
+        </dl>
+        <p>An implementation of HostPromiseRejectionTracker must conform to the following requirements:</p>
+        <ul>
+          <li>It must complete normally (i.e. not return an abrupt completion).</li>
+        </ul>
+        <p>The default implementation of HostPromiseRejectionTracker is to return ~unused~.</p>
+
+        <ins class="block">
+          <emu-note>
+            <p>An implementation of HostPromiseRejectionTracker that delays notifying developers of unhandled rejections must conform to the following requirements</p>
+            <ul>
+              <li>It must perform AsyncContextSnapshot() at the call of HostPromiseRejectionTracker,</li>
+              <li>It must perform AsyncContextSwap before the event notification, with the result of the AsyncContextSnapshot operation,</li>
+              <li>It must perform AsyncContextSwap after the event notification, with the result of the earlier AsyncContextSwap operation.</li>
+            </ul>
+          </emu-note>
+        </ins>
+      </emu-clause>
+    </emu-clause>
+  </emu-clause>
+
   <emu-clause id="sec-generator-objects">
     <h1>Generator Objects</h1>
 
