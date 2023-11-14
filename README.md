@@ -184,13 +184,14 @@ namespace AsyncContext {
 }
 ```
 
+## `AsyncContext.Variable`
+
+`Variable` is a container for a value that is associated with the current
+execution flow. The value is propagated through async execution flows, and
+can be snapshot and restored with `Snapshot`.
+
 `Variable.prototype.run()` and `Variable.prototype.get()` sets and gets
-the current value of an async execution flow. `Snapshot` allows you
-to opaquely capture the current value of all `Variable`s and execute a
-function at a later time with as if those values were still the current values
-(a snapshot and restore). Note that even with `Snapshot`, you can
-only access the value associated with an `Variable` instance if you have
-access to that instance.
+the current value of an async execution flow.
 
 ```typescript
 const asyncVar = new AsyncContext.Variable();
@@ -223,27 +224,53 @@ function main() {
 
   // AsyncContext.Variable was restored after the previous run.
   console.log(asyncVar.get()); // => 'top'
-
-  // Captures the state of all AsyncContext.Variable's at this moment.
-  const snapshotDuringTop = new AsyncContext.Snapshot();
-
-  asyncVar.run("C", () => {
-    console.log(asyncVar.get()); // => 'C'
-
-    // The snapshotDuringTop will restore all AsyncContext.Variable to their snapshot
-    // state and invoke the wrapped function. We pass a function which it will
-    // invoke.
-    snapshotDuringTop.run(() => {
-      // Despite being lexically nested inside 'C', the snapshot restored us to
-      // to the 'top' state.
-      console.log(asyncVar.get()); // => 'top'
-    });
-  });
 }
 
 function randomTimeout() {
   return Math.random() * 1000;
 }
+```
+
+> Note: There are controversial thought on the dynamic scoping and
+> `Variable`, checkout [SCOPING.md][] for more details.
+
+Hosts are expected to use the infrastructure in this proposal to allow tracking
+not only asynchronous callstacks, but other ways to schedule jobs on the event
+loop (such as `setTimeout`) to maximize the value of these use cases.
+
+A detailed example of use cases can be found in the
+[Use cases document](./USE-CASES.md).
+
+## `AsyncContext.Snapshot`
+
+`Snapshot` allows you to opaquely capture the current values of all `Variable`s
+and execute a function at a later time with as if those values were still the
+current values (a snapshot and restore).
+
+Note that even with `Snapshot`, you can only access the value associated with
+an `Variable` instance if you have access to that instance.
+
+```typescript
+const asyncVar = new AsyncContext.Variable();
+
+let snapshot
+asyncVar.run("A", () => {
+  // Captures the state of all AsyncContext.Variable's at this moment.
+  snapshot = new AsyncContext.Snapshot();
+});
+
+asyncVar.run("B", () => {
+  console.log(asyncVar.get()); // => 'B'
+
+  // The snapshot will restore all AsyncContext.Variable to their snapshot
+  // state and invoke the wrapped function. We pass a function which it will
+  // invoke.
+  snapshot.run(() => {
+    // Despite being lexically nested inside 'B', the snapshot restored us to
+    // to the snapshot 'A' state.
+    console.log(asyncVar.get()); // => 'A'
+  });
+});
 ```
 
 `Snapshot` is useful for implementing APIs that logically "schedule" a
@@ -268,16 +295,6 @@ runWhenIdle(() => {
   queue = [];
 });
 ```
-
-> Note: There are controversial thought on the dynamic scoping and
-> `Variable`, checkout [SCOPING.md][] for more details.
-
-Hosts are expected to use the infrastructure in this proposal to allow tracking
-not only asynchronous callstacks, but other ways to schedule jobs on the event
-loop (such as `setTimeout`) to maximize the value of these use cases.
-
-A detailed example of use cases can be found in the
-[Use cases document](./USE-CASES.md).
 
 # Examples
 
@@ -376,6 +393,75 @@ async function doStuffs(text) {
   return text;
 }
 ```
+
+## User-land queues
+
+User-land queues can be implemented with `AsyncContext.Snapshot` to propagate
+the values of all `AsyncContext.Variable`s without access to any of them. This
+allows the user-land queue to be implemented in a way that is decoupled from
+consumers of `AsyncContext.Variable`.
+
+```typescript
+// The scheduler doesn't access to any AsyncContext.Variable.
+const scheduler = {
+  queue: [],
+  postTask(task) {
+    // Each callback is stored with the context at which it was enqueued.
+    const snapshot = new AsyncContext.Snapshot();
+    queue.push(() => snapshot.run(task));
+  },
+  runWhenIdle() {
+    // All callbacks in the queue would be run with the current context if they
+    // hadn't been wrapped.
+    for (const cb of this.queue) {
+      cb();
+    }
+    this.queue = [];
+  }
+};
+
+function userAction() {
+  scheduler.postTask(function userTask() {
+    console.log(traceContext.get());
+  });
+}
+
+// Tracing libraries can use AsyncContext.Variable to store tracing contexts.
+const traceContext = new AsyncContext.Variable();
+traceContext.run("trace-id-a", userAction);
+traceContext.run("trace-id-b", userAction);
+
+runWhenIdle();
+// The userTask will be run with the trace context it was enqueued with.
+// => 'trace-id-a'
+// => 'trace-id-b'
+```
+
+# FAQ
+
+## Why takes a function in `run`?
+
+The `Variable.prototype.run` and `Snapshot.prototype.run` methods take a
+function to execute because it is the a way to ensure async context variables
+will always be consistent values in a given execution flow. Any modification
+must be taken in a sub-graph of an async execution flow, and can not affect
+their parent scopes.
+
+```typescript
+const asyncVar = new AsyncContext.Variable();
+asyncVar.run("A", async () => {
+  asyncVar.get(); // => 'A'
+
+  // ...arbitrary synchronous codes.
+  // ...or await-ed asynchronous calls.
+
+  // The value can not be modified at this point.
+  asyncVar.get(); // => 'A'
+});
+```
+
+This increases the integrity of async context variables, and makes them
+easier to reason about where a value of an async variable comes from.
 
 # Prior Arts
 
