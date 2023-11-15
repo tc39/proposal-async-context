@@ -244,11 +244,11 @@ A detailed example of use cases can be found in the
 ## `AsyncContext.Snapshot`
 
 `Snapshot` allows you to opaquely capture the current values of all `Variable`s
-and execute a function at a later time with as if those values were still the
+and execute a function at a later time as if those values were still the
 current values (a snapshot and restore).
 
 Note that even with `Snapshot`, you can only access the value associated with
-an `Variable` instance if you have access to that instance.
+a `Variable` instance if you have access to that instance.
 
 ```typescript
 const asyncVar = new AsyncContext.Variable();
@@ -439,13 +439,13 @@ runWhenIdle();
 
 # FAQ
 
-## Why takes a function in `run`?
+## Why take a function in `run`?
 
 The `Variable.prototype.run` and `Snapshot.prototype.run` methods take a
-function to execute because it is the a way to ensure async context variables
-will always be consistent values in a given execution flow. Any modification
+function to execute because it ensures async context variables
+will always contain consistent values in a given execution flow. Any modification
 must be taken in a sub-graph of an async execution flow, and can not affect
-their parent scopes.
+their parent or sibling scopes.
 
 ```typescript
 const asyncVar = new AsyncContext.Variable();
