@@ -296,6 +296,9 @@ runWhenIdle(() => {
 });
 ```
 
+A detailed explanation of the requirements can be found in
+[SNAPSHOT.md](./SNAPSHOT.md).
+
 # Examples
 
 ## Determine the initiator of a task
@@ -431,7 +434,7 @@ const traceContext = new AsyncContext.Variable();
 traceContext.run("trace-id-a", userAction);
 traceContext.run("trace-id-b", userAction);
 
-runWhenIdle();
+scheduler.runWhenIdle();
 // The userTask will be run with the trace context it was enqueued with.
 // => 'trace-id-a'
 // => 'trace-id-b'
