@@ -2,30 +2,31 @@
 
 `AsyncContext.Snapshot` presents two unique requirements:
 
-- It does not expose the value associated with a `Variable` instance.
+- It does not expose the value associated with any `Variable` instances.
 - It captures _all_ `Variable`s' current value and restores those values
   at a later time.
 
-The above requirements are essential to decouples a queueing implementation
+The above requirements are essential to decouple a queueing implementation
 from the consumers of `Variable` instances. For example, a scheduler can queue
-an async task and taking a snapshot of the current context:
+an async task and take a snapshot of the current context:
 
 ```typescript
-// The scheduler doesn't access to any AsyncContext.Variable.
+// The scheduler doesn't access any AsyncContext.Variable.
 const scheduler = {
   queue: [],
   postTask(task) {
     // Each callback is stored with the context at which it was enqueued.
     const snapshot = new AsyncContext.Snapshot();
-    queue.push(() => snapshot.run(task));
+    queue.push({ snapshot, task });
   },
   runWhenIdle() {
-    // All callbacks in the queue would be run with the current context if they
-    // hadn't been wrapped.
-    for (const cb of this.queue) {
-      cb();
-    }
+    const queue = this.queue;
     this.queue = [];
+    for (const { snapshot, task } of queue) {
+      // All tasks in the queue would be run with the current context if they
+      // hadn't been wrapped with the snapshot.
+      snapshot.run(task);
+    }
   }
 };
 ```
@@ -36,7 +37,7 @@ consumer of `Variable`. A consumer of `Variable` will not be coupled with a
 specific scheduler as well.
 
 A consumer like a tracer can use `Variable` without knowing how the scheduler
-and how many schedulers are used:
+is implemented:
 
 ```typescript
 // tracer.js

@@ -296,8 +296,8 @@ runWhenIdle(() => {
 });
 ```
 
-A detailed explanation of the requirements can be found in
-[SNAPSHOT.md](./SNAPSHOT.md).
+A detailed explanation of why `AsyncContext.Snapshot` is a requirement can be
+found in [SNAPSHOT.md](./SNAPSHOT.md).
 
 # Examples
 
