@@ -122,7 +122,7 @@ function program() {
 let shared;
 function implicit() {
   // By the time this code is executed, the shared reference has already
-  // been reset. There is no way for `indirect` to solve this because
+  // been reset. There is no way for `implicit` to solve this because
   // because the bug is caused (accidentally) by the `program` function.
   assert.throws(() => {
     assert.equal(shared.key, 123);
