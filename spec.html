@@ -333,7 +333,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
               1. Return ~empty~.
             1. Assert: _promiseCapability_ is a PromiseCapability Record.
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
             1. If _handlerResult_ is an abrupt completion, then
               1. <del>Return ? Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »).</del>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
