@@ -206,7 +206,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-alg>
       <p>ECMAScript hosts that are not web browsers must use the default implementation of HostMakeJobCallback.</p>
       <emu-note>
-        <p>HostMakeJobCallback snapshots the current AsyncContext global state. The snapshot is restored when calling HostCallJobCallback in NewPromiseReactionJob and NewPromiseResolveThenableJob.</p>
+        <p>HostMakeJobCallback snapshots the current AsyncContext global state. The snapshot is restored before calling HostCallJobCallback in NewPromiseReactionJob and NewPromiseResolveThenableJob.</p>
       </emu-note>
     </emu-clause>
   </emu-clause>
