@@ -1013,9 +1013,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. If _targetLen_ is *+∞*<sub>𝔽</sub>, set _L_ to +∞.
               1. Else if _targetLen_ is *-∞*<sub>𝔽</sub>, set _L_ to 0.
               1. Else,
-                1. Let _targetLenAsInt_ be ! ToIntegerOrInfinity(_targetLen_).
-                1. Assert: _targetLenAsInt_ is finite.
-                1. Set _L_ to _targetLenAsInt_.
+                1. Set _L_ be ! ToIntegerOrInfinity(_targetLen_).
+                1. Assert: _L_ is finite.
           1. Perform SetFunctionLength(_F_, _L_).
           1. Let _targetName_ be ? Get(_target_, *"name"*).
           1. If _targetName_ is not a String, set _targetName_ to the empty String.
