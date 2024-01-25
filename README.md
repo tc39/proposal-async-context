@@ -160,27 +160,33 @@ following features as non-goals:
 logically-connected sync/async code execution.
 
 ```typescript
-namespace AsyncContext {
-  class Variable<T> {
-    constructor(options: AsyncVariableOptions<T>);
+interface AsyncContext {
+  Variable: typeof Variable;
 
-    get name(): string;
+  Snapshot: typeof Snapshot;
 
-    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
+  wrap<R>(fn: (...args: any[]) => R): (...args: any[]) => R;
+}
 
-    get(): T | undefined;
-  }
+class Variable<T> {
+  constructor(options: AsyncVariableOptions<T>);
 
-  interface AsyncVariableOptions<T> {
-    name?: string;
-    defaultValue?: T;
-  }
+  get name(): string;
 
-  class Snapshot {
-    constructor();
+  run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
 
-    run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
-  }
+  get(): T | undefined;
+}
+
+interface AsyncVariableOptions<T> {
+  name?: string;
+  defaultValue?: T;
+}
+
+class Snapshot {
+  constructor();
+
+  run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
 }
 ```
 
@@ -298,6 +304,36 @@ runWhenIdle(() => {
 
 A detailed explanation of why `AsyncContext.Snapshot` is a requirement can be
 found in [SNAPSHOT.md](./SNAPSHOT.md).
+
+## `AsyncContext.wrap`
+
+`AsyncContext.wrap` is a helper which captures the current values of all
+`Variable`s and returns a wrapped function. When invoked, this wrapped function
+restores the state of all `Variable`s and executes the inner function.
+
+You can think of this as a more convenient version of `Snapshot`, where only a
+single function needs to be wrapped. It also serves as a convenient way for
+consumers of libraries that don't support `AsyncContext` to ensure that function
+is executed in the correct execution context.
+
+```typescript
+const asyncVar = new AsyncContext.Variable();
+
+function fn() {
+  return asyncVar.get();
+}
+
+let wrappedFn;
+asyncVar.run("A", () => {
+  // Captures the state of all AsyncContext.Variable's at this moment, returning
+  // wrapped closure that restores that state.
+  wrappedFn = AsyncContext.wrap(fn)
+});
+
+
+console.log(fn()); // => undefined
+console.log(wrappedFn()); // => 'A'
+```
 
 # Examples
 
