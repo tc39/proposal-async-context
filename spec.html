@@ -280,9 +280,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </dl>
         <emu-alg>
           1. Let _proto_ be ? <emu-meta effects="user-code">_targetFunction_.[[GetPrototypeOf]]</emu-meta>().
-          1. Let _internalSlotsList_ be the list-concatenation of « [[Prototype]], [[Extensible]] » and the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>.
+          1. Let _internalSlotsList_ be the list-concatenation of « [[Prototype]], [[Extensible]], [[Realm]] » and the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>.
           1. Let _obj_ be MakeBasicObject(_internalSlotsList_).
           1. Set _obj_.[[Prototype]] to _proto_.
+          1. Set _obj_.[[Realm]] to GetFunctionRealm(_targetFunction_).
           1. Set _obj_.[[Call]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-call-thisargument-argumentslist"></emu-xref>.
           1. If IsConstructor(_targetFunction_) is *true*, then
             1. Set _obj_.[[Construct]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-construct-argumentslist-newtarget"></emu-xref>.
