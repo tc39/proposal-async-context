@@ -214,6 +214,71 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <emu-clause id="sec-promise-abstract-operations">
       <h1>Promise Abstract Operations</h1>
 
+      <emu-clause id="sec-promisereaction-records">
+        <h1>PromiseReaction Records</h1>
+        <p>A <dfn variants="PromiseReaction Records">PromiseReaction Record</dfn> is a Record value used to store information about how a promise should react when it becomes resolved or rejected with a given value. PromiseReaction Records are created by the PerformPromiseThen abstract operation, and are used by the Abstract Closure returned by NewPromiseReactionJob.</p>
+        <p>PromiseReaction Records have the fields listed in <emu-xref href="#table-promisereaction-record-fields"></emu-xref>.</p>
+        <emu-table id="table-promisereaction-record-fields" caption="PromiseReaction Record Fields" oldids="table-58">
+          <table>
+            <tr>
+              <th>
+                Field Name
+              </th>
+              <th>
+                Value
+              </th>
+              <th>
+                Meaning
+              </th>
+            </tr>
+            <tr>
+              <td>
+                [[Capability]]
+              </td>
+              <td>
+                a PromiseCapability Record or *undefined*
+              </td>
+              <td>
+                The capabilities of the promise for which this record provides a reaction handler.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                [[Type]]
+              </td>
+              <td>
+                ~fulfill~ or ~reject~
+              </td>
+              <td>
+                The [[Type]] is used when [[Handler]] is ~empty~ to allow for behaviour specific to the settlement type.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                [[Handler]]
+              </td>
+              <td>
+                a JobCallback Record or ~empty~
+              </td>
+              <td>
+                The function that should be applied to the incoming value, and whose return value will govern what happens to the derived promise. If [[Handler]] is ~empty~, a function that depends on the value of [[Type]] will be used instead.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[AsyncContextSnapshot]]</ins>
+              </td>
+              <td>
+                <ins>a List of Async Context Mapping Records</ins>
+              </td>
+              <td>
+                <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              </td>
+            </tr>
+          </table>
+        </emu-table>
+      </emu-clause>
+
       <emu-clause id="sec-host-promise-rejection-tracker" type="host-defined abstract operation">
         <h1>
           HostPromiseRejectionTracker (
