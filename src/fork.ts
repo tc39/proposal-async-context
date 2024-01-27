@@ -1,5 +1,5 @@
 import type { Mapping } from "./mapping";
-import type { Variable } from "./Variable";
+import type { Variable } from "./variable";
 
 /**
  * FrozenRevert holds a frozen Mapping that will be simply restored when the
