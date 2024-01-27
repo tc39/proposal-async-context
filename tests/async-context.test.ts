@@ -16,7 +16,7 @@ function test(name: string, fn: () => void) {
     fn();
 
     // Ensure we're running from a new state, which won't be frozen.
-    const throwaway = new AsyncContext<null>();
+    const throwaway = new AsyncContext.Variable<null>();
     throwaway.run(null, fn);
 
     throwaway.run(null, () => {
@@ -31,7 +31,7 @@ function test(name: string, fn: () => void) {
 describe("sync", () => {
   describe("run and get", () => {
     test("has initial undefined state", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
 
       const actual = ctx.get();
 
@@ -39,7 +39,7 @@ describe("sync", () => {
     });
 
     test("return value", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const expected = { id: 1 };
 
       const actual = ctx.run({ id: 2 }, () => expected);
@@ -48,7 +48,7 @@ describe("sync", () => {
     });
 
     test("get returns current context value", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const expected = { id: 1 };
 
       ctx.run(expected, () => {
@@ -57,7 +57,7 @@ describe("sync", () => {
     });
 
     test("get within nesting contexts", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -72,8 +72,8 @@ describe("sync", () => {
     });
 
     test("get within nesting different contexts", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -94,7 +94,7 @@ describe("sync", () => {
 
   describe("wrap", () => {
     test("stores initial undefined state", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const wrapped = AsyncContext.wrap(() => ctx.get());
 
       ctx.run({ id: 1 }, () => {
@@ -103,7 +103,7 @@ describe("sync", () => {
     });
 
     test("stores current state", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const expected = { id: 1 };
 
       const wrap = ctx.run(expected, () => {
@@ -118,7 +118,7 @@ describe("sync", () => {
     });
 
     test("runs within wrap", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -157,7 +157,7 @@ describe("sync", () => {
     });
 
     test("runs within wrap", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -196,8 +196,8 @@ describe("sync", () => {
     });
 
     test("runs different context within wrap", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -242,8 +242,8 @@ describe("sync", () => {
     });
 
     test("runs different context within wrap, 2", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -288,7 +288,7 @@ describe("sync", () => {
     });
 
     test("wrap within nesting contexts", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -323,8 +323,8 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 
@@ -365,9 +365,9 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts, 2", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const c = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
+      const c = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
       const third = { id: 3 };
@@ -403,9 +403,9 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts, 3", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const c = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
+      const c = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
       const third = { id: 3 };
@@ -443,9 +443,9 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts, 4", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const c = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
+      const c = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
       const third = { id: 3 };
@@ -483,9 +483,9 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts, 5", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const c = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
+      const c = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
       const third = { id: 3 };
@@ -524,9 +524,9 @@ describe("sync", () => {
     });
 
     test("wrap within nesting different contexts, 6", () => {
-      const a = new AsyncContext<Value>();
-      const b = new AsyncContext<Value>();
-      const c = new AsyncContext<Value>();
+      const a = new AsyncContext.Variable<Value>();
+      const b = new AsyncContext.Variable<Value>();
+      const c = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
       const third = { id: 3 };
@@ -565,7 +565,7 @@ describe("sync", () => {
     });
 
     test("wrap out of order", () => {
-      const ctx = new AsyncContext<Value>();
+      const ctx = new AsyncContext.Variable<Value>();
       const first = { id: 1 };
       const second = { id: 2 };
 

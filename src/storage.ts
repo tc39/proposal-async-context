@@ -1,36 +1,44 @@
 import { Mapping } from "./mapping";
 import { FrozenRevert, Revert } from "./fork";
-import type { AsyncContext } from "./index";
+
+import type { Variable } from "./variable";
 
 /**
  * Storage is the (internal to the language) storage container of all
- * AsyncContext data.
+ * Variable data.
  *
- * None of the methods here are exposed to users, they're only exposed to the AsyncContext class.
+ * None of the methods here are exposed to users, they're only exposed internally.
  */
 export class Storage {
-  static #current: Mapping = new Mapping(null);
+  static #current: Mapping = new Mapping(new Map());
 
   /**
-   * Get retrieves the current value assigned to the AsyncContext.
+   * Has checks if the Variable has a value.
    */
-  static get<T>(key: AsyncContext<T>): T | undefined {
+  static has<T>(key: Variable<T>): boolean {
+    return this.#current.has(key);
+  }
+
+  /**
+   * Get retrieves the current value assigned to the Variable.
+   */
+  static get<T>(key: Variable<T>): T | undefined {
     return this.#current.get(key);
   }
 
   /**
-   * Set assigns a new value to the AsyncContext, returning a revert that can
+   * Set assigns a new value to the Variable, returning a revert that can
    * undo the modification at a later time.
    */
-  static set<T>(key: AsyncContext<T>, value: T): FrozenRevert | Revert<T> {
+  static set<T>(key: Variable<T>, value: T): FrozenRevert | Revert<T> {
     // If the Mappings are frozen (someone has snapshot it), then modifying the
     // mappings will return a clone containing the modification.
     const current = this.#current;
-    const undo = current.isFrozen()
+    const revert = current.isFrozen()
       ? new FrozenRevert(current)
-      : new Revert(current, key);
+      : new Revert<T>(current, key);
     this.#current = this.#current.set(key, value);
-    return undo;
+    return revert;
   }
 
   /**

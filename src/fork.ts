@@ -1,5 +1,5 @@
 import type { Mapping } from "./mapping";
-import type { AsyncContext } from "./index";
+import type { Variable } from "./Variable";
 
 /**
  * FrozenRevert holds a frozen Mapping that will be simply restored when the
@@ -40,11 +40,11 @@ export class FrozenRevert {
  * clone to the prior state.
  */
 export class Revert<T> {
-  #key: AsyncContext<T>;
+  #key: Variable<T>;
   #has: boolean;
   #prev: T | undefined;
 
-  constructor(mapping: Mapping, key: AsyncContext<T>) {
+  constructor(mapping: Mapping, key: Variable<T>) {
     this.#key = key;
     this.#has = mapping.has(key);
     this.#prev = mapping.get(key);

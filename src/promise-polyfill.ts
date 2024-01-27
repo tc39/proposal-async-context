@@ -1,10 +1,10 @@
 import { AsyncContext } from "./index";
 
-type AnyFunc = (...args: any) => any;
+import type { AnyFunc } from "./types";
 
 export const nativeThen = Promise.prototype.then;
 
-function wrapFn<F extends AnyFunc>(fn: F | null | undefined) {
+function wrapFn<F extends AnyFunc<any>>(fn: F | null | undefined) {
   if (typeof fn !== "function") return undefined;
   return AsyncContext.wrap(fn);
 }
