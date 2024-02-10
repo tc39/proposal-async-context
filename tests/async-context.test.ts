@@ -20,7 +20,7 @@ function test(name: string, fn: () => void) {
     throwaway.run(null, fn);
 
     throwaway.run(null, () => {
-      AsyncContext.wrap(() => {});
+      AsyncContext.Snapshot.wrap(() => {});
 
       // Ensure we're running from a new state, which is frozen.
       fn();
@@ -95,7 +95,7 @@ describe("sync", () => {
   describe("wrap", () => {
     test("stores initial undefined state", () => {
       const ctx = new AsyncContext.Variable<Value>();
-      const wrapped = AsyncContext.wrap(() => ctx.get());
+      const wrapped = AsyncContext.Snapshot.wrap(() => ctx.get());
 
       ctx.run({ id: 1 }, () => {
         assert.equal(wrapped(), undefined);
@@ -107,7 +107,7 @@ describe("sync", () => {
       const expected = { id: 1 };
 
       const wrap = ctx.run(expected, () => {
-        const wrap = AsyncContext.wrap(() => ctx.get());
+        const wrap = AsyncContext.Snapshot.wrap(() => ctx.get());
         assert.equal(wrap(), expected);
         assert.equal(ctx.get(), expected);
         return wrap;
@@ -123,7 +123,7 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [wrap1, wrap2] = ctx.run(first, () => {
-        const wrap1 = AsyncContext.wrap(() => {
+        const wrap1 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
 
           ctx.run(second, () => {
@@ -138,7 +138,7 @@ describe("sync", () => {
           assert.equal(ctx.get(), second);
         });
 
-        const wrap2 = AsyncContext.wrap(() => {
+        const wrap2 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
 
           ctx.run(second, () => {
@@ -162,7 +162,7 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [wrap1, wrap2] = ctx.run(first, () => {
-        const wrap1 = AsyncContext.wrap(() => {
+        const wrap1 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
 
           ctx.run(second, () => {
@@ -177,7 +177,7 @@ describe("sync", () => {
           assert.equal(ctx.get(), second);
         });
 
-        const wrap2 = AsyncContext.wrap(() => {
+        const wrap2 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
 
           ctx.run(second, () => {
@@ -202,7 +202,7 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [wrap1, wrap2] = a.run(first, () => {
-        const wrap1 = AsyncContext.wrap(() => {
+        const wrap1 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(a.get(), first);
           assert.equal(b.get(), undefined);
 
@@ -217,7 +217,7 @@ describe("sync", () => {
 
         a.run(second, () => {});
 
-        const wrap2 = AsyncContext.wrap(() => {
+        const wrap2 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(a.get(), first);
           assert.equal(b.get(), undefined);
 
@@ -248,7 +248,7 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [wrap1, wrap2] = a.run(first, () => {
-        const wrap1 = AsyncContext.wrap(() => {
+        const wrap1 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(a.get(), first);
           assert.equal(b.get(), undefined);
 
@@ -263,7 +263,7 @@ describe("sync", () => {
 
         b.run(second, () => {});
 
-        const wrap2 = AsyncContext.wrap(() => {
+        const wrap2 = AsyncContext.Snapshot.wrap(() => {
           assert.equal(a.get(), first);
           assert.equal(b.get(), undefined);
 
@@ -293,13 +293,13 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [firstWrap, secondWrap] = ctx.run(first, () => {
-        const firstWrap = AsyncContext.wrap(() => {
+        const firstWrap = AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
         });
         firstWrap();
 
         const secondWrap = ctx.run(second, () => {
-          const secondWrap = AsyncContext.wrap(() => {
+          const secondWrap = AsyncContext.Snapshot.wrap(() => {
             firstWrap();
             assert.equal(ctx.get(), second);
           });
@@ -329,14 +329,14 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const [firstWrap, secondWrap] = a.run(first, () => {
-        const firstWrap = AsyncContext.wrap(() => {
+        const firstWrap = AsyncContext.Snapshot.wrap(() => {
           assert.equal(a.get(), first);
           assert.equal(b.get(), undefined);
         });
         firstWrap();
 
         const secondWrap = b.run(second, () => {
-          const secondWrap = AsyncContext.wrap(() => {
+          const secondWrap = AsyncContext.Snapshot.wrap(() => {
             firstWrap();
             assert.equal(a.get(), first);
             assert.equal(b.get(), second);
@@ -375,7 +375,7 @@ describe("sync", () => {
       const wrap = a.run(first, () => {
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            return AsyncContext.wrap(() => {
+            return AsyncContext.Snapshot.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
               assert.equal(c.get(), third);
@@ -412,10 +412,10 @@ describe("sync", () => {
 
       const wrap = a.run(first, () => {
         const wrap = b.run(second, () => {
-          AsyncContext.wrap(() => {});
+          AsyncContext.Snapshot.wrap(() => {});
 
           const wrap = c.run(third, () => {
-            return AsyncContext.wrap(() => {
+            return AsyncContext.Snapshot.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
               assert.equal(c.get(), third);
@@ -451,11 +451,11 @@ describe("sync", () => {
       const third = { id: 3 };
 
       const wrap = a.run(first, () => {
-        AsyncContext.wrap(() => {});
+        AsyncContext.Snapshot.wrap(() => {});
 
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            return AsyncContext.wrap(() => {
+            return AsyncContext.Snapshot.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
               assert.equal(c.get(), third);
@@ -493,14 +493,14 @@ describe("sync", () => {
       const wrap = a.run(first, () => {
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            return AsyncContext.wrap(() => {
+            return AsyncContext.Snapshot.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
               assert.equal(c.get(), third);
             });
           });
 
-          AsyncContext.wrap(() => {});
+          AsyncContext.Snapshot.wrap(() => {});
 
           assert.equal(a.get(), first);
           assert.equal(b.get(), second);
@@ -534,7 +534,7 @@ describe("sync", () => {
       const wrap = a.run(first, () => {
         const wrap = b.run(second, () => {
           const wrap = c.run(third, () => {
-            return AsyncContext.wrap(() => {
+            return AsyncContext.Snapshot.wrap(() => {
               assert.equal(a.get(), first);
               assert.equal(b.get(), second);
               assert.equal(c.get(), third);
@@ -546,7 +546,7 @@ describe("sync", () => {
           return wrap;
         });
 
-        AsyncContext.wrap(() => {});
+        AsyncContext.Snapshot.wrap(() => {});
 
         assert.equal(a.get(), first);
         assert.equal(b.get(), undefined);
@@ -570,12 +570,12 @@ describe("sync", () => {
       const second = { id: 2 };
 
       const firstWrap = ctx.run(first, () => {
-        return AsyncContext.wrap(() => {
+        return AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), first);
         });
       });
       const secondWrap = ctx.run(second, () => {
-        return AsyncContext.wrap(() => {
+        return AsyncContext.Snapshot.wrap(() => {
           assert.equal(ctx.get(), second);
         });
       });
