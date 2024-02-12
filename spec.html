@@ -212,135 +212,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 </emu-clause>
 
-<emu-clause id="sec-ordinary-and-exotic-objects-behaviours">
-  <h1>Ordinary and Exotic Objects Behaviours</h1>
-  <emu-clause id="sec-built-in-exotic-object-internal-methods-and-slots">
-    <h1>Built-in Exotic Object Internal Methods and Slots</h1>
-
-    <ins class="block">
-    <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects">
-      <h1>AsyncContext Wrapped Function Exotic Objects</h1>
-
-      <emu-note>
-        <p>This is based on <emu-xref href="#sec-bound-function-exotic-objects"></emu-xref></p>
-      </emu-note>
-
-      <p>An AsyncContext wrapped function exotic object is an exotic object that wraps another function object. An AsyncContext wrapped function exotic object is callable (it has a [[Call]] internal method and may have a [[Construct]] internal method). Calling an AsyncContext wrapped function exotic object generally results in a call of its wrapped function.</p>
-
-      <p>An object is a <dfn id="asynccontext-wrapped-function-exotic-object" variants="async context wrapped function exotic objects">AsyncContext wrapped function exotic object</dfn> if its [[Call]] and (if applicable) [[Construct]] internal methods use the following implementations, and its other essential internal methods use the definitions found in Ordinary Object Internal Methods and Internal Slots. These methods are installed in AsyncContextWrappedFunctionCreate.</p>
-
-      <p>Async context wrapped function exotic objects do not have the internal slots of ECMAScript function objects listed in Internal Slots of ECMAScript Function Objects. Instead they have the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>, in addition to [[Prototype]] and [[Extensible]].</p>
-      <emu-table id="table-internal-slots-of-asynccontext-wrapped-function-exotic-objects" caption="Internal Slots of AsyncContext Wrapped Function Exotic Objects">
-        <table>
-          <tr>
-            <th>
-              Internal Slot
-            </th>
-            <th>
-              Type
-            </th>
-            <th>
-              Description
-            </th>
-          </tr>
-          <tr>
-            <td>
-              [[WrappedTargetFunction]]
-            </td>
-            <td>
-              a callable Object
-            </td>
-            <td>
-              The wrapped function object.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              [[WrappedAsyncContextSnapshot]]
-            </td>
-            <td>
-              a List of Records with fields [[AsyncContextKey]] (a Symbol) and [[AsyncContextValue]] (an ECMAScript language value)
-            </td>
-            <td>
-              A map from the AsyncContext's key symbol to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].
-            </td>
-          </tr>
-        </table>
-      </emu-table>
-      <emu-clause id="sec-asynccontext-wrappedfunctioncreate" type="abstract operation">
-        <h1>
-          AsyncContextWrappedFunctionCreate (
-            _targetFunction_: a function object,
-            _snapshot_: a List of Async Context Mapping Records,
-          ): either a normal completion containing a function object or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>description</dt>
-          <dd>It is used to specify the creation of new AsyncContext wrapped function exotic objects.</dd>
-        </dl>
-        <emu-alg>
-          1. Let _proto_ be ? <emu-meta effects="user-code">_targetFunction_.[[GetPrototypeOf]]</emu-meta>().
-          1. Let _internalSlotsList_ be the list-concatenation of « [[Prototype]], [[Extensible]], [[Realm]] » and the internal slots listed in <emu-xref href="#table-internal-slots-of-asynccontext-wrapped-function-exotic-objects"></emu-xref>.
-          1. Let _obj_ be MakeBasicObject(_internalSlotsList_).
-          1. Set _obj_.[[Prototype]] to _proto_.
-          1. Set _obj_.[[Realm]] to GetFunctionRealm(_targetFunction_).
-          1. Set _obj_.[[Call]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-call-thisargument-argumentslist"></emu-xref>.
-          1. If IsConstructor(_targetFunction_) is *true*, then
-            1. Set _obj_.[[Construct]] as described in <emu-xref href="#sec-asynccontext-wrapped-function-exotic-objects-construct-argumentslist-newtarget"></emu-xref>.
-          1. Set _obj_.[[WrappedTargetFunction]] to _targetFunction_.
-          1. Set _obj_.[[WrappedAsyncContextSnapshot]] to _snapshot_.
-          1. Return _obj_.
-        </emu-alg>
-      </emu-clause>
-
-      <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects-call-thisargument-argumentslist" type="internal method">
-        <h1>
-          [[Call]] (
-            _thisArgument_: an ECMAScript language value,
-            _argumentsList_: a List of ECMAScript language values,
-          ): either a normal completion containing an ECMAScript language value or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>for</dt>
-          <dd>an AsyncContext wrapped function exotic object _F_</dd>
-        </dl>
-        <emu-alg>
-          1. Let _target_ be F.[[WrappedTargetFunction]].
-          1. Let _snapshot_ be F.[[WrappedAsyncContextSnapshot]].
-          1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
-          1. Let _result_ be Completion(Call(_target_, _thisArgument_, _argumentsList_)).
-          1. AsyncContextSwap(_previousContextMapping_).
-          1. Return _result_.
-        </emu-alg>
-      </emu-clause>
-
-      <emu-clause id="sec-asynccontext-wrapped-function-exotic-objects-construct-argumentslist-newtarget" type="internal method">
-        <h1>
-          [[Construct]] (
-            _argumentsList_: a List of ECMAScript language values,
-            _newTarget_: a constructor,
-          ): either a normal completion containing an Object or a throw completion
-        </h1>
-        <dl class="header">
-          <dt>for</dt>
-          <dd>an AsyncContext wrapped function exotic object _F_</dd>
-        </dl>
-        <emu-alg>
-          1. Let _target_ be _F_.[[WrappedTargetFunction]].
-          1. Assert: IsConstructor(_target_) is *true*.
-          1. Let _snapshot_ be F.[[WrappedAsyncContextSnapshot]].
-          1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
-          1. If SameValue(_F_, _newTarget_) is *true*, set _newTarget_ to _target_.
-          1. Let _result_ be Completion(Construct(_target_, _argumentsList_, _newTarget_)).
-          1. AsyncContextSwap(_previousContextMapping_).
-          1. Return _result_.
-        </emu-alg>
-      </emu-clause>
-    </emu-clause>
-    </ins>
-  </emu-clause>
-</emu-clause>
-
 <emu-clause id="sec-ecmascript-language-functions-and-classes">
   <h1>ECMAScript Language: Functions and Classes</h1>
 
@@ -994,36 +865,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
-
-    <emu-clause id="sec-function-properties-of-the-asynccontext-object">
-      <h1>Function Properties of the AsyncContext Object</h1>
-
-      <emu-clause id="sec-asynccontext-wrap">
-        <h1>AsyncContext.wrap ( _target_ )</h1>
-        <p>This function returns a new function which restores the current value of all AsyncContext.Variable values when being invoked.</p>
-
-        <emu-alg>
-          1. If IsCallable(_target_) is false, throw a TypeError exception.
-          1. Let _snapshot_ be AsyncContextSnapshot().
-          1. Let _F_ be ? AsyncContextWrappedFunctionCreate(_target_, _snapshot_).
-          1. Let _L_ be 0.
-          1. Let _targetHasLength_ be ? HasOwnProperty(_target_, *"length"*).
-          1. If _targetHasLength_ is *true*, then
-            1. Let _targetLen_ be ? Get(_target_, *"length"*).
-            1. If _targetLen_ is a Number, then
-              1. If _targetLen_ is *+∞*<sub>𝔽</sub>, set _L_ to +∞.
-              1. Else if _targetLen_ is *-∞*<sub>𝔽</sub>, set _L_ to 0.
-              1. Else,
-                1. Set _L_ be ! ToIntegerOrInfinity(_targetLen_).
-                1. Assert: _L_ is finite.
-          1. Perform SetFunctionLength(_F_, _L_).
-          1. Let _targetName_ be ? Get(_target_, *"name"*).
-          1. If _targetName_ is not a String, set _targetName_ to the empty String.
-          1. Perform SetFunctionName(_F_, _targetName_, *"wrapped"*).
-          1. Return _F_.
-        </emu-alg>
-      </emu-clause>
-    </emu-clause>
   </emu-clause>
 
   <emu-clause id="sec-asynccontext-snapshot-objects">
@@ -1066,6 +907,30 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <h1>AsyncContext.Snapshot.prototype</h1>
         <p>The initial value of `AsyncContext.Snapshot.prototype` is the AsyncContext.Snapshot prototype object.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-function-properties-of-the-asynccontext-snapshot-object">
+      <h1>Function Properties of the AsyncContext.Snapshot Object</h1>
+
+      <emu-clause id="sec-asynccontext-wrap">
+        <h1>AsyncContext.Snapshot.wrap ( _fn_ )</h1>
+        <p>This function returns a new function which restores the current value of all AsyncContext.Variable values when being invoked.</p>
+
+        <emu-alg>
+          1. If IsCallable(_fn_) is false, throw a TypeError exception.
+          1. Let _snapshot_ be AsyncContextSnapshot().
+          1. Let _closure_ be a new Abstract Closure with parameters (..._args_) that captures _snapshot_ and performs the following steps when called:
+            1. Let _thisArgument_ be the *this* value.
+            1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
+            1. Let _result_ be Completion(Call(_fn_, _thisArgument_, _args_)).
+            1. AsyncContextSwap(_previousContextMapping_).
+            1. Return _result_.
+          1. Let _length_ be ? LengthOfArrayLike(_fn_).
+          1. Let _name_ be ? Get(_fn_, *"name"*).
+          1. If _name_ is not a String, set _name_ to the empty String.
+          1. Return CreateBuiltinFunction(_closure_, _length_, _name_, &laquo; &raquo;).
+        </emu-alg>
       </emu-clause>
     </emu-clause>
 

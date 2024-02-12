@@ -160,33 +160,23 @@ following features as non-goals:
 logically-connected sync/async code execution.
 
 ```typescript
-interface AsyncContext {
-  Variable: typeof Variable;
+namespace AsyncContext {
+  class Variable<T> {
+    constructor(options: AsyncVariableOptions<T>);
+    get name(): string;
+    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
+    get(): T | undefined;
+  }
+  interface AsyncVariableOptions<T> {
+    name?: string;
+    defaultValue?: T;
+  }
 
-  Snapshot: typeof Snapshot;
-
-  wrap<R>(fn: (...args: any[]) => R): (...args: any[]) => R;
-}
-
-class Variable<T> {
-  constructor(options: AsyncVariableOptions<T>);
-
-  get name(): string;
-
-  run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
-
-  get(): T | undefined;
-}
-
-interface AsyncVariableOptions<T> {
-  name?: string;
-  defaultValue?: T;
-}
-
-class Snapshot {
-  constructor();
-
-  run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+  class Snapshot {
+    constructor();
+    run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
+    wrap<T, R>(fn: (this: T, ...args: any[]) => R): (this: T, ...args: any[]) => R;
+  }
 }
 ```
 
@@ -305,9 +295,9 @@ runWhenIdle(() => {
 A detailed explanation of why `AsyncContext.Snapshot` is a requirement can be
 found in [SNAPSHOT.md](./SNAPSHOT.md).
 
-## `AsyncContext.wrap`
+### `AsyncContext.Snapshot.wrap`
 
-`AsyncContext.wrap` is a helper which captures the current values of all
+`AsyncContext.Snapshot.wrap` is a helper which captures the current values of all
 `Variable`s and returns a wrapped function. When invoked, this wrapped function
 restores the state of all `Variable`s and executes the inner function.
 
@@ -327,7 +317,7 @@ let wrappedFn;
 asyncVar.run("A", () => {
   // Captures the state of all AsyncContext.Variable's at this moment, returning
   // wrapped closure that restores that state.
-  wrappedFn = AsyncContext.wrap(fn)
+  wrappedFn = AsyncContext.Snapshot.wrap(fn)
 });
 
 
