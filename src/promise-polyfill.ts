@@ -3,10 +3,11 @@ import { AsyncContext } from "./index";
 import type { AnyFunc } from "./types";
 
 export const nativeThen = Promise.prototype.then;
+const { wrap } = AsyncContext.Snapshot;
 
 function wrapFn<F extends AnyFunc<any>>(fn: F | null | undefined) {
   if (typeof fn !== "function") return undefined;
-  return AsyncContext.wrap(fn);
+  return wrap(fn);
 }
 
 export function then<T>(
