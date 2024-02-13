@@ -15,11 +15,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
     <ins class="block">
     <emu-clause id="sec-asynccontext-mapping-record-specification-type">
-      <h1>The Async Context Mapping Record Specification Type</h1>
-      <p>The <dfn variants="Async Context Mapping Records">Async Context Mapping Record</dfn> type is used to represent an AsyncContext.Variable value mapping in the surrounding Agent's [[AsyncContextMapping]].</p>
-      <p>An Async Context Mapping Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
+      <h1>The Async Context Link Record Specification Type</h1>
+      <p>The <dfn variants="Async Context Link Records">Async Context Link Record</dfn> type is used to represent an AsyncContext.Variable value mapping in the surrounding Agent's [[AsyncContextLinkNode]]. It functions as a linked-list, with each successive call to AsyncContext.Variable.prototype.run setting a new head node that points to the previous head node.</p>
+      <p>An Async Context Link Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
 
-      <emu-table id="table-asynccontext-mapping-record-fields" caption="Async Context Mapping Record Fields">
+      <emu-table id="table-asynccontext-mapping-record-fields" caption="Async Context Link Record Fields">
         <table>
           <tr>
             <th>
@@ -54,6 +54,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
               The value of the AsyncContext.Variable instance in the mapping.
             </td>
           </tr>
+          <tr>
+            <td>
+              [[AsyncContextLinkNode]]
+            </td>
+            <td>
+              an Async Context Link Record, or ~empty~
+            </td>
+            <td>
+              A link to the previous head node, if one exists.
+            </td>
+          </tr>
         </table>
       </emu-table>
     </emu-clause>
@@ -70,59 +81,113 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <emu-table id="table-agent-record" caption="Agent Record Fields">
       <table>
         <tr>
-          <th>Field Name</th>
-          <th>Value</th>
-          <th>Meaning</th>
-        </tr>
-        <tr>
-          <td>[[LittleEndian]]</td>
-          <td>a Boolean</td>
-          <td>The default value computed for the <em>isLittleEndian</em> parameter when it is needed by the algorithms GetValueFromBuffer and SetValueInBuffer. The choice is implementation-defined and should be the alternative that is most efficient for the implementation. Once the value has been observed it cannot change.</td>
-        </tr>
-        <tr>
-          <td>[[CanBlock]]</td>
-          <td>a Boolean</td>
-          <td>Determines whether the agent can block or not.</td>
-        </tr>
-        <tr>
-          <td>[[Signifier]]</td>
-          <td>an agent signifier</td>
-          <td>Uniquely identifies the agent within its agent cluster.</td>
-        </tr>
-        <tr>
-          <td>[[IsLockFree1]]</td>
-          <td>a Boolean</td>
-          <td>*true* if atomic operations on one-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.</td>
-        </tr>
-        <tr>
-          <td>[[IsLockFree2]]</td>
-          <td>a Boolean</td>
-          <td>*true* if atomic operations on two-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.</td>
-        </tr>
-        <tr>
-          <td>[[IsLockFree8]]</td>
-          <td>a Boolean</td>
-          <td>*true* if atomic operations on eight-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.</td>
-        </tr>
-        <tr>
-          <td>[[CandidateExecution]]</td>
-          <td>a candidate execution Record</td>
-          <td>See the memory model.</td>
-        </tr>
-        <tr>
-          <td>[[KeptAlive]]</td>
-          <td>a List of Objects</td>
-          <td>Initially a new empty List, representing the list of objects to be kept alive until the end of the current Job</td>
+          <th>
+            Field Name
+          </th>
+          <th>
+            Value
+          </th>
+          <th>
+            Meaning
+          </th>
         </tr>
         <tr>
           <td>
-            <ins>[[AsyncContextMapping]]</ins>
+            [[LittleEndian]]
           </td>
           <td>
-            <ins>a List of Async Context Mapping Records</ins>
+            a Boolean
           </td>
           <td>
-            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
+            The default value computed for the <em>isLittleEndian</em> parameter when it is needed by the algorithms GetValueFromBuffer and SetValueInBuffer. The choice is implementation-defined and should be the alternative that is most efficient for the implementation. Once the value has been observed it cannot change.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[CanBlock]]
+          </td>
+          <td>
+            a Boolean
+          </td>
+          <td>
+            Determines whether the agent can block or not.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[Signifier]]
+          </td>
+          <td>
+            an agent signifier
+          </td>
+          <td>
+            Uniquely identifies the agent within its agent cluster.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[IsLockFree1]]
+          </td>
+          <td>
+            a Boolean
+          </td>
+          <td>
+            *true* if atomic operations on one-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[IsLockFree2]]
+          </td>
+          <td>
+            a Boolean
+          </td>
+          <td>
+            *true* if atomic operations on two-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[IsLockFree8]]
+          </td>
+          <td>
+            a Boolean
+          </td>
+          <td>
+            *true* if atomic operations on eight-<emu-not-ref>byte values</emu-not-ref> are lock-free, *false* otherwise.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[CandidateExecution]]
+          </td>
+          <td>
+            a candidate execution Record
+          </td>
+          <td>
+            See the memory model.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[KeptAlive]]
+          </td>
+          <td>
+            a List of Objects
+          </td>
+          <td>
+            Initially a new empty List, representing the list of objects to be kept alive until the end of the current Job
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <ins>[[AsyncContextLinkNode]]</ins>
+          </td>
+          <td>
+            <ins>an Async Context Link Record, or ~empty~</ins>
+          </td>
+          <td>
+            <ins>Initially ~empty~, a linked-list containing AsyncContext.Variable instances and an ECMAScript language value currently stored by that Variable.</ins>
           </td>
         </tr>
       </table>
@@ -164,10 +229,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>[[AsyncContextSnapshot]]</ins>
             </td>
             <td>
-              <ins>a List of Async Context Mapping Records</ins>
+              <ins>an Async Context Link Record, or ~empty~</ins>
             </td>
             <td>
-              <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              <ins>The value of the surrounding agent's [[AsyncContextLinkNode]] to use the when this Job is invoked.</ins>
             </td>
           </tr>
           <tr>
@@ -201,8 +266,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <p>The default implementation of HostMakeJobCallback performs the following steps when called:</p>
       <emu-alg>
         1. <del>Return the JobCallback Record { [[Callback]]: _callback_, [[HostDefined]]: ~empty~ }.</del>
-        1. <ins>Let _snapshotMapping_ be AsyncContextSnapshot().</ins>
-        1. <ins>Return the JobCallback Record { [[Callback]]: _callback_, [[AsyncContextSnapshot]]: _snapshotMapping_, [[HostDefined]]: ~empty~ }.</ins>
+        1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
+        1. <ins>Return the JobCallback Record { [[Callback]]: _callback_, [[AsyncContextSnapshot]]: _snapshot_, [[HostDefined]]: ~empty~ }.</ins>
       </emu-alg>
       <p>ECMAScript hosts that are not web browsers must use the default implementation of HostMakeJobCallback.</p>
       <emu-note>
@@ -230,7 +295,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-grammar>GeneratorBody : FunctionBody</emu-grammar>
       <emu-alg>
         1. Perform ? FunctionDeclarationInstantiation(_functionObject_, _argumentsList_).
-        1. Let _G_ be ? OrdinaryCreateFromConstructor(_functionObject_, *"%GeneratorFunction.prototype.prototype%"*, « [[GeneratorState]], [[GeneratorContext]], <ins>[[GeneratorAsyncContextMapping]],</ins> [[GeneratorBrand]] »).
+        1. Let _G_ be ? OrdinaryCreateFromConstructor(_functionObject_, *"%GeneratorFunction.prototype.prototype%"*, « [[GeneratorState]], [[GeneratorContext]], <ins>[[GeneratorAsyncContextSnapshot]],</ins> [[GeneratorBrand]] »).
         1. Set _G_.[[GeneratorBrand]] to ~empty~.
         1. Perform GeneratorStart(_G_, |FunctionBody|).
         1. Return Completion Record { [[Type]]: ~return~, [[Value]]: _G_, [[Target]]: ~empty~ }.
@@ -255,7 +320,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-grammar>
       <emu-alg>
         1. Perform ? FunctionDeclarationInstantiation(_functionObject_, _argumentsList_).
-        1. Let _generator_ be ? OrdinaryCreateFromConstructor(_functionObject_, *"%AsyncGeneratorFunction.prototype.prototype%"*, « [[AsyncGeneratorState]], [[AsyncGeneratorContext]], [[AsyncGeneratorQueue]], <ins>[[AsyncGeneratorAsyncContextMapping]],</ins> [[GeneratorBrand]] »).
+        1. Let _generator_ be ? OrdinaryCreateFromConstructor(_functionObject_, *"%AsyncGeneratorFunction.prototype.prototype%"*, « [[AsyncGeneratorState]], [[AsyncGeneratorContext]], [[AsyncGeneratorQueue]], <ins>[[AsyncGeneratorAsyncContextSnapshot]],</ins> [[GeneratorBrand]] »).
         1. Set _generator_.[[GeneratorBrand]] to ~empty~.
         1. Perform AsyncGeneratorStart(_generator_, |FunctionBody|).
         1. Return Completion Record { [[Type]]: ~return~, [[Value]]: _generator_, [[Target]]: ~empty~ }.
@@ -321,7 +386,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _promiseCapability_ be _reaction_.[[Capability]].
             1. Let _type_ be _reaction_.[[Type]].
             1. Let _handler_ be _reaction_.[[Handler]].
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
+            1. <ins>Let _previousContext_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
             1. If _handler_ is ~empty~, then
               1. If _type_ is ~Fulfill~, let _handlerResult_ be NormalCompletion(_argument_).
               1. Else,
@@ -330,7 +395,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Else, let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
             1. If _promiseCapability_ is *undefined*, then
               1. Assert: _handlerResult_ is not an abrupt completion.
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>AsyncContextSwap(_previousContext_).</ins>
               1. Return ~empty~.
             1. Assert: _promiseCapability_ is a PromiseCapability Record.
             1. If _handlerResult_ is an abrupt completion, then
@@ -339,7 +404,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Else,
               1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>AsyncContextSwap(_previousContext_).</ins>
             1. <ins>Return _resolvingFunctionResult_.</ins>
           1. Let _handlerRealm_ be *null*.
           1. If _reaction_.[[Handler]] is not ~empty~, then
@@ -364,14 +429,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, and _then_ and performs the following steps when called:
             1. Let _resolvingFunctions_ be CreateResolvingFunctions(_promiseToResolve_).
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_then_.[[AsyncContextSnapshot]]).</ins>
+            1. <ins>Let _previousContext_ be AsyncContextSwap(_then_.[[AsyncContextSnapshot]]).</ins>
             1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFunctions_.[[Resolve]], _resolvingFunctions_.[[Reject]] »)).
             1. If _thenCallResult_ is an abrupt completion, then
               1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
               1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>AsyncContextSwap(_previousContext_).</ins>
               1. <ins>Return _rejectResult_.</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>AsyncContextSwap(_previousContext_).</ins>
             1. Return ? _thenCallResult_.
           1. Let _getThenRealmResult_ be Completion(GetFunctionRealm(_then_.[[Callback]])).
           1. If _getThenRealmResult_ is a normal completion, let _thenRealm_ be _getThenRealmResult_.[[Value]].
@@ -429,13 +494,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td>
-              <ins>[[GeneratorAsyncContextMapping]]</ins>
+              <ins>[[GeneratorAsyncContextSnapshot]]</ins>
             </td>
             <td>
-              <ins>a List of Async Context Mapping Records</ins>
+              <ins>an Async Context Link Record, or ~empty~</ins>
             </td>
             <td>
-              <ins>The value of the agent's [[AsyncContextMapping]] to use the next time this generator is resumed.</ins>
+              <ins>The value of the surrounding agent's [[AsyncContextLinkNode]] to use the next time this generator is resumed.</ins>
             </td>
           </tr>
           <tr>
@@ -491,7 +556,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Return CreateIterResultObject(_resultValue_, *true*).
           1. Set the code evaluation state of _genContext_ such that when evaluation is resumed for that execution context, _closure_ will be called with no arguments.
           1. Set _generator_.[[GeneratorContext]] to _genContext_.
-          1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>Set _generator_.[[GeneratorAsyncContextSnapshot]] to AsyncContextSnapshot().</ins>
           1. Set _generator_.[[GeneratorState]] to ~suspendedStart~.
           1. Return ~unused~.
         </emu-alg>
@@ -511,7 +576,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Perform ? RequireInternalSlot(_generator_, [[GeneratorBrand]]).
           1. If _generator_.[[GeneratorBrand]] is not _generatorBrand_, throw a *TypeError* exception.
           1. <del>Assert: _generator_ also has a [[GeneratorContext]] internal slot.</del>
-          1. <ins>Assert: _generator_ also has [[GeneratorContext]] and [[GeneratorAsyncContextMapping]] internal slots.</ins>
+          1. <ins>Assert: _generator_ also has [[GeneratorContext]] and [[GeneratorAsyncContextSnapshot]] internal slots.</ins>
           1. Let _state_ be _generator_.[[GeneratorState]].
           1. If _state_ is ~executing~, throw a *TypeError* exception.
           1. Return _state_.
@@ -536,12 +601,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+          1. <ins>Let _previousContext_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextSnapshot]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using NormalCompletion(_value_) as the result of the operation that suspended it. Let _result_ be the value returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextSnapshot]].</ins>
+          1. <ins>AsyncContextSwap(_previousContext_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -571,12 +636,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+          1. <ins>Let _previousContext_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextSnapshot]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _abruptCompletion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextSnapshot]].</ins>
+          1. <ins>AsyncContextSwap(_previousContext_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -593,7 +658,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </dl>
         <emu-alg>
           1. NOTE: _closure_ can contain uses of the Yield operation to yield an IteratorResult object.
-          1. Let _internalSlotsList_ be « [[GeneratorState]], [[GeneratorContext]], <ins>[[GeneratorAsyncContextMapping]],</ins> [[GeneratorBrand]] ».
+          1. Let _internalSlotsList_ be « [[GeneratorState]], [[GeneratorContext]], <ins>[[GeneratorAsyncContextSnapshot]],</ins> [[GeneratorBrand]] ».
           1. Let _generator_ be OrdinaryObjectCreate(_generatorPrototype_, _internalSlotsList_).
           1. Set _generator_.[[GeneratorBrand]] to _generatorBrand_.
           1. Set _generator_.[[GeneratorState]] to *undefined*.
@@ -621,34 +686,69 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-table id="table-internal-slots-of-asyncgenerator-instances" caption="Internal Slots of AsyncGenerator Instances">
         <table>
           <tr>
-            <th>Internal Slot</th>
-            <th>Type</th>
-            <th>Description</th>
+            <th>
+              Internal Slot
+            </th>
+            <th>
+              Type
+            </th>
+            <th>
+              Description
+            </th>
           </tr>
           <tr>
-            <td>[[AsyncGeneratorState]]</td>
-            <td>*undefined*, ~suspendedStart~, ~suspendedYield~, ~executing~, ~awaiting-return~, or ~completed~</td>
-            <td>The current execution state of the async generator.</td>
+            <td>
+              [[AsyncGeneratorState]]
+            </td>
+            <td>
+              *undefined*, ~suspendedStart~, ~suspendedYield~, ~executing~, ~awaiting-return~, or ~completed~
+            </td>
+            <td>
+              The current execution state of the async generator.
+            </td>
           </tr>
           <tr>
-            <td>[[AsyncGeneratorContext]]</td>
-            <td>an execution context</td>
-            <td>The execution context that is used when executing the code of this async generator.</td>
+            <td>
+              [[AsyncGeneratorContext]]
+            </td>
+            <td>
+              an execution context
+            </td>
+            <td>
+              The execution context that is used when executing the code of this async generator.
+            </td>
           </tr>
           <tr>
-            <td>[[AsyncGeneratorQueue]]</td>
-            <td>a List of AsyncGeneratorRequest Records</td>
-            <td>Records which represent requests to resume the async generator. Except during state transitions, it is non-empty if and only if [[AsyncGeneratorState]] is either ~executing~ or ~awaiting-return~.</td>
+            <td>
+              [[AsyncGeneratorQueue]]
+            </td>
+            <td>
+              a List of AsyncGeneratorRequest Records
+            </td>
+            <td>
+              Records which represent requests to resume the async generator. Except during state transitions, it is non-empty if and only if [[AsyncGeneratorState]] is either ~executing~ or ~awaiting-return~.</td>
           </tr>
           <tr>
-            <td><ins>[[AsyncGeneratorAsyncContextMapping]]</ins></td>
-            <td><ins>a List of Async Context Mapping Records</ins></td>
-            <td><ins>The value of the agent's [[AsyncContextMapping]] to use the next time this generator is resumed.</ins></td>
+            <td>
+              <ins>[[AsyncGeneratorAsyncContextSnapshot]]</ins>
+            </td>
+            <td>
+              <ins>an Async Context Link Record, or ~empty~</ins>
+            </td>
+            <td>
+              <ins>The value of the surrounding agent's [[AsyncContextLinkNode]] to use the next time this generator is resumed.</ins>
+            </td>
           </tr>
           <tr>
-            <td>[[GeneratorBrand]]</td>
-            <td>a String or ~empty~</td>
-            <td>A brand used to distinguish different kinds of async generators. The [[GeneratorBrand]] of async generators declared by ECMAScript source text is always ~empty~.</td>
+            <td>
+              [[GeneratorBrand]]
+            </td>
+            <td>
+              a String or ~empty~
+            </td>
+            <td>
+              A brand used to distinguish different kinds of async generators. The [[GeneratorBrand]] of async generators declared by ECMAScript source text is always ~empty~.
+            </td>
           </tr>
         </table>
       </emu-table>
@@ -690,7 +790,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Set _generator_.[[AsyncGeneratorContext]] to _genContext_.
           1. Set _generator_.[[AsyncGeneratorState]] to ~suspendedStart~.
           1. Set _generator_.[[AsyncGeneratorQueue]] to a new empty List.
-          1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextSnapshot]] to AsyncContextSnapshot().</ins>
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -708,7 +808,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Perform ? RequireInternalSlot(_generator_, [[AsyncGeneratorContext]]).
           1. Perform ? RequireInternalSlot(_generator_, [[AsyncGeneratorState]]).
           1. Perform ? RequireInternalSlot(_generator_, [[AsyncGeneratorQueue]]).
-          1. <ins>Perform ? RequireInternalSlot(_generator_, [[AsyncGeneratorAsyncContextMapping]]).</ins>
+          1. <ins>Perform ? RequireInternalSlot(_generator_, [[AsyncGeneratorAsyncContextSnapshot]]).</ins>
           1. If _generator_.[[GeneratorBrand]] is not _generatorBrand_, throw a *TypeError* exception.
           1. Return ~unused~.
         </emu-alg>
@@ -729,13 +829,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _callerContext_ be the running execution context.
           1. Suspend _callerContext_.
           1. Set _generator_.[[AsyncGeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
+          1. <ins>Let _previousContext_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextSnapshot]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _completion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: _result_ is never an abrupt completion.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _callerContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[AsyncGeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[AsyncGeneratorAsyncContextSnapshot]].</ins>
+          1. <ins>AsyncContextSwap(_previousContext_).</ins>
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -752,7 +852,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </dl>
         <emu-alg>
           1. NOTE: _closure_ can contain uses of the Await operation and uses of the Yield operation to yield an IteratorResult object.
-          1. Let _internalSlotsList_ be « [[AsyncGeneratorState]], [[AsyncGeneratorContext]], [[AsyncGeneratorQueue]], <ins>[[AsyncGeneratorAsyncContextMapping]],</ins> [[GeneratorBrand]] ».
+          1. Let _internalSlotsList_ be « [[AsyncGeneratorState]], [[AsyncGeneratorContext]], [[AsyncGeneratorQueue]], <ins>[[AsyncGeneratorAsyncContextSnapshot]],</ins> [[GeneratorBrand]] ».
           1. Let _generator_ be OrdinaryObjectCreate(_generatorPrototype_, _internalSlotsList_).
           1. Set _generator_.[[GeneratorBrand]] to _generatorBrand_.
           1. Set _generator_.[[AsyncGeneratorState]] to *undefined*.
@@ -791,33 +891,33 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontextsnapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
-          ): a List of Async Context Mapping Records
+          ): an Async Context Link Record, or ~empty~
         </h1>
         <dl class="header">
           <dt>description</dt>
-          <dd>It is used to snapshot the surrounding agent's Agent Record's [[AsyncContextMapping]].</dd>
+          <dd>It is used to snapshot the surrounding agent's Agent Record's [[AsyncContextLinkNode]].</dd>
         </dl>
         <emu-alg>
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
-          1. Return _agentRecord_.[[AsyncContextMapping]].
+          1. Return _agentRecord_.[[AsyncContextLinkNode]].
         </emu-alg>
       </emu-clause>
 
       <emu-clause id="sec-asynccontextswap" type="abstract operation">
         <h1>
           AsyncContextSwap (
-            _snapshotMapping_: a List of Async Context Mapping Records
-          ): a List of Async Context Mapping Records
+            _context_: an Async Context Link Record, or ~empty~
+          ): an Async Context Link Record, or ~empty~
         </h1>
         <dl class="header">
           <dt>description</dt>
-          <dd>It is used to swap the surrounding agent's Agent Record's [[AsyncContextMapping]] with the _snapshotMapping_.</dd>
+          <dd>It is used to swap the surrounding agent's Agent Record's [[AsyncContextLinkNode]] with the _context_.</dd>
         </dl>
         <emu-alg>
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
-          1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. Set _agentRecord_.[[AsyncContextMapping]] to _snapshotMapping_.
-          1. Return _asyncContextMapping_.
+          1. Let _previousContext_ be _agentRecord_.[[AsyncContextLinkNode]].
+          1. Set _agentRecord_.[[AsyncContextLinkNode]] to _context_.
+          1. Return _previousContext_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
@@ -867,9 +967,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
-          1. Let _snapshotMapping_ be AsyncContextSnapshot().
-          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.Snapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
-          1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshotMapping_.
+          1. Let _context_ be AsyncContextSnapshot().
+          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%AsyncContext.Snapshot.prototype%"*, « [[AsyncContextSnapshot]] »).
+          1. Set _asyncSnapshot_.[[AsyncContextSnapshot]] to _context_.
           1. Return _asyncSnapshot_.
         </emu-alg>
       </emu-clause>
@@ -910,10 +1010,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
-          1. Let _previousContextMapping_ be AsyncContextSwap(_asyncSnapshot_.[[AsyncSnapshotMapping]]).
+          1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncContextSnapshot]]).
+          1. Let _previousContext_ be AsyncContextSwap(_asyncSnapshot_.[[AsyncContextSnapshot]]).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. AsyncContextSwap(_previousContext_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
@@ -944,13 +1044,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td>
-              [[AsyncSnapshotMapping]]
+              [[AsyncContextSnapshot]]
             </td>
             <td>
-              a List of Async Context Mapping Records
+              an Async Context Link Record, or ~empty~
             </td>
             <td>
-              Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncContext.Snapshot instance.
+              The value of the surrounding agent's [[AsyncContextLinkNode]] to reuse when invoking AsyncContext.Snapshot.prototype.run.
             </td>
           </tr>
         </table>
@@ -1030,18 +1130,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _asyncVariable_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
-          1. Let _previousContextMapping_ be AsyncContextSnapshot().
-          1. Let _asyncContextMapping_ be a new empty List.
-          1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *false*, then
-              1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
-              1. Append _q_ to _asyncContextMapping_.
-          1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncVariable_.
-          1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncVariable_, [[AsyncContextValue]]: _value_ }.
-          1. Append _p_ to _asyncContextMapping_.
-          1. AsyncContextSwap(_asyncContextMapping_).
+          1. Let _previousContext_ be AsyncContextSnapshot().
+          1. Let _context_ be the Async Context Link Record { [[AsyncContextKey]]: _asyncVariable_, [[AsyncContextValue]]: _value_, [[AsyncContextLinkNode]]: _previousContext_  }
+          1. NOTE: the linked-list _context_ may contain multiple Async Context Link Records whose [[AsyncContextKey]] is _asyncVariable_.
+          1. AsyncContextSwap(_context_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. AsyncContextSwap(_previousContext_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
@@ -1063,9 +1157,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _asyncVariable_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableDefaultValue]]).
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
-          1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. For each Async Context Mapping Record _p_ of _asyncContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *true*, return _p_.[[AsyncContextValue]].
+          1. Let _node_ be _agentRecord_.[[AsyncContextLinkNode]].
+          1. Repeat, while _node_ is not ~empty~,
+            1. If SameValueZero(_node_.[[AsyncContextKey]], _asyncVariable_) is *true*, return _node_.[[AsyncContextValue]].
+            1. Set _node_ to _node_.[[AsyncContextLinkNode]].
           1. Return _asyncVariable_.[[AsyncVariableDefaultValue]].
         </emu-alg>
       </emu-clause>
@@ -1113,7 +1208,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               an ECMAScript language value
             </td>
             <td>
-              The default value of the AsyncContext.Variable instance when no entry is found in the mapping.
+              The default value of the AsyncContext.Variable instance when no entry is found in the surrounding agent's [[AsyncContextLinkNode]] linked-list.
             </td>
           </tr>
         </table>
