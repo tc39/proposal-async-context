@@ -432,7 +432,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               <ins>[[GeneratorAsyncContextMapping]]</ins>
             </td>
             <td>
-              <ins>a List of Async Context Mapping Records</ins>
+              <ins>a List of Async Context Mapping Records or ~empty~</ins>
             </td>
             <td>
               <ins>The value of the agent's [[AsyncContextMapping]] to use the next time this generator is resumed.</ins>
@@ -491,7 +491,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Return CreateIterResultObject(_resultValue_, *true*).
           1. Set the code evaluation state of _genContext_ such that when evaluation is resumed for that execution context, _closure_ will be called with no arguments.
           1. Set _generator_.[[GeneratorContext]] to _genContext_.
-          1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>If _generatorBody_ is a |FunctionBody| Parse Node, then</ins>
+            1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>Else,</ins>
+            1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to ~empty~.</ins>
           1. Set _generator_.[[GeneratorState]] to ~suspendedStart~.
           1. Return ~unused~.
         </emu-alg>
@@ -536,12 +539,16 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+          1. <ins>If _generator_.[[GeneratorAsyncContextMapping]] is ~empty~, then</ins>
+            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+          1. <ins>Else,</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using NormalCompletion(_value_) as the result of the operation that suspended it. Let _result_ be the value returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+            1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -571,12 +578,16 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+          1. <ins>If _generator_.[[GeneratorAsyncContextMapping]] is ~empty~, then</ins>
+            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+          1. <ins>Else,</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _abruptCompletion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+            1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -642,7 +653,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
           <tr>
             <td><ins>[[AsyncGeneratorAsyncContextMapping]]</ins></td>
-            <td><ins>a List of Async Context Mapping Records</ins></td>
+            <td><ins>a List of Async Context Mapping Records or ~empty~</ins></td>
             <td><ins>The value of the agent's [[AsyncContextMapping]] to use the next time this generator is resumed.</ins></td>
           </tr>
           <tr>
@@ -690,7 +701,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Set _generator_.[[AsyncGeneratorContext]] to _genContext_.
           1. Set _generator_.[[AsyncGeneratorState]] to ~suspendedStart~.
           1. Set _generator_.[[AsyncGeneratorQueue]] to a new empty List.
-          1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>If _generatorBody_ is a |FunctionBody| Parse Node, then</ins>
+            1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. <ins>Else,</ins>
+            1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextMapping]] to ~empty~.</ins>
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -729,13 +743,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _callerContext_ be the running execution context.
           1. Suspend _callerContext_.
           1. Set _generator_.[[AsyncGeneratorState]] to ~executing~.
-          1. <ins>Let _asyncContextMapping_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
+          1. <ins>If _generator_.[[AsyncGeneratorAsyncContextMapping]] is ~empty~, then</ins>
+            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+          1. <ins>Else,</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _completion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: _result_ is never an abrupt completion.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _callerContext_ is the currently running execution context.
-          1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[AsyncGeneratorAsyncContextMapping]].</ins>
-          1. <ins>AsyncContextSwap(_asyncContextMapping_).</ins>
+          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+            1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[AsyncGeneratorAsyncContextMapping]].</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
