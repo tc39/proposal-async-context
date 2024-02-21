@@ -147,7 +147,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_cell_.[[AsyncContextSnapshot]]).</ins>
         1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
         1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
-        1. <ins>? _result_.</ins>
+        1. <ins>Perform ? _result_.</ins>
       1. Return ~unused~.
     </emu-alg>
   </emu-clause>
