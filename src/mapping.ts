@@ -1,39 +1,38 @@
-import type { AsyncContext } from "./index";
+import type { Variable } from "./variable";
 
 /**
- * Stores all AsyncContext data, and tracks whether any snapshots have been
+ * Stores all Variable data, and tracks whether any snapshots have been
  * taken of the current data.
  */
 export class Mapping {
-  #data: Map<AsyncContext<unknown>, unknown> | null;
+  #data: Map<Variable<unknown>, unknown>;
 
   /**
    * If a snapshot of this data is taken, then further modifications cannot be
    * made directly. Instead, set/delete will clone this Mapping and modify
    * _that_ instance.
    */
-  #frozen: boolean;
+  #frozen = false;
 
-  constructor(data: Map<AsyncContext<unknown>, unknown> | null) {
+  constructor(data: Map<Variable<unknown>, unknown>) {
     this.#data = data;
-    this.#frozen = data === null;
   }
 
-  has<T>(key: AsyncContext<T>): boolean {
-    return this.#data?.has(key) || false;
+  has<T>(key: Variable<T>): boolean {
+    return this.#data.has(key) || false;
   }
 
-  get<T>(key: AsyncContext<T>): T | undefined {
-    return this.#data?.get(key) as T | undefined;
+  get<T>(key: Variable<T>): T | undefined {
+    return this.#data.get(key) as T | undefined;
   }
 
   /**
    * Like the standard Map.p.set, except that we will allocate a new Mapping
    * instance if this instance is frozen.
    */
-  set<T>(key: AsyncContext<T>, value: T): Mapping {
+  set<T>(key: Variable<T>, value: T): Mapping {
     const mapping = this.#fork();
-    mapping.#data!.set(key, value);
+    mapping.#data.set(key, value);
     return mapping;
   }
 
@@ -41,9 +40,9 @@ export class Mapping {
    * Like the standard Map.p.delete, except that we will allocate a new Mapping
    * instance if this instance is frozen.
    */
-  delete<T>(key: AsyncContext<T>): Mapping {
+  delete<T>(key: Variable<T>): Mapping {
     const mapping = this.#fork();
-    mapping.#data!.delete(key);
+    mapping.#data.delete(key);
     return mapping;
   }
 
