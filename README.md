@@ -301,11 +301,6 @@ found in [SNAPSHOT.md](./SNAPSHOT.md).
 `Variable`s and returns a wrapped function. When invoked, this wrapped function
 restores the state of all `Variable`s and executes the inner function.
 
-You can think of this as a more convenient version of `Snapshot`, where only a
-single function needs to be wrapped. It also serves as a convenient way for
-consumers of libraries that don't support `AsyncContext` to ensure that function
-is executed in the correct execution context.
-
 ```typescript
 const asyncVar = new AsyncContext.Variable();
 
@@ -324,6 +319,49 @@ asyncVar.run("A", () => {
 console.log(fn()); // => undefined
 console.log(wrappedFn()); // => 'A'
 ```
+
+You can think of this as a more convenient version of `Snapshot`, where only a
+single function needs to be wrapped. It also serves as a convenient way for
+consumers of libraries that don't support `AsyncContext` to ensure that function
+is executed in the correct execution context.
+
+```typescript
+// User code that uses a legacy library
+const asyncVar = new AsyncContext.Variable();
+
+function fn() {
+    return asyncVar.get();
+}
+
+asyncVar.run("A", () => {
+    defer(fn); // setTimeout schedules during "A" context.
+})
+asyncVar.run("B", () => {
+    defer(fn); // setTimeout is not called, fn will still see "A" context.
+})
+asyncVar.run("C", () => {
+    const wrapped = AsyncContext.Snapshot.wrap(fn);
+    defer(wrapped); // wrapped callback captures "C" context.
+})
+
+
+// Some legacy library that queues multiple callbacks per macrotick
+// Because the setTimeout is called a single time per queue batch,
+// all callbacks will be invoked with _that_ context regardless of
+// whatever context is active during the call to `defer`.
+const queue = [];
+function defer(callback) {
+    if (queue.length === 0) setTimeout(processQueue, 1);
+    queue.push(callback);
+}
+function processQueue() {
+    for (const cb of queue) {
+        cb();
+    }
+    queue.length = 0;
+}
+```
+
 
 # Examples
 
