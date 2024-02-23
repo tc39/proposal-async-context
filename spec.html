@@ -323,11 +323,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _handler_ be _reaction_.[[Handler]].
             1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
             1. If _handler_ is ~empty~, then
-              1. If _type_ is ~Fulfill~, let _handlerResult_ be NormalCompletion(_argument_).
+              1. If _type_ is ~fulfill~, then
+                1. let _handlerResult_ be NormalCompletion(_argument_).
               1. Else,
-                1. Assert: _type_ is ~Reject~.
+                1. Assert: _type_ is ~reject~.
                 1. Let _handlerResult_ be ThrowCompletion(_argument_).
-            1. Else, let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
+            1. Else,
+              1. let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
             1. If _promiseCapability_ is *undefined*, then
               1. Assert: _handlerResult_ is not an abrupt completion.
               1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
@@ -495,7 +497,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
           1. <ins>Else,</ins>
             1. <ins>Set _generator_.[[GeneratorAsyncContextMapping]] to ~empty~.</ins>
-          1. Set _generator_.[[GeneratorState]] to ~suspendedStart~.
+          1. Set _generator_.[[GeneratorState]] to ~suspended-start~.
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -534,7 +536,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _state_ be ? GeneratorValidate(_generator_, _generatorBrand_).
           1. If _state_ is ~completed~, return CreateIterResultObject(*undefined*, *true*).
-          1. Assert: _state_ is either ~suspendedStart~ or ~suspendedYield~.
+          1. Assert: _state_ is either ~suspended-start~ or ~suspended-yield~.
           1. Let _genContext_ be _generator_.[[GeneratorContext]].
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
@@ -565,7 +567,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </dl>
         <emu-alg>
           1. Let _state_ be ? GeneratorValidate(_generator_, _generatorBrand_).
-          1. If _state_ is ~suspendedStart~, then
+          1. If _state_ is ~suspended-start~, then
             1. Set _generator_.[[GeneratorState]] to ~completed~.
             1. NOTE: Once a generator enters the ~completed~ state it never leaves it and its associated execution context is never resumed. Any execution state associated with _generator_ can be discarded at this point.
             1. Set _state_ to ~completed~.
@@ -573,7 +575,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. If _abruptCompletion_.[[Type]] is ~return~, then
               1. Return CreateIterResultObject(_abruptCompletion_.[[Value]], *true*).
             1. Return ? _abruptCompletion_.
-          1. Assert: _state_ is ~suspendedYield~.
+          1. Assert: _state_ is ~suspended-yield~.
           1. Let _genContext_ be _generator_.[[GeneratorContext]].
           1. Let _methodContext_ be the running execution context.
           1. Suspend _methodContext_.
@@ -699,7 +701,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Return *undefined*.
           1. Set the code evaluation state of _genContext_ such that when evaluation is resumed for that execution context, _closure_ will be called with no arguments.
           1. Set _generator_.[[AsyncGeneratorContext]] to _genContext_.
-          1. Set _generator_.[[AsyncGeneratorState]] to ~suspendedStart~.
+          1. Set _generator_.[[AsyncGeneratorState]] to ~suspended-start~.
           1. Set _generator_.[[AsyncGeneratorQueue]] to a new empty List.
           1. <ins>If _generatorBody_ is a |FunctionBody| Parse Node, then</ins>
             1. <ins>Set _generator_.[[AsyncGeneratorAsyncContextMapping]] to AsyncContextSnapshot().</ins>
@@ -738,7 +740,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Assert: _generator_.[[AsyncGeneratorState]] is either ~suspendedStart~ or ~suspendedYield~.
+          1. Assert: _generator_.[[AsyncGeneratorState]] is either ~suspended-start~ or ~suspended-yield~.
           1. Let _genContext_ be _generator_.[[AsyncGeneratorContext]].
           1. Let _callerContext_ be the running execution context.
           1. Suspend _callerContext_.
