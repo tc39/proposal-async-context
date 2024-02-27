@@ -164,8 +164,8 @@ namespace AsyncContext {
   class Variable<T> {
     constructor(options: AsyncVariableOptions<T>);
     get name(): string;
-    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
     get(): T | undefined;
+    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
   }
   interface AsyncVariableOptions<T> {
     name?: string;
@@ -175,7 +175,7 @@ namespace AsyncContext {
   class Snapshot {
     constructor();
     run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
-    wrap<T, R>(fn: (this: T, ...args: any[]) => R): (this: T, ...args: any[]) => R;
+    static wrap<T, R>(fn: (this: T, ...args: any[]) => R): (this: T, ...args: any[]) => R;
   }
 }
 ```
