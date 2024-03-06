@@ -138,7 +138,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <dl class="header">
     </dl>
     <emu-alg>
-      1. Assert: _finalizationRegistry_ has [[Cells]], [[CleanupCallback]], and [[FinalizationRegistryAsyncContextSnapshot]] internal slots.
+      1. <del>Assert: _finalizationRegistry_ has [[Cells]] and [[CleanupCallback]] internal slots.</del>
+      1. <ins>Assert: _finalizationRegistry_ has [[Cells]], [[CleanupCallback]], and [[FinalizationRegistryAsyncContextSnapshot]] internal slots.</ins>
       1. Let _callback_ be _finalizationRegistry_.[[CleanupCallback]].
       1. While _finalizationRegistry_.[[Cells]] contains a Record _cell_ such that _cell_.[[WeakRefTarget]] is ~empty~, an implementation may perform the following steps:
         1. Choose any such _cell_.
