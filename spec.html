@@ -138,7 +138,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <dl class="header">
     </dl>
     <emu-alg>
-      1. Assert: _finalizationRegistry_ has [[Cells]] and [[CleanupCallback]] internal slots.
+      1. Assert: _finalizationRegistry_ has [[Cells]], [[CleanupCallback]], and [[FinalizationRegistryAsyncContextSnapshot]] internal slots.
       1. Let _callback_ be _finalizationRegistry_.[[CleanupCallback]].
       1. While _finalizationRegistry_.[[Cells]] contains a Record _cell_ such that _cell_.[[WeakRefTarget]] is ~empty~, an implementation may perform the following steps:
         1. Choose any such _cell_.
@@ -266,7 +266,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             </tr>
             <tr>
               <td>
-                <ins>[[AsyncContextSnapshot]]</ins>
+                <ins>[[PromiseAsyncContextSnapshot]]</ins>
               </td>
               <td>
                 <ins>a List of Async Context Mapping Records</ins>
@@ -327,7 +327,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _promiseCapability_ be _reaction_.[[Capability]].
             1. Let _type_ be _reaction_.[[Type]].
             1. Let _handler_ be _reaction_.[[Handler]].
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_reaction_.[[AsyncContextSnapshot]]).</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_reaction_.[[PromiseAsyncContextSnapshot]]).</ins>
             1. If _handler_ is ~empty~, then
               1. If _type_ is ~Fulfill~, let _handlerResult_ be NormalCompletion(_argument_).
               1. Else,
@@ -439,8 +439,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Else,
               1. Let _onRejectedJobCallback_ be HostMakeJobCallback(_onRejected_).
             1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
-            1. Let _fulfillReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~fulfill~, [[Handler]]: _onFulfilledJobCallback_, <ins>[[AsyncContextSnapshot]]: _snapshot_</ins> }.
-            1. Let _rejectReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~reject~, [[Handler]]: _onRejectedJobCallback_, <ins>[[AsyncContextSnapshot]]: _snapshot_</ins>}.
+            1. Let _fulfillReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~fulfill~, [[Handler]]: _onFulfilledJobCallback_, <ins>[[PromiseAsyncContextSnapshot]]: _snapshot_</ins> }.
+            1. Let _rejectReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~reject~, [[Handler]]: _onRejectedJobCallback_, <ins>[[PromiseAsyncContextSnapshot]]: _snapshot_</ins>}.
             1. If _promise_.[[PromiseState]] is ~pending~, then
               1. Append _fulfillReaction_ to _promise_.[[PromiseFulfillReactions]].
               1. Append _rejectReaction_ to _promise_.[[PromiseRejectReactions]].
