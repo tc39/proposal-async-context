@@ -129,86 +129,28 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-table>
   </emu-clause>
 
-  <emu-clause id="sec-jobs">
-    <h1>Jobs and Host Operations to Enqueue Jobs</h1>
-
-    <emu-clause id="sec-jobcallback-records">
-      <h1>JobCallback Records</h1>
-      <p>This proposal adds a new field to the JobCallback Record as the following table:</p>
-      <emu-table id="table-jobcallback-records" caption="JobCallback Record Fields">
-        <table>
-          <tr>
-            <th>
-              Field Name
-            </th>
-            <th>
-              Value
-            </th>
-            <th>
-              Meaning
-            </th>
-          </tr>
-          <tr>
-            <td>
-              [[Callback]]
-            </td>
-            <td>
-              a function object
-            </td>
-            <td>
-              The function to invoke when the Job is invoked.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <ins>[[AsyncContextSnapshot]]</ins>
-            </td>
-            <td>
-              <ins>a List of Async Context Mapping Records</ins>
-            </td>
-            <td>
-              <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              [[HostDefined]]
-            </td>
-            <td>
-              anything (default value is ~empty~)
-            </td>
-            <td>
-              Field reserved for use by hosts.
-            </td>
-          </tr>
-        </table>
-      </emu-table>
-    </emu-clause>
-
-    <emu-clause id="sec-hostmakejobcallback" type="host-defined abstract operation">
-      <h1>
-        HostMakeJobCallback (
-          _callback_: a function object,
-        ): a JobCallback Record
-      </h1>
-      <dl class="header">
-      </dl>
-      <p>An implementation of HostMakeJobCallback must conform to the following requirements:</p>
-      <ul>
-        <li>It must return a JobCallback Record whose [[Callback]] field is _callback_,</li>
-        <li><ins>It must return a JobCallback Record whose [[AsyncContextSnapshot]] field is the result of performing AsyncContextSnapshot().</ins></li>
-      </ul>
-      <p>The default implementation of HostMakeJobCallback performs the following steps when called:</p>
-      <emu-alg>
-        1. <del>Return the JobCallback Record { [[Callback]]: _callback_, [[HostDefined]]: ~empty~ }.</del>
-        1. <ins>Let _snapshotMapping_ be AsyncContextSnapshot().</ins>
-        1. <ins>Return the JobCallback Record { [[Callback]]: _callback_, [[AsyncContextSnapshot]]: _snapshotMapping_, [[HostDefined]]: ~empty~ }.</ins>
-      </emu-alg>
-      <p>ECMAScript hosts that are not web browsers must use the default implementation of HostMakeJobCallback.</p>
-      <emu-note>
-        <p>HostMakeJobCallback snapshots the current AsyncContext global state. The snapshot is restored before calling HostCallJobCallback in NewPromiseReactionJob and NewPromiseResolveThenableJob.</p>
-      </emu-note>
-    </emu-clause>
+  <emu-clause id="sec-cleanup-finalization-registry" type="abstract operation">
+    <h1>
+      CleanupFinalizationRegistry (
+        _finalizationRegistry_: a FinalizationRegistry,
+      ): either a normal completion containing ~unused~ or a throw completion
+    </h1>
+    <dl class="header">
+    </dl>
+    <emu-alg>
+      1. <del>Assert: _finalizationRegistry_ has [[Cells]] and [[CleanupCallback]] internal slots.</del>
+      1. <ins>Assert: _finalizationRegistry_ has [[Cells]], [[CleanupCallback]], and [[FinalizationRegistryAsyncContextSnapshot]] internal slots.</ins>
+      1. Let _callback_ be _finalizationRegistry_.[[CleanupCallback]].
+      1. While _finalizationRegistry_.[[Cells]] contains a Record _cell_ such that _cell_.[[WeakRefTarget]] is ~empty~, an implementation may perform the following steps:
+        1. Choose any such _cell_.
+        1. Remove _cell_ from _finalizationRegistry_.[[Cells]].
+        1. <del>Perform ? HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »).</del>
+        1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]]).</ins>
+        1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
+        1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+        1. <ins>Perform ? _result_.</ins>
+      1. Return ~unused~.
+    </emu-alg>
   </emu-clause>
 </emu-clause>
 
@@ -273,6 +215,71 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <emu-clause id="sec-promise-abstract-operations">
       <h1>Promise Abstract Operations</h1>
 
+      <emu-clause id="sec-promisereaction-records">
+        <h1>PromiseReaction Records</h1>
+        <p>A <dfn variants="PromiseReaction Records">PromiseReaction Record</dfn> is a Record value used to store information about how a promise should react when it becomes resolved or rejected with a given value. PromiseReaction Records are created by the PerformPromiseThen abstract operation, and are used by the Abstract Closure returned by NewPromiseReactionJob.</p>
+        <p>PromiseReaction Records have the fields listed in <emu-xref href="#table-promisereaction-record-fields"></emu-xref>.</p>
+        <emu-table id="table-promisereaction-record-fields" caption="PromiseReaction Record Fields" oldids="table-58">
+          <table>
+            <tr>
+              <th>
+                Field Name
+              </th>
+              <th>
+                Value
+              </th>
+              <th>
+                Meaning
+              </th>
+            </tr>
+            <tr>
+              <td>
+                [[Capability]]
+              </td>
+              <td>
+                a PromiseCapability Record or *undefined*
+              </td>
+              <td>
+                The capabilities of the promise for which this record provides a reaction handler.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                [[Type]]
+              </td>
+              <td>
+                ~fulfill~ or ~reject~
+              </td>
+              <td>
+                The [[Type]] is used when [[Handler]] is ~empty~ to allow for behaviour specific to the settlement type.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                [[Handler]]
+              </td>
+              <td>
+                a JobCallback Record or ~empty~
+              </td>
+              <td>
+                The function that should be applied to the incoming value, and whose return value will govern what happens to the derived promise. If [[Handler]] is ~empty~, a function that depends on the value of [[Type]] will be used instead.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ins>[[PromiseAsyncContextSnapshot]]</ins>
+              </td>
+              <td>
+                <ins>a List of Async Context Mapping Records</ins>
+              </td>
+              <td>
+                <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+              </td>
+            </tr>
+          </table>
+        </emu-table>
+      </emu-clause>
+
       <emu-clause id="sec-host-promise-rejection-tracker" type="host-defined abstract operation">
         <h1>
           HostPromiseRejectionTracker (
@@ -321,7 +328,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _promiseCapability_ be _reaction_.[[Capability]].
             1. Let _type_ be _reaction_.[[Type]].
             1. Let _handler_ be _reaction_.[[Handler]].
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_handler_.[[AsyncContextSnapshot]]).</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_reaction_.[[PromiseAsyncContextSnapshot]]).</ins>
             1. If _handler_ is ~empty~, then
               1. If _type_ is ~fulfill~, then
                 1. let _handlerResult_ be NormalCompletion(_argument_).
@@ -364,9 +371,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, and _then_ and performs the following steps when called:
+          1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
+          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, _then_, <ins>and _snapshot_</ins> and performs the following steps when called:
             1. Let _resolvingFunctions_ be CreateResolvingFunctions(_promiseToResolve_).
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_then_.[[AsyncContextSnapshot]]).</ins>
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).</ins>
             1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFunctions_.[[Resolve]], _resolvingFunctions_.[[Reject]] »)).
             1. If _thenCallResult_ is an abrupt completion, then
               1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
@@ -384,6 +392,78 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-note>
           <p>This Job uses the supplied thenable and its `then` method to resolve the given promise. This process must take place as a Job to ensure that the evaluation of the `then` method occurs after evaluation of any surrounding code has completed.</p>
         </emu-note>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-properties-of-the-promise-prototype-object">
+      <h1>Properties of the Promise Prototype Object</h1>
+      <p>The <dfn>Promise prototype object</dfn>:</p>
+      <ul>
+        <li>is <dfn>%Promise.prototype%</dfn>.</li>
+        <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
+        <li>is an ordinary object.</li>
+        <li>does not have a [[PromiseState]] internal slot or any of the other internal slots of Promise instances.</li>
+      </ul>
+
+      <emu-clause id="sec-promise.prototype.then">
+        <h1>Promise.prototype.then ( _onFulfilled_, _onRejected_ )</h1>
+        <p>This method performs the following steps when called:</p>
+        <emu-alg>
+          1. Let _promise_ be the *this* value.
+          1. If IsPromise(_promise_) is *false*, throw a *TypeError* exception.
+          1. Let _C_ be ? SpeciesConstructor(_promise_, %Promise%).
+          1. Let _resultCapability_ be ? NewPromiseCapability(_C_).
+          1. Return PerformPromiseThen(_promise_, _onFulfilled_, _onRejected_, _resultCapability_).
+        </emu-alg>
+
+        <emu-clause id="sec-performpromisethen" type="abstract operation">
+          <h1>
+            PerformPromiseThen (
+              _promise_: a Promise,
+              _onFulfilled_: an ECMAScript language value,
+              _onRejected_: an ECMAScript language value,
+              optional _resultCapability_: a PromiseCapability Record,
+            ): an ECMAScript language value
+          </h1>
+          <dl class="header">
+            <dt>description</dt>
+            <dd>It performs the “then” operation on _promise_ using _onFulfilled_ and _onRejected_ as its settlement actions. If _resultCapability_ is passed, the result is stored by updating _resultCapability_'s promise. If it is not passed, then PerformPromiseThen is being called by a specification-internal operation where the result does not matter.</dd>
+          </dl>
+          <emu-alg>
+            1. Assert: IsPromise(_promise_) is *true*.
+            1. If _resultCapability_ is not present, then
+              1. Set _resultCapability_ to *undefined*.
+            1. If IsCallable(_onFulfilled_) is *false*, then
+              1. Let _onFulfilledJobCallback_ be ~empty~.
+            1. Else,
+              1. Let _onFulfilledJobCallback_ be HostMakeJobCallback(_onFulfilled_).
+            1. If IsCallable(_onRejected_) is *false*, then
+              1. Let _onRejectedJobCallback_ be ~empty~.
+            1. Else,
+              1. Let _onRejectedJobCallback_ be HostMakeJobCallback(_onRejected_).
+            1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
+            1. Let _fulfillReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~fulfill~, [[Handler]]: _onFulfilledJobCallback_, <ins>[[PromiseAsyncContextSnapshot]]: _snapshot_</ins> }.
+            1. Let _rejectReaction_ be the PromiseReaction Record { [[Capability]]: _resultCapability_, [[Type]]: ~reject~, [[Handler]]: _onRejectedJobCallback_, <ins>[[PromiseAsyncContextSnapshot]]: _snapshot_</ins>}.
+            1. If _promise_.[[PromiseState]] is ~pending~, then
+              1. Append _fulfillReaction_ to _promise_.[[PromiseFulfillReactions]].
+              1. Append _rejectReaction_ to _promise_.[[PromiseRejectReactions]].
+            1. Else if _promise_.[[PromiseState]] is ~fulfilled~, then
+              1. Let _value_ be _promise_.[[PromiseResult]].
+              1. Let _fulfillJob_ be NewPromiseReactionJob(_fulfillReaction_, _value_).
+              1. Perform HostEnqueuePromiseJob(_fulfillJob_.[[Job]], _fulfillJob_.[[Realm]]).
+            1. Else,
+              1. Assert: The value of _promise_.[[PromiseState]] is ~rejected~.
+              1. Let _reason_ be _promise_.[[PromiseResult]].
+              1. If _promise_.[[PromiseIsHandled]] is *false*, perform HostPromiseRejectionTracker(_promise_, *"handle"*).
+              1. Let _rejectJob_ be NewPromiseReactionJob(_rejectReaction_, _reason_).
+              1. Perform HostEnqueuePromiseJob(_rejectJob_.[[Job]], _rejectJob_.[[Realm]]).
+            1. Set _promise_.[[PromiseIsHandled]] to *true*.
+            1. If _resultCapability_ is *undefined*, then
+              1. Return *undefined*.
+            1. Else,
+              1. Return _resultCapability_.[[Promise]].
+          </emu-alg>
+        </emu-clause>
       </emu-clause>
     </emu-clause>
   </emu-clause>
@@ -792,7 +872,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 
   <ins class="block">
-
   <emu-clause id="sec-asynccontext-object">
     <h1>The AsyncContext Object</h1>
     <p>The AsyncContext object:</p>
@@ -1163,4 +1242,49 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
   </emu-clause>
   </ins>
+</emu-clause>
+
+<emu-clause id="sec-managing-memory">
+  <h1>Managing Memory</h1>
+
+  <emu-clause id="sec-finalization-registry-objects">
+    <h1>FinalizationRegistry Objects</h1>
+    <p>A FinalizationRegistry is an object that manages registration and unregistration of cleanup operations that are performed when target objects and symbols are garbage collected.</p>
+
+    <emu-clause id="sec-finalization-registry-constructor">
+      <h1>The FinalizationRegistry Constructor</h1>
+      <p>The <dfn variants="FinalizationRegistrys">FinalizationRegistry</dfn> constructor:</p>
+      <ul>
+        <li>is <dfn>%FinalizationRegistry%</dfn>.</li>
+        <li>
+          is the initial value of the *"FinalizationRegistry"* property of the global object.
+        </li>
+        <li>
+          creates and initializes a new FinalizationRegistry when called as a constructor.
+        </li>
+        <li>
+          is not intended to be called as a function and will throw an exception when called in that manner.
+        </li>
+        <li>
+          may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `FinalizationRegistry` behaviour must include a `super` call to the `FinalizationRegistry` constructor to create and initialize the subclass instance with the internal state necessary to support the `FinalizationRegistry.prototype` built-in methods.
+        </li>
+      </ul>
+
+      <emu-clause id="sec-finalization-registry-cleanup-callback">
+        <h1>FinalizationRegistry ( _cleanupCallback_ )</h1>
+        <p>This function performs the following steps when called:</p>
+        <emu-alg>
+          1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. If IsCallable(_cleanupCallback_) is *false*, throw a *TypeError* exception.
+          1. Let _finalizationRegistry_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%FinalizationRegistry.prototype%"*, « [[Realm]], [[CleanupCallback]], [[Cells]], [[FinalizationRegistryAsyncContextSnapshot]] »).
+          1. Let _fn_ be the active function object.
+          1. Set _finalizationRegistry_.[[Realm]] to _fn_.[[Realm]].
+          1. Set _finalizationRegistry_.[[CleanupCallback]] to HostMakeJobCallback(_cleanupCallback_).
+          1. Set _finalizationRegistry_.[[Cells]] to a new empty List.
+          1. <ins>Set _finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]] to AsyncContextSnapshot().</ins>
+          1. Return _finalizationRegistry_.
+        </emu-alg>
+      </emu-clause>
+    </emu-clause>
+  </emu-clause>
 </emu-clause>
