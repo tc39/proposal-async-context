@@ -144,7 +144,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         1. Choose any such _cell_.
         1. Remove _cell_ from _finalizationRegistry_.[[Cells]].
         1. <del>Perform ? HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »).</del>
-        1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_cell_.[[AsyncContextSnapshot]]).</ins>
+        1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]]).</ins>
         1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
         1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
         1. <ins>Perform ? _result_.</ins>
@@ -1208,56 +1208,38 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <h1>FinalizationRegistry Objects</h1>
     <p>A FinalizationRegistry is an object that manages registration and unregistration of cleanup operations that are performed when target objects and symbols are garbage collected.</p>
 
-    <emu-clause id="sec-properties-of-the-finalization-registry-prototype-object">
-      <h1>Properties of the FinalizationRegistry Prototype Object</h1>
-      <p>The <dfn>FinalizationRegistry prototype</dfn> object:</p>
+    <emu-clause id="sec-finalization-registry-constructor">
+      <h1>The FinalizationRegistry Constructor</h1>
+      <p>The <dfn variants="FinalizationRegistrys">FinalizationRegistry</dfn> constructor:</p>
       <ul>
-        <li>is <dfn>%FinalizationRegistry.prototype%</dfn>.</li>
+        <li>is <dfn>%FinalizationRegistry%</dfn>.</li>
         <li>
-          has a [[Prototype]] internal slot whose value is %Object.prototype%.
+          is the initial value of the *"FinalizationRegistry"* property of the global object.
         </li>
-        <li>is an ordinary object.</li>
         <li>
-          does not have [[Cells]] and [[CleanupCallback]] internal slots.
+          creates and initializes a new FinalizationRegistry when called as a constructor.
+        </li>
+        <li>
+          is not intended to be called as a function and will throw an exception when called in that manner.
+        </li>
+        <li>
+          may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `FinalizationRegistry` behaviour must include a `super` call to the `FinalizationRegistry` constructor to create and initialize the subclass instance with the internal state necessary to support the `FinalizationRegistry.prototype` built-in methods.
         </li>
       </ul>
 
-      <emu-clause id="sec-finalization-registry.prototype.register">
-        <h1>FinalizationRegistry.prototype.register ( _target_, _heldValue_ [ , _unregisterToken_ ] )</h1>
-        <p>This method performs the following steps when called:</p>
+      <emu-clause id="sec-finalization-registry-cleanup-callback">
+        <h1>FinalizationRegistry ( _cleanupCallback_ )</h1>
+        <p>This function performs the following steps when called:</p>
         <emu-alg>
-          1. Let _finalizationRegistry_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_finalizationRegistry_, [[Cells]]).
-          1. If CanBeHeldWeakly(_target_) is *false*, throw a *TypeError* exception.
-          1. If SameValue(_target_, _heldValue_) is *true*, throw a *TypeError* exception.
-          1. If CanBeHeldWeakly(_unregisterToken_) is *false*, then
-            1. If _unregisterToken_ is not *undefined*, throw a *TypeError* exception.
-            1. Set _unregisterToken_ to ~empty~.
-          1. <del>Let _cell_ be the Record { [[WeakRefTarget]]: _target_, [[HeldValue]]: _heldValue_, [[UnregisterToken]]: _unregisterToken_ }.</del>
-          1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
-          1. <ins>Let _cell_ be the Record { [[WeakRefTarget]]: _target_, [[HeldValue]]: _heldValue_, [[UnregisterToken]]: _unregisterToken_, [[AsyncContextSnapshot]]: _snapshot_ }.</ins>
-          1. Append _cell_ to _finalizationRegistry_.[[Cells]].
-          1. Return *undefined*.
-        </emu-alg>
-
-        <emu-note>
-          <p>Based on the algorithms and definitions in this specification, _cell_.[[HeldValue]] is live when _finalizationRegistry_.[[Cells]] contains _cell_; however, this does not necessarily mean that _cell_.[[UnregisterToken]] or _cell_.[[Target]] are live. For example, registering an object with itself as its unregister token would not keep the object alive forever.</p>
-        </emu-note>
-      </emu-clause>
-
-      <emu-clause id="sec-finalization-registry.prototype.unregister">
-        <h1>FinalizationRegistry.prototype.unregister ( _unregisterToken_ )</h1>
-        <p>This method performs the following steps when called:</p>
-        <emu-alg>
-          1. Let _finalizationRegistry_ be the *this* value.
-          1. Perform ? RequireInternalSlot(_finalizationRegistry_, [[Cells]]).
-          1. If CanBeHeldWeakly(_unregisterToken_) is *false*, throw a *TypeError* exception.
-          1. Let _removed_ be *false*.
-          1. For each Record { [[WeakRefTarget]], [[HeldValue]], [[UnregisterToken]], <ins>[[AsyncContextSnapshot]]</ins> } _cell_ of _finalizationRegistry_.[[Cells]], do
-            1. If _cell_.[[UnregisterToken]] is not ~empty~ and SameValue(_cell_.[[UnregisterToken]], _unregisterToken_) is *true*, then
-              1. Remove _cell_ from _finalizationRegistry_.[[Cells]].
-              1. Set _removed_ to *true*.
-          1. Return _removed_.
+          1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. If IsCallable(_cleanupCallback_) is *false*, throw a *TypeError* exception.
+          1. Let _finalizationRegistry_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%FinalizationRegistry.prototype%"*, « [[Realm]], [[CleanupCallback]], [[Cells]], [[FinalizationRegistryAsyncContextSnapshot]] »).
+          1. Let _fn_ be the active function object.
+          1. Set _finalizationRegistry_.[[Realm]] to _fn_.[[Realm]].
+          1. Set _finalizationRegistry_.[[CleanupCallback]] to HostMakeJobCallback(_cleanupCallback_).
+          1. Set _finalizationRegistry_.[[Cells]] to a new empty List.
+          1. <ins>Set _finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]] to AsyncContextSnapshot().</ins>
+          1. Return _finalizationRegistry_.
         </emu-alg>
       </emu-clause>
     </emu-clause>
