@@ -125,6 +125,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
           </td>
         </tr>
+        <tr>
+          <td>
+            <ins>[[CallingAsyncContextMapping]]</ins>
+          </td>
+          <td>
+            <ins>a List of Async Context Mapping Records</ins>
+          </td>
+          <td>
+            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
+          </td>
+        </tr>
       </table>
     </emu-table>
   </emu-clause>
@@ -145,9 +156,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
         1. Choose any such _cell_.
         1. Remove _cell_ from _finalizationRegistry_.[[Cells]].
         1. <del>Perform ? HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »).</del>
-        1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]]).</ins>
+        1. <ins>Let _entranceState_ be AsyncContextEnter(_finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]]).</ins>
         1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
-        1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+        1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
         1. <ins>Perform ? _result_.</ins>
       1. Return ~unused~.
     </emu-alg>
@@ -302,8 +313,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <p>An implementation of HostPromiseRejectionTracker that delays notifying developers of unhandled rejections must conform to the following requirements</p>
             <ul>
               <li>It must perform AsyncContextSnapshot() at the call of HostPromiseRejectionTracker,</li>
-              <li>It must perform AsyncContextSwap before the event notification, with the result of the AsyncContextSnapshot operation,</li>
-              <li>It must perform AsyncContextSwap after the event notification, with the result of the earlier AsyncContextSwap operation.</li>
+              <li>It must perform AsyncContextEnter() before the event notification, with the result of the AsyncContextSnapshot operation,</li>
+              <li>It must perform AsyncContextExit() after the event notification, with the result of the earlier AsyncContextEnter operation.</li>
             </ul>
           </emu-note>
         </ins>
@@ -328,7 +339,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _promiseCapability_ be _reaction_.[[Capability]].
             1. Let _type_ be _reaction_.[[Type]].
             1. Let _handler_ be _reaction_.[[Handler]].
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_reaction_.[[PromiseAsyncContextSnapshot]]).</ins>
+            1. <ins>Let _entranceState_ be AsyncContextEnter(_reaction_.[[PromiseAsyncContextSnapshot]]).</ins>
             1. If _handler_ is ~empty~, then
               1. If _type_ is ~fulfill~, then
                 1. let _handlerResult_ be NormalCompletion(_argument_).
@@ -339,7 +350,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
             1. If _promiseCapability_ is *undefined*, then
               1. Assert: _handlerResult_ is not an abrupt completion.
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
               1. Return ~empty~.
             1. Assert: _promiseCapability_ is a PromiseCapability Record.
             1. If _handlerResult_ is an abrupt completion, then
@@ -348,7 +359,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Else,
               1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
             1. <ins>Return _resolvingFunctionResult_.</ins>
           1. Let _handlerRealm_ be *null*.
           1. If _reaction_.[[Handler]] is not ~empty~, then
@@ -374,14 +385,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. <ins>Let _snapshot_ be AsyncContextSnapshot().</ins>
           1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, _then_, <ins>and _snapshot_</ins> and performs the following steps when called:
             1. Let _resolvingFunctions_ be CreateResolvingFunctions(_promiseToResolve_).
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).</ins>
+            1. <ins>Let _entranceState_ be AsyncContextEnter(_snapshot_).</ins>
             1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFunctions_.[[Resolve]], _resolvingFunctions_.[[Reject]] »)).
             1. If _thenCallResult_ is an abrupt completion, then
               1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
               1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
               1. <ins>Return _rejectResult_.</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
             1. Return ? _thenCallResult_.
           1. Let _getThenRealmResult_ be Completion(GetFunctionRealm(_then_.[[Callback]])).
           1. If _getThenRealmResult_ is a normal completion, let _thenRealm_ be _getThenRealmResult_.[[Value]].
@@ -622,15 +633,15 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
           1. <ins>If _generator_.[[GeneratorAsyncContextMapping]] is ~empty~, then</ins>
-            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+            1. <ins>Let _entranceState_ be ~empty~.</ins>
           1. <ins>Else,</ins>
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+            1. <ins>Let _entranceState_ be AsyncContextEnter(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using NormalCompletion(_value_) as the result of the operation that suspended it. Let _result_ be the value returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+          1. <ins>If _entranceState_ is not ~empty~, then</ins>
             1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -661,15 +672,15 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Suspend _methodContext_.
           1. Set _generator_.[[GeneratorState]] to ~executing~.
           1. <ins>If _generator_.[[GeneratorAsyncContextMapping]] is ~empty~, then</ins>
-            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+            1. <ins>Let _entranceState_ be ~empty~.</ins>
           1. <ins>Else,</ins>
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
+            1. <ins>Let _entranceState_ be AsyncContextEnter(_generator_.[[GeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _abruptCompletion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
-          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+          1. <ins>If _entranceState_ is not ~empty~, then</ins>
             1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -826,16 +837,16 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Suspend _callerContext_.
           1. Set _generator_.[[AsyncGeneratorState]] to ~executing~.
           1. <ins>If _generator_.[[AsyncGeneratorAsyncContextMapping]] is ~empty~, then</ins>
-            1. <ins>Let _previousContextMapping_ be ~empty~.</ins>
+            1. <ins>Let _entranceState_ be ~empty~.</ins>
           1. <ins>Else,</ins>
-            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
+            1. <ins>Let _entranceState_ be AsyncContextEnter(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
           1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
           1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _completion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
           1. Assert: _result_ is never an abrupt completion.
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _callerContext_ is the currently running execution context.
-          1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
+          1. <ins>If _entranceState_ is not ~empty~, then</ins>
             1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[AsyncGeneratorAsyncContextMapping]].</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>Perform AsyncContextExit(_entranceState_).</ins>
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -902,21 +913,42 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynccontextswap" type="abstract operation">
+      <emu-clause id="sec-asynccontextenter" type="abstract operation">
         <h1>
-          AsyncContextSwap (
+          AsyncContextEnter (
             _snapshotMapping_: a List of Async Context Mapping Records
-          ): a List of Async Context Mapping Records
+          ): a Record with fields [[AsyncContextMapping]] (a List of Async Context Mapping Records) and [[CallingAsyncContextMapping]] (a List of Async Context Mapping Records)
         </h1>
         <dl class="header">
           <dt>description</dt>
-          <dd>It is used to swap the surrounding agent's Agent Record's [[AsyncContextMapping]] with the _snapshotMapping_.</dd>
+          <dd>It is used to set the surrounding agent's Agent Record's [[AsyncContextMapping]] to a value returned by AsyncContextSwap.</dd>
         </dl>
         <emu-alg>
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
+          1. Let _callingAsyncContextMapping_ be _agentRecord_.[[CallingAsyncContextMapping]].
           1. Set _agentRecord_.[[AsyncContextMapping]] to _snapshotMapping_.
+          1. Set _agentRecord_.[[CallingAsyncContextMapping]] to _asyncContextMapping_.
+          1. Return the Record { [[AsyncContextMapping]]: _asyncContextMapping_, [[CallingAsyncContextMapping]]: _callingAsyncContextMapping_ }.
           1. Return _asyncContextMapping_.
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-asynccontextexit" type="abstract operation">
+        <h1>
+          AsyncContextExit (
+            _entranceState_: a Record with fields [[AsyncContextMapping]] (a List of Async Context Mapping Records) and [[CallingAsyncContextMapping]] (a List of Async Context Mapping Records)
+          ): ~unused~
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It is used to restore the surrounding agent's Agent Record's [[AsyncContextMapping]] and [[CallingAsyncContextMapping]] to a value returned by AsyncContextEnter.</dd>
+        </dl>
+        <emu-alg>
+          1. Let _agentRecord_ be the surrounding agent's Agent Record.
+          1. Set _agentRecord_.[[AsyncContextMapping]] to _entranceState_.[[AsyncContextMapping]].
+          1. Set _agentRecord_.[[CallingAsyncContextMapping]] to _entranceState_.[[CallingAsyncContextMapping]].
+          1. Return ~unused~.
         </emu-alg>
       </emu-clause>
     </emu-clause>
@@ -997,9 +1029,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _snapshot_ be AsyncContextSnapshot().
           1. Let _closure_ be a new Abstract Closure with parameters (..._args_) that captures _fn_ and _snapshot_ and performs the following steps when called:
             1. Let _thisArgument_ be the *this* value.
-            1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
+            1. Let _entranceState_ be AsyncContextEnter(_snapshot_).
             1. Let _result_ be Completion(Call(_fn_, _thisArgument_, _args_)).
-            1. AsyncContextSwap(_previousContextMapping_).
+            1. Perform AsyncContextExit(_entranceState_).
             1. Return _result_.
           1. Let _length_ be ? LengthOfArrayLike(_fn_).
           1. Let _name_ be ? Get(_fn_, *"name"*).
@@ -1032,9 +1064,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
-          1. Let _previousContextMapping_ be AsyncContextSwap(_asyncSnapshot_.[[AsyncSnapshotMapping]]).
+          1. Let _entranceState_ be AsyncContextEnter(_asyncSnapshot_.[[AsyncSnapshotMapping]]).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. Perform AsyncContextExit(_entranceState_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
@@ -1153,16 +1185,16 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
           1. Let _previousContextMapping_ be AsyncContextSnapshot().
           1. Let _asyncContextMapping_ be a new empty List.
-          1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
+          1. For each Async Context Mapping Record _p_ of _entranceState_, do
             1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *false*, then
               1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
               1. Append _q_ to _asyncContextMapping_.
           1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncVariable_.
           1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncVariable_, [[AsyncContextValue]]: _value_ }.
           1. Append _p_ to _asyncContextMapping_.
-          1. AsyncContextSwap(_asyncContextMapping_).
+          1. Let _entranceState_ be AsyncContextSwap(_asyncContextMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. Perform AsyncContextExit(_entranceState_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
