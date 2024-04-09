@@ -447,7 +447,7 @@ const res = await scheduler.postTask(task, { priority: "background" });
 console.log(res);
 
 async function task() {
-  // Fetch remains background priority by referring to scheduler.currentPriority().
+  // Fetch remains background priority by referring to scheduler.currentTask().
   const resp = await fetch("/hello");
   const text = await resp.text();
 
