@@ -8,6 +8,9 @@ Champions:
 - Chengzhong Wu ([@legendecas](https://github.com/legendecas))
 - Justin Ridgewell ([@jridgewell](https://github.com/jridgewell))
 
+Discuss with the group and join the bi-weekly via [#tc39-async-context][]
+matrix room ([Matrix Guide][]).
+
 # Motivation
 
 When writing synchronous JavaScript code, a reasonable expectation from
@@ -626,11 +629,13 @@ Error: Call stack
   at businessLogic (example.js)
 ```
 
-[async stack traces]: https://v8.dev/docs/stack-trace-api#async-stack-traces
 [`asyncresource.runinasyncscope`]:
   https://nodejs.org/dist/latest-v14.x/docs/api/async_hooks.html#async_hooks_asyncresource_runinasyncscope_fn_thisarg_args
+[#tc39-async-context]: https://matrix.to/#/#tc39-async-context:matrix.org
+[Matrix Guide]: https://github.com/tc39/how-we-work/blob/main/matrix-guide.md
+[async stack traces]: https://v8.dev/docs/stack-trace-api#async-stack-traces
+[async stack tagging api]:
+  https://developer.chrome.com/blog/devtools-modern-web-debugging/#linked-stack-traces
 [domain module postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
 [solution.md]: ./SOLUTION.md
 [scoping.md]: ./SCOPING.md
-[async stack tagging api]:
-  https://developer.chrome.com/blog/devtools-modern-web-debugging/#linked-stack-traces
