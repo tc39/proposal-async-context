@@ -155,6 +155,54 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 </emu-clause>
 
+<emu-clause id="sec-ordinary-and-exotic-objects-behaviours">
+  <h1>Ordinary and Exotic Objects Behaviours</h1>
+
+  <emu-clause id="sec-built-in-function-objects">
+    <h1>Built-in Function Objects</h1>
+
+    <emu-clause id="sec-createbuiltinfunction" type="abstract operation">
+      <h1>
+        CreateBuiltinFunction (
+          _behaviour_: an Abstract Closure, a set of algorithm steps, or some other definition of a function's behaviour provided in this specification,
+          optional _length_: a non-negative integer or +&infin;,
+          optional _name_: a property key or a Private Name,
+          optional _additionalInternalSlotsList_: a List of names of internal slots,
+          optional _realm_: a Realm Record,
+          optional _prototype_: an Object or *null*,
+          optional _prefix_: a String,
+        ): a function object
+      </h1>
+      <dl class="header">
+        <dt>description</dt>
+        <dd>_additionalInternalSlotsList_ contains the names of additional internal slots that must be defined as part of the object. This operation creates a built-in function object.</dd>
+      </dl>
+      <emu-alg>
+        1. <ins>If _additionalInternalSlotsList_ is not present, set _additionalInternalSlotsList_ to a new empty List.</ins>
+        1. If _realm_ is not present, set _realm_ to the current Realm Record.
+        1. If _prototype_ is not present, set _prototype_ to _realm_.[[Intrinsics]].[[%Function.prototype%]].
+        1. Let _internalSlotsList_ be a List containing the names of all the internal slots that <emu-xref href="#sec-built-in-function-objects"></emu-xref> requires for the built-in function object that is about to be created.
+        1. Append to _internalSlotsList_ the elements of _additionalInternalSlotsList_.
+        1. Let _func_ be a new built-in function object that, when called, performs the action described by _behaviour_ using the provided arguments as the values of the corresponding parameters specified by _behaviour_. The new function object has internal slots whose names are the elements of _internalSlotsList_, and an [[InitialName]] internal slot.
+        1. Set _func_.[[Prototype]] to _prototype_.
+        1. Set _func_.[[Extensible]] to *true*.
+        1. Set _func_.[[Realm]] to _realm_.
+        1. Set _func_.[[InitialName]] to *null*.
+        1. <ins>If _length_ is present, then</ins>
+          1. Perform SetFunctionLength(_func_, _length_).
+        1. <ins>If _name_ is present, then</ins>
+          1. If _prefix_ is not present, then
+            1. Perform SetFunctionName(_func_, _name_).
+          1. Else,
+            1. Perform SetFunctionName(_func_, _name_, _prefix_).
+        1. Return _func_.
+      </emu-alg>
+      <p>Each built-in function defined in this specification is created by calling the CreateBuiltinFunction abstract operation.</p>
+    </emu-clause>
+  </emu-clause>
+  </emu-clause>
+</emu-clause>
+
 <emu-clause id="sec-ecmascript-language-functions-and-classes">
   <h1>ECMAScript Language: Functions and Classes</h1>
 
@@ -1002,7 +1050,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _result_ be Completion(Call(_fn_, _thisArgument_, _args_)).
             1. AsyncContextSwap(_previousContextMapping_).
             1. Return _result_.
-          1. Let _wrapped_ be CreateBuiltinFunction(_closure_, *+0*<sub>𝔽</sub>, *""*, &laquo; &raquo;).
+          1. Let _wrapped_ be CreateBuiltinFunction(_closure_).
           1. Perform ? CopyNameAndLength(_wrapped_, _fn_, *"wrapped"*).
           1. Return _wrapped_.
         </emu-alg>
