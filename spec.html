@@ -6,6 +6,7 @@ title: AsyncContext
 stage: 1
 contributors: Chengzhong Wu, Justin Ridgewell
 </pre>
+<emu-biblio href="./shadowrealm-biblio.json"></emu-biblio>
 
 <emu-clause id="sec-ecmascript-data-types-and-values">
   <h1>ECMAScript Data Types and Values</h1>
@@ -1001,13 +1002,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _result_ be Completion(Call(_fn_, _thisArgument_, _args_)).
             1. AsyncContextSwap(_previousContextMapping_).
             1. Return _result_.
-          1. Let _length_ be ? LengthOfArrayLike(_fn_).
-          1. Let _name_ be ? Get(_fn_, *"name"*).
-          1. If _name_ is not a String, set _name_ to the empty String.
-          1. Let _realm_ be the current Realm Record.
-          1. Let _prototype_ be _realm_.[[Intrinsics]].[[%Function.prototype%]].
-          1. Return CreateBuiltinFunction(_closure_, _length_, _name_, &laquo; &raquo;, _realm_, _prototype_, *"wrapped"*).
+          1. Let _wrapped_ be CreateBuiltinFunction(_closure_, *+0*<sub>𝔽</sub>, *""*, &laquo; &raquo;).
+          1. Perform ? CopyNameAndLength(_wrapped_, _fn_, *"wrapped"*).
+          1. Return _wrapped_.
         </emu-alg>
+
+        <emu-note type="editor">
+          This algorithm uses the CopyNameAndLength AO defined in the ShadowRealm proposal. Since that AO does not depend on the rest of the ShadowRealm proposal, its definition (along with the changes to Function.prototype.bind) could be moved to this proposal if it were to advance stages beyond ShadowRealm.
+        </emu-note>
       </emu-clause>
     </emu-clause>
 
