@@ -165,7 +165,7 @@ logically-connected sync/async code execution.
 
 ```typescript
 namespace AsyncContext {
-  class Variable<T> {
+  export class Variable<T> {
     constructor(options: AsyncVariableOptions<T>);
     get name(): string;
     get(): T | undefined;
@@ -176,11 +176,13 @@ namespace AsyncContext {
     defaultValue?: T;
   }
 
-  class Snapshot {
+  export class Snapshot {
     constructor();
     run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
     static wrap<T, R>(fn: (this: T, ...args: any[]) => R): (this: T, ...args: any[]) => R;
   }
+
+  export function callingContext<R>(fn: (...args: any[]) => R, ...args: any[]): R;
 }
 ```
 
@@ -366,6 +368,87 @@ function processQueue() {
 }
 ```
 
+## `AsyncContext.callingContext`
+
+`AsyncContext.callingContext` is a helper which allows you to
+temporarily return all `Variable`s to the execution state immediately
+before the current one.
+
+Generally, APIs which defer execution will capture the context at the
+time of registration to be used when that function is later executed.
+Eg, `obj.addEventListener('foo', fn)` immediately captures the context
+when `addEventListener` is called to be restored later when the `foo`
+event eventually happens. This is called **registration-time** context
+propagation.
+
+In certain circumstances, you may wish to use **call-time** context
+propagation. Ie, the context that is active when the event is actually
+dispatched. Unfortunately, because the API will restore the registration
+time context before invoking `fn`, the calling context will have already
+been replaced.
+
+`AsyncContext.callingContext` helper function allows you to restore the
+context state to what it was immediately prior to the current state,
+allowing both **registration-time** and **call-time** use cases to work.
+
+```typescript
+const asyncVar = new AsyncContext.Variable();
+
+const obj = new EventEmitter();
+
+asyncVar.run("registration", () => {
+  obj.on("foo", () => {
+    // EventEmitter restored the registration time context before
+    // invoking our callback. If the callback wanted to get the context
+    // active during the `emit()` call, it would have to receive a
+    // Snapshot instance passed by the caller.
+    console.log(asyncVar.get()); // => 'registration'
+
+    // But with `AsyncContext.callingContext()`, we're able to restore
+    // the caller's context without changing EventEmitter's API.
+    // EventEmitter can continue to assume that registration is default
+    // that is most useful to developers.
+    AsyncContext.callingContext(() => {
+      console.log(asyncVar.get()); // => 'call'
+    });
+  });
+});
+
+asyncVar.run("call", () => {
+  obj.emit("foo");
+});
+```
+
+Calling `AsyncContext.callingContext` works similarly to invoking
+`AsyncContext.Snapshot.prototype.run`, meaning that we temporarily
+restore a different global state while the passed in callback executes,
+then immediately restore the prior state.
+
+This also works with `Generator`/`AsyncGenerator` functions, allowing
+you to restore the context that was active when `it.next()` was called.
+
+```typescript
+function* gen() {
+  console.log(asyncVar.get()); // => 'init'
+
+  yield 1;
+
+  // Generators and AsyncGenerators always restore the context that was
+  // active when they were initialized.
+  console.log(asyncVar.get()); // => 'init'
+
+  AsyncContext.callingContext(() => {
+    console.log(asyncVar.get()); // => 'second'
+  });
+}
+
+const it = asyncVar.run("init", () => {
+  return gen();
+});
+
+asyncVar.run("first", () => it.next());
+asyncVar.run("second", () => it.next());
+```
 
 # Examples
 
