@@ -1,8 +1,8 @@
 # Continuation flows
 
-The proposal as it currently stands defines that a context variable by
-propagating values to subtasks without feeding back any modifications in
-subtasks to the context of their parent async task.
+The proposal as it currently stands defines propagating context variables to
+subtasks without feeding back any modifications in subtasks to the context of
+their parent async task.
 
 ```js
 const asyncVar = new AsyncContext.Variable()
@@ -54,24 +54,18 @@ const cf = new ContinuationFlow()
 
 cf.run('main', () => {
   readFile(file, () => {
+    // The continuation flow should be preserved here.
     cf.get() // => main
   })
 })
 
 function readFile(file, callback) {
-  // snapshot context at fs.open
+  const snapshot = new AsyncContext.Snapshot()
+  // readFile is composited with a series of sub-operations.
   fs.open(file, (err, fd) => {
-    // restore context before callback
-
-    // snapshot context at fs.read
     fs.read(fd, (err, text) => {
-      // restore context before callback
-
-      // snapshot context at fs.close
       fs.close(fd, (err) => {
-        // restore context before callback
-
-        callback(err, text)
+        snapshot.run(callback. err, text)
       })
     })
   })
@@ -79,22 +73,26 @@ function readFile(file, callback) {
 ```
 
 In the above example, callbacks can be composed naturally with the function
-argument of `run(value, fn)` signature, and makes it possible to feedback
+argument of `run(value, fn)` signature, and making it possible to feedback
 the modification of the context of subtasks to the callbacks from outer scope.
 
 ```js
 cf.run('main', () => {
   readFile(file, () => {
-    cf.get() // => last operation: fs.close
+    // The continuation flow is a continuation of the fs.close operation.
+    cf.get() // => `main -> fs.close`
   })
 })
 
 function readFile(file, callback) {
+  const snapshot = new AsyncContext.Snapshot()
   // ...
   // omit the other part
   fs.close(fd, (err) => {
-    cf.run('last operation: fs.close', () => {
-      callback(err, text)
+    snapshot.run(() => {
+      cf.run(`${cf.get()} -> fs.close`, () => {
+        callback(err, text)
+      })
     })
   })
 }
@@ -110,7 +108,7 @@ cf.run('main', main)
 async function main() {
   cf.get() // => 'main'
 
-  await ctx.run('inner', async () => {
+  await cf.run('inner', async () => {
     cf.get() // => 'inner'
     await task()
     cf.get() // => 'task-0'
@@ -122,7 +120,7 @@ async function main() {
 let taskId = 0
 async function task() {
   cf.get() // => 'inner'
-  await ctx.run(`task-${taskId++}`, async () => {
+  await cf.run(`task-${taskId++}`, async () => {
     const id = cf.get() // => 'task-0'
     // ... async operations
     await 1
@@ -183,13 +181,13 @@ picking one single winner and discarding all other states.
 | `Promise.any`        | short-circuits when an input value is fulfilled | Short-circuit | Merge         |
 
 To expand on the behaviors, given a task with the following definition, with
-`ctx` being the corresponding context variable (`AsyncContext.Variable` and
+`valueStore` being the corresponding context variable (`AsyncContext.Variable` and
 `ContinuationFlow`) in each semantic:
 
 ```js
 let taskId = 0
 function randomTask() {
-  return ctx.run(`task-${taskId++}`, async () => {
+  return valueStore.run(`task-${taskId++}`, async () => {
     await scheduler.wait(Math.random * 10)
     if (Math.random() >= 0.5) {
       throw new Error()
@@ -198,106 +196,50 @@ function randomTask() {
 }
 ```
 
-### `Promise.allSettled`
+### Example
 
-It is a merge point on `Promise.allSettled`. It aggregates the promise results
-that are either resolved or rejected.
-
-```js
-ctx.run('main', async () => {
-  await Promise.allSettled(_.times(5).map((it) => randomTask()))
-  ctx.get() // => (1)
-})
-```
-
-From different observation perspectives, the value at site (1) would be
-different on the above semantics:
-
-- For `AsyncContext.Variable`, it is `main`,
-- For `ContinuationFlow`, the proposed solution didn't specify
-  conflicts-resolving yet. If the default behavior merges the values in an
-  array, it changes the shape of the value.
-
-### `Promise.all`
-
-In the resolving path, `Promise.all` is similar to `Promise.allSettled` that it
-is a merge point when all promises resolve.
-
-`Promise.all` picks the fastest reject promise.
+We'll take `Promise.all` as an example since it merges when all promises
+fulfills and take a short-circuit when any of the promises is rejected.
 
 ```js
-ctx.run('main', async () => {
+valueStore.run('main', async () => {
   try {
     await Promise.all(_.times(5).map((it) => randomTask()))
-    ctx.get() // => (1)
+    valueStore.get() // => site (1)
   } catch (e) {
-    ctx.get() // => (2)
+    valueStore.get() // => site (2)
   }
 })
 ```
 
-The value at site (1):
+From different observation perspectives, the value at site (1) would be
+different on the above semantics.
 
-- For `AsyncContext.Variable`, it is `main`,
-- For `ContinuationFlow`, the proposed solution didn't specify
-  conflicts-resolving yet.
+For `AsyncContext.Variable`, it is `main`.
+
+For `ContinuationFlow`, it needs a mechanism to resolve the merge
+conflicts, and pick a winner to be the default current context:
+
+```js
+await Promise.all([
+  task({ id: 1, duration: 100 }), // (1)
+  task({ id: 2, duration: 1000 }), // (2)
+  task({ id: 3, duration: 100 }), // (3)
+])
+valueStore.get() // site (4)
+valueStore.getAggregated() // site (5)
+```
+
+The return value at site (4) could be either the first one in the iterator, as
+the context of task (1), or the last finished one in the iterator, as the
+context of task (2). And the return value at site (5) could be an aggregated
+array of all the values [(1), (2), (3)].
 
 The value at site (2):
 
 - For `AsyncContext.Variable`, it is `main`,
 - For `ContinuationFlow`, it is the one caused the rejection, and discarding
   leaf contexts of promises that may have been fulfilled.
-
-### `Promise.race`
-
-`Promise.race` picks the fastest settled (either fulfilled or rejected) promise.
-
-```js
-ctx.run('main', async () => {
-  try {
-    await Promise.race(_.times(5).map((it) => randomTask()))
-    ctx.get() // => (1)
-  } catch (e) {
-    ctx.get() // => (2)
-  }
-})
-```
-
-The value at sites (1) and (2):
-
-- For `AsyncContext.Variable`, it is `main`,
-- For `ContinuationFlow`, it is the one caused the settlement.
-
-### `Promise.any`
-
-In a happy path, `Promise.any` is similar to `Promise.race` that it picks the
-fastest resolved promise. However, it aggregates the exception values when all
-the promises are rejected.
-
-It is a merge point when exception values are aggregated.
-
-```js
-ctx.run('main', async () => {
-  try {
-    await Promise.any(_.times(5).map((it) => randomTask()))
-    ctx.get() // => (1)
-  } catch (e) {
-    ctx.get() // => (2)
-  }
-})
-```
-
-The value at site (1):
-
-- For `AsyncContext.Variable`, it is `main`,
-- For `ContinuationFlow`, it is the one caused the fulfillment, and discarding
-  leaf contexts of promises that may have been rejected.
-
-The value at site (2):
-
-- For `AsyncContext.Variable`, it is `main`,
-- For `ContinuationFlow`, the proposed solution didn't specify
-  conflicts-resolving yet.
 
 ### Graft promises from outer scope
 
@@ -313,21 +255,21 @@ By awaiting a promise created outside of the current context, the two
 executions are grafted together and there is a merge point on `await`.
 
 ```js
-const gPromise = ctx.run('global', () => {
+const gPromise = valueStore.run('global', () => { // (1)
   return Promise.resolve(1)
 })
 
-ctx.run('main', main)
+valueStore.run('main', main) // (2)
 async function main() {
   await gPromise
   // -> global ---
   //              \
-  // -> main   ----> (1)
-  ctx.get() // (1)
+  // -> main   ----> (3)
+  valueStore.get() // site (3)
 }
 ```
 
-The value at site (1):
+The value at site (3):
 
 - For `AsyncContext.Variable`, it is `main`,
 - For `ContinuationFlow`, it is `global`, discarding the leaf context before
@@ -348,22 +290,28 @@ with the following properties:
 Intuitively, the context of the event should be relevant to the promise
 instance attached to the `PromiseRejectionEvent` instance.
 
+Or alternatively, a new `PromiseRejectionEvent` property can be defined as:
+
+- `asyncSnapshot`: the context relevant to the promise that being rejected.
+
 For a promise created with the `PromiseConstructor` or `Promise.withResolvers`,
 the promise can be rejected in a different context:
 
 ```js
 let reject
-let p1 // (1)
-ctx.run('init', () => {
+let p1
+valueStore.run('init', () => { // (1)
   ;({ p1, reject } = Promise.withResolvers())
 })
 
-ctx.run('reject', () => {
+valueStore.run('reject', () => { // (2)
   reject('error message')
 })
 
 addEventListener('unhandledrejection', (event) => {
-  ctx.get() // (2)
+  event.asyncSnapshot.run(() => {
+    valueStore.get() // site (3)
+  })
 })
 ```
 
@@ -371,7 +319,8 @@ In this case, the `unhandledrejection` event will be dispatched with the promise
 instance `p1` and a string of `'error message'`, and the event is scheduled in
 the context of `'reject'`.
 
-For the two type of context variables with `unhandledrejection` event of `p1`:
+For the two type of context variables with `unhandledrejection` event of `p1`
+at site (3):
 
 - For `AsyncContext.Variable`, the context is `'reject'`, where `p1` was rejected.
 - For `ContinuationFlow`, the context is `'reject'`, where `p1` was rejected.
@@ -383,19 +332,21 @@ handler:
 
 ```js
 let reject
-let p1 // (1)
-ctx.run('init', () => {
+let p1
+valueStore.run('init', () => { // (1)
   ;({ p1, reject } = Promise.withResolvers())
   const p2 = p1 // p1 is not settled yet
     .then(undefined, undefined)
 })
 
-ctx.run('reject', () => {
+valueStore.run('reject', () => { // (2)
   reject('error message')
 })
 
 addEventListener('unhandledrejection', (event) => {
-  ctx.get() // (2)
+  event.asyncSnapshot.run(() => {
+    valueStore.get() // site (3)
+  })
 })
 ```
 
@@ -403,7 +354,7 @@ The `unhandledrejection` event will be dispatched with the promise
 instance `p2` with a string of `'error message'`. In this case, the event is
 scheduled in a new microtask which was scheduled in the context of `'reject'`.
 
-For the two type of context variables, the value at site (2) with
+For the two type of context variables, the value at site (3) with
 `unhandledrejection` event of `p2`:
 
 - For `AsyncContext.Variable`, the context is `'init'`, where `p2`
@@ -415,18 +366,20 @@ For the two type of context variables, the value at site (2) with
 If handlers were attached to an already rejected promise:
 
 ```js
-let p1 // (1)
-ctx.run('reject', () => {
+let p1
+valueStore.run('reject', () => { // (1)
   p1 = Promise.reject('error message')
 })
 
-ctx.run('init', () => {
+valueStore.run('init', () => { // (2)
   const p2 = p1 // p1 is already rejected
-    .then(undefined, undefined) // (2)
+    .then(undefined, undefined)
 })
 
 addEventListener('unhandledrejection', (event) => {
-  ctx.get() // (2)
+  event.asyncSnapshot.run(() => {
+    valueStore.get() // site (3)
+  })
 })
 ```
 
@@ -438,7 +391,7 @@ In this case, the `unhandledrejection` event is scheduled in the context where
 > This host hook didn't actually "schedule" the event dispatching, rather putting the
 > promise in a queue and the event is actually scheduled from [event loop](https://html.spec.whatwg.org/#notify-about-rejected-promises).
 
-For the two type of context variables, the value at site (2) with
+For the two type of context variables, the value at site (3) with
 `unhandledrejection` event of `p2`:
 
 - For `AsyncContext.Variable`, the context is `'init'`, where `p2`
@@ -447,20 +400,21 @@ For the two type of context variables, the value at site (2) with
 
 ### Fulfilled promises
 
-Similar to the rejected promise issue, the MOST relevant cause's context when
-scheduling a microtask for newly created promise handlers are not
-deterministic:
+The two proposed semantics are not always following the most relevant cause's
+context to reduce undeterministic behavior. Similar to the rejected promise
+issue, the MOST relevant cause's context when scheduling a microtask for newly
+created promise handlers is unobservable from JavaScript:
 
 ```js
-let p1 // (1)
-ctx.run('resolve', () => {
+let p1
+valueStore.run('resolve', () => { // (1)
   p1 = Promise.resolve('yay')
 })
 
-ctx.run('init', () => {
+valueStore.run('init', () => { // (2)
   const p2 = p1 // p1 is already resolved
     .then(() => {
-      ctx.get() // (2)
+      valueStore.get() // site (3)
     })
 })
 ```
@@ -483,26 +437,35 @@ const then = (p, onFulfill) => {
   }
   // ...
 }
-let p1 // (1)
-ctx.run('resolve', () => {
+let p1
+valueStore.run('resolve', () => { // (1)
   p1 = Promise.resolve('yay')
 })
 
-ctx.run('init', () => {
-  const p2 = then(p1, undefined) // the promise is already resolved
+valueStore.run('init', () => { // (2)
+  const p2 = then(p1, undefined) // p1 is already resolved
+    .then(() => {
+      valueStore.get() // site (3)
+    })
 })
 ```
 
-In this case, the MOST relevant context would be `'init'` since in this
-context, the microtask is scheduled. However, since it is not observable from
-JS if a promise is settled or not, actual continuation flow would be
+The context at site (3) represents the context triggered the logical execution
+of the promise fulfillment handler. In this case, the most relevant cause's
+context at site (2) would be `'init'` since in this context, the microtask is
+scheduled.
+
+However, since if a promise is settled or not is not observable from JS, a data
+flow that always following the MOST relevant cause's context would be
 undeterministic and exposes a new approach to inspect the promise internal
 state.
 
-For the two type of context variables, the value at site (2):
+The two proposed semantics are not always following the most relevant cause's
+context to reduce undeterministic behavior. And the values at site (2) are
+regardless of whether the promise was fulfilled or not:
 
-- For `AsyncContext.Variable`, the context is `'init'`.
-- For `ContinuationFlow`, the context is still `'resolve'`.
+- For `AsyncContext.Variable`, the context is constantly `'init'`.
+- For `ContinuationFlow`, the context is constantly `'resolve'`.
 
 ## Follow-up
 
