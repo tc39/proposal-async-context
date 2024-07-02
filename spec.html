@@ -126,6 +126,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
           </td>
         </tr>
+        <tr>
+          <td>
+            <ins>[[ThrowAsyncContextMapping]]</ins>
+          </td>
+          <td>
+            <ins>~unused~ or a List of Async Context Mapping Records</ins>
+          </td>
+          <td>
+            <ins>The value of [[AsyncContextMapping]] at the time of the last time an exception was thrown, if any. Used by hosts to provide Async Context Mapping information when reporting uncaught exceptions.</ins>
+          </td>
+        </tr>
       </table>
     </emu-table>
   </emu-clause>
@@ -148,7 +159,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         1. <del>Perform ? HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »).</del>
         1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextSnapshot]]).</ins>
         1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
-        1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+        1. <ins>AsyncContextSwap(_previousContextMapping_, _result_).</ins>
         1. <ins>Perform ? _result_.</ins>
       1. Return ~unused~.
     </emu-alg>
@@ -200,6 +211,62 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <p>Each built-in function defined in this specification is created by calling the CreateBuiltinFunction abstract operation.</p>
     </emu-clause>
   </emu-clause>
+  </emu-clause>
+</emu-clause>
+
+<emu-clause id="sec-ecmascript-language-statements-and-declarations">
+  <h1>ECMAScript Language: Statements and Declarations</h1>
+
+  <emu-clause id="sec-try-statement">
+    <h1>The `try` Statement</h1>
+
+    <emu-clause id="sec-try-statement-runtime-semantics-evaluation" type="sdo">
+      <h1>Runtime Semantics: Evaluation</h1>
+      <emu-grammar>TryStatement : `try` Block Catch</emu-grammar>
+      <emu-alg>
+        1. Let _B_ be Completion(Evaluation of |Block|).
+        1. <del>If _B_ is a throw completion, let _C_ be Completion(CatchClauseEvaluation of |Catch| with argument _B_.[[Value]]).</del>
+        1. <del>Else, let _C_ be _B_.</del>
+        1. <ins>If _B_ is a throw completion, then</ins>
+          1. <ins>Let _agentRecord_ be the surrounding agent's Agent Record.</ins>
+          1. <ins>Set _agentRecord_.[[ThrowAsyncContextMapping]] to ~empty~.</ins>
+          1. <ins>Let _C_ be Completion(CatchClauseEvaluation of |Catch| with argument _B_.[[Value]]).</ins>
+        1. <ins>Else,</ins>
+          1. <ins>Let _C_ be _B_.</ins>
+        1. Return ? UpdateEmpty(_C_, *undefined*).
+      </emu-alg>
+      <emu-grammar>TryStatement : `try` Block Finally</emu-grammar>
+      <emu-alg>
+        1. <ins>Let _agentRecord_ be the surrounding agent's AgentRecord.</ins>
+        1. Let _B_ be Completion(Evaluation of |Block|).
+        1. <ins>Let _throwAsyncContextMapping_ be _agentRecord_.[[ThrowAsyncContextMapping]].</ins>
+        1. Let _F_ be Completion(Evaluation of |Finally|).
+        1. <del>If _F_ is a normal completion, set _F_ to _B_.</del>
+        1. <ins>If _F_ is a normal completion, then</ins>
+          1. <ins>Set _agentRecord_.[[ThrowAsyncContextMapping]] to _throwAsyncContextMapping_.</ins>
+          1. <ins>Set _F_ to _B_.</ins>
+        1. Return ? UpdateEmpty(_F_, *undefined*).
+      </emu-alg>
+      <emu-grammar>TryStatement : `try` Block Catch Finally</emu-grammar>
+      <emu-alg>
+        1. <ins>Let _agentRecord_ be the surrounding agent's Agent Record.</ins>
+        1. Let _B_ be Completion(Evaluation of |Block|).
+        1. <del>If _B_ is a throw completion, let _C_ be Completion(CatchClauseEvaluation of |Catch| with argument _B_.[[Value]]).</del>
+        1. <del>Else, let _C_ be _B_.</del>
+        1. <ins>If _B_ is a throw completion, then</ins>
+          1. <ins>Set _agentRecord_.[[ThrowAsyncContextMapping]] to ~empty~.</ins>
+          1. <ins>Let _C_ be Completion(CatchClauseEvaluation of |Catch| with argument _B_.[[Value]]).</ins>
+        1. <ins>Else,</ins>
+          1. <ins>Let _C_ be _B_.</ins>
+        1. <ins>Let _throwAsyncContextMapping_ be _agentRecord_.[[ThrowAsyncContextMapping]].</ins>
+        1. Let _F_ be Completion(Evaluation of |Finally|).
+        1. <del>If _F_ is a normal completion, set _F_ to _C_.</del>
+        1. <ins>If _F_ is a normal completion, then</ins>
+          1. <ins>Set _agentRecord_.[[ThrowAsyncContextMapping]] to _throwAsyncContextMapping_.</ins>
+          1. <ins>Set _F_ to _C_.</ins>
+        1. Return ? UpdateEmpty(_F_, *undefined*).
+      </emu-alg>
+    </emu-clause>
   </emu-clause>
 </emu-clause>
 
@@ -397,7 +464,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Else,
               1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_, _resolvingFunctionResult_).</ins>
             1. <ins>Return _resolvingFunctionResult_.</ins>
           1. Let _handlerRealm_ be *null*.
           1. If _reaction_.[[Handler]] is not ~empty~, then
@@ -428,7 +495,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. If _thenCallResult_ is an abrupt completion, then
               1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
               1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. <ins>AsyncContextSwap(_previousContextMapping_, _rejectResult_).</ins>
               1. <ins>Return _rejectResult_.</ins>
             1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
             1. Return ? _thenCallResult_.
@@ -679,7 +746,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
           1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
             1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_, _result_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -718,7 +785,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
           1. <ins>If _previousContextMapping_ is not ~empty~, then</ins>
             1. <ins>Assert: The result of AsyncContextSnapshot() is _generator_.[[GeneratorAsyncContextMapping]].</ins>
-            1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. <ins>AsyncContextSwap(_previousContextMapping_, _result_).</ins>
           1. Return ? _result_.
         </emu-alg>
       </emu-clause>
@@ -954,7 +1021,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontextswap" type="abstract operation">
         <h1>
           AsyncContextSwap (
-            _snapshotMapping_: a List of Async Context Mapping Records
+            _snapshotMapping_: a List of Async Context Mapping Records,
+            optional _completion_: a Completion Record,
           ): a List of Async Context Mapping Records
         </h1>
         <dl class="header">
@@ -964,6 +1032,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
+          1. If _completion_ is present and it is an abrupt completion, then
+            1. If _agentRecord_.[[ThrowAsyncContextMapping]] is ~empty~, set it to _asyncContextMapping_.
+          1. Else,
+            1. Set _agentRecord_.[[ThrowAsyncContextMapping]] to ~empty~.
           1. Set _agentRecord_.[[AsyncContextMapping]] to _snapshotMapping_.
           1. Return _asyncContextMapping_.
         </emu-alg>
@@ -1048,7 +1120,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Let _thisArgument_ be the *this* value.
             1. Let _previousContextMapping_ be AsyncContextSwap(_snapshot_).
             1. Let _result_ be Completion(Call(_fn_, _thisArgument_, _args_)).
-            1. AsyncContextSwap(_previousContextMapping_).
+            1. AsyncContextSwap(_previousContextMapping_, _result_).
             1. Return _result_.
           1. Let _wrapped_ be CreateBuiltinFunction(_closure_).
           1. Perform ? CopyNameAndLength(_wrapped_, _fn_, *"wrapped"*).
@@ -1084,7 +1156,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Perform ? RequireInternalSlot(_asyncSnapshot_, [[AsyncSnapshotMapping]]).
           1. Let _previousContextMapping_ be AsyncContextSwap(_asyncSnapshot_.[[AsyncSnapshotMapping]]).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. AsyncContextSwap(_previousContextMapping_, _result_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
@@ -1212,7 +1284,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Append _p_ to _asyncContextMapping_.
           1. AsyncContextSwap(_asyncContextMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
-          1. AsyncContextSwap(_previousContextMapping_).
+          1. AsyncContextSwap(_previousContextMapping_, _result_).
           1. Return _result_.
         </emu-alg>
       </emu-clause>
