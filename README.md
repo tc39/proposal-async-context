@@ -534,6 +534,70 @@ asyncVar.run("A", async () => {
 This increases the integrity of async context variables, and makes them
 easier to reason about where a value of an async variable comes from.
 
+## How does `AsyncContext` interact with built-in schedulers?
+
+Any time a scheduler (such as `setTimeout`, `addEventListener`, or
+`Promise.prototype.then`) runs a user-provided callback, it must choose which
+snapshot to run it in. While userland schedulers are free to make any choice
+here, this proposal adopts a convention that built-in schedulers will always run
+callbacks in the snapshot that was active when the callback was passed to the
+built-in (i.e. at "registration time"). This is equivalent to what would happen
+if the user explicitly called `AsyncContext.Snapshot.wrap` on all callbacks
+before passing them.
+
+This choice is the most consistent with the function-scoped structure that
+results from `run` taking a function, and is also the most clearly-defined
+option among the possible alternatives.  For instance, many event listeners
+may be initiated either programmatically or through user interaction; in the
+former case there may be a more recently relevant snapshot available, but it's
+inconsistent across different types of events or even different instances of the
+same type of event. On the other hand, passing a callback to a built-in function
+happens at a very clearly defined time.
+
+Another advantage of registration-time snapshotting is that it is expected to
+reduce the amount of intervention required to opt out of the default snapshot.
+Because `AsyncContext` is a subtle feature, it's not reasonable to expect every
+web developer to build a complete understanding of its nuances. Moreover, it's
+important that library users should not need to be aware of the nature of the
+variables that library implementations are implicitly passing around. It would
+be harmful if common practices emerged that developers felt they needed to wrap
+their callbacks before passing them anywhere. The primary means to have a
+function run in a different snapshot is to call `Snapshot.wrap`, but this
+will be idempotent when passing callbacks to built-ins, making it both less
+likely for this common practice to begin in the first place, and also less
+harmful when it does happen unnecessarily.
+
+## What if I need access to the snapshot from a more recent cause?
+
+The downside to registration-time snapshotting is that it's impossible to opt
+_out_ of the snapshot restoration to access whatever the snapshot would have
+been _before_ it was restored. Use cases where this snapshot is more relevant
+include
+
+- programmatically-dispatched events whose handlers are installed at application
+  initialization time
+- unhandled rejection handlers are a specific example of the above
+- tracing execution flow, where one task "follows from" a sibling task
+
+As explained above, the alternative snapshot choices are much more specific to
+the individual use case, but they can be made available through side channels.
+For instance, web specifications could include that certain event types will
+expose an `originSnapshot` property (actual name to be determined) on the event
+object containing the active `AsyncContext.Snapshot` from a specific point in
+time that initiated the event.
+
+Providing these additional snapshots through side channels has several benefits
+over switching to them by default, or via a generalized "previous snapshot"
+mechanism:
+
+- different types of schedulers may have a variety of potential origination
+  points, whose scope can be matched precisely with a well-specified side
+  channel
+- access via a known side channel avoids loss of idempotency when callbacks are
+  wrapped multiple times (whereas a "previous snapshot" would becomes much less
+  clear)
+- no single wrapper method for developers to build bad habits around
+
 # Prior Arts
 
 ## zones.js
