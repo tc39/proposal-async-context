@@ -968,6 +968,23 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Return _asyncContextMapping_.
         </emu-alg>
       </emu-clause>
+
+      <emu-clause id="sec-createasynccontextsnapshot" type="abstract operation">
+        <h1>
+          CreateAsyncContextSnapshot (
+            _snapshotMapping_: a List of Async Context Mapping Records
+          ): either a normal completion containing an AsyncContext.Snapshot object or a throw completion
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It is used to obtain an AsyncContext.Snapshot object representing the given List of Async Context Mapping Records.</dd>
+        </dl>
+        <emu-alg>
+          1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(%AsyncContext.Snapshot%, *"%AsyncContext.Snapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
+          1. Set _asyncSnapshot_.[[AsyncSnapshotMapping]] to _snapshotMapping_.
+          1. Return _asyncSnapshot_.
+        </emu-alg>
+      </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-constructor-properties-of-the-asynccontext-object">
