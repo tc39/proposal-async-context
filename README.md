@@ -236,7 +236,9 @@ function randomTimeout() {
 
 Hosts are expected to use the infrastructure in this proposal to allow tracking
 not only asynchronous callstacks, but other ways to schedule jobs on the event
-loop (such as `setTimeout`) to maximize the value of these use cases.
+loop (such as `setTimeout`) to maximize the value of these use cases. We
+describe the needed integration with web platform APIs in the [web integration
+document](./WEB-INTEGRATION.md).
 
 A detailed example of use cases can be found in the
 [Use cases document](./USE-CASES.md).
