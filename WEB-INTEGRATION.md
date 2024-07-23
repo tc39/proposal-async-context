@@ -684,8 +684,8 @@ For snapshots exposed as properties of events, observer entries or other web
 platform objects, `CreateAsyncContextSnapshot()` should be called in the
 relevant realm of that web platform object. In any other cases (e.g. if a
 snapshot is passed as an argument into a callback), it should be called in the
-relevant realm of `this` (see <https://github.com/whatwg/webidl/issues/135>).
-It might therefpre make sense to instead define an equivalent of that abstract
+relevant realm of `this` (see https://github.com/whatwg/webidl/issues/135). It
+might therefore make sense to instead define an equivalent of that abstract
 operation in WebIDL, that handles this.
 
 Note that for properties of events and observer entries, implementations may
@@ -710,8 +710,8 @@ as parameters. Some of these use cases are:
   useful [to identify scripts that enqueued long
   tasks](https://github.com/w3c/longtasks/issues/89), or to [build dependency
   trees for the loading of
-  resources](https://github.com/w3c/resource-timing/issues/263). See [TODO: open
-  issue in soft navigations spec]
+  resources](https://github.com/w3c/resource-timing/issues/263). See
+  https://github.com/WICG/soft-navigations/issues/44.
 
 - **`scheduler.yield` priority and signal**. In order to provide a more
   ergonomic API, if
