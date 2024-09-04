@@ -123,7 +123,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>a List of Async Context Mapping Records</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
+            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially the return value of HostGetTopLevelAsyncContextMapping(*null*).</ins>
           </td>
         </tr>
       </table>
@@ -251,6 +251,59 @@ contributors: Chengzhong Wu, Justin Ridgewell
         1. Perform AsyncGeneratorStart(_generator_, |FunctionBody|).
         1. Return Completion Record { [[Type]]: ~return~, [[Value]]: _generator_, [[Target]]: ~empty~ }.
       </emu-alg>
+    </emu-clause>
+  </emu-clause>
+</emu-clause>
+
+<emu-clause id="sec-ecmascript-language-scripts-and-modules">
+  <h1>ECMAScript Language: Scripts and Modules</h1>
+
+  <emu-clause id="sec-modules">
+    <h1>Modules</h1>
+
+    <emu-clause id="sec-module-semantics">
+      <h1>Module Semantics</h1>
+
+      <emu-clause id="sec-source-text-module-records">
+        <h1>Source Text Module Records</h1>
+        <emu-clause id="sec-source-text-module-record-execute-module" type="concrete method">
+          <h1>
+            ExecuteModule (
+              optional _capability_: a PromiseCapability Record,
+            ): either a normal completion containing ~unused~ or a throw completion
+          </h1>
+          <dl class="header">
+            <dt>for</dt>
+            <dd>a Source Text Module Record _module_</dd>
+          </dl>
+
+          <emu-alg>
+            1. Let _moduleContext_ be a new ECMAScript code execution context.
+            1. Set the Function of _moduleContext_ to *null*.
+            1. Set the Realm of _moduleContext_ to _module_.[[Realm]].
+            1. Set the ScriptOrModule of _moduleContext_ to _module_.
+            1. Assert: _module_ has been linked and declarations in its module environment have been instantiated.
+            1. Set the VariableEnvironment of _moduleContext_ to _module_.[[Environment]].
+            1. Set the LexicalEnvironment of _moduleContext_ to _module_.[[Environment]].
+            1. Suspend the running execution context.
+            1. <ins>Let _previousContextMapping_ be AsyncContextSwap(HostGetTopLevelAsyncContextMapping(_module_)).</ins>
+            1. If _module_.[[HasTLA]] is *false*, then
+              1. Assert: _capability_ is not present.
+              1. Push _moduleContext_ onto the execution context stack; _moduleContext_ is now the running execution context.
+              1. Let _result_ be Completion(Evaluation of _module_.[[ECMAScriptCode]]).
+              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+              1. Suspend _moduleContext_ and remove it from the execution context stack.
+              1. Resume the context that is now on the top of the execution context stack as the running execution context.
+              1. If _result_ is an abrupt completion, then
+                1. Return ? _result_.
+            1. Else,
+              1. Assert: _capability_ is a PromiseCapability Record.
+              1. Perform AsyncBlockStart(_capability_, _module_.[[ECMAScriptCode]], _moduleContext_).
+              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
+            1. Return ~unused~.
+          </emu-alg>
+        </emu-clause>
+      </emu-clause>
     </emu-clause>
   </emu-clause>
 </emu-clause>
@@ -936,6 +989,30 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
     <emu-clause id="sec-asynccontext-abstract-operations">
       <h1>AsyncContext Abstract Operations</h1>
+
+      <emu-clause id="sec-hostgettoplevelasynccontextmapping" type="abstract operation">
+        <h1>
+          HostGetTopLevelAsyncContextMapping (
+            _module_: a Module Record or *null*
+          ): a List of Async Context Mapping Records</h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It allows hosts to provide the top level async context mapping.</dd>
+        </dl>
+        <p>An implementation of HostGetTopLevelAsyncContextMapping must conform to the following requirements:</p>
+        <ul>
+          <li>It must return a List of Async Context Mapping Records.</li>
+          <li>The result List must contain the same Async Context Mapping Records for a given module record.</li>
+        </ul>
+        <p>The default implementation of HostGetTopLevelAsyncContextMapping performs the following steps when called:</p>
+        <emu-alg>
+          1. Return a new empty List.
+        </emu-alg>
+        <emu-note>
+          <p>ECMAScript hosts may add host defined async context mapping entries to the list.</p>
+        </emu-note>
+      </emu-clause>
+
       <emu-clause id="sec-asynccontextsnapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
@@ -1358,3 +1435,27 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
   </emu-clause>
 </emu-clause>
+
+<emu-annex id="sec-host-layering-points">
+  <h1>Host Layering Points</h1>
+
+  <emu-annex id="sec-host-hooks-summary">
+    <h1>Host Hooks</h1>
+    <p><b>HostCallJobCallback(...)</b></p>
+    <p><b>HostEnqueueFinalizationRegistryCleanupJob(...)</b></p>
+    <p><b>HostEnqueueGenericJob(...)</b></p>
+    <p><b>HostEnqueuePromiseJob(...)</b></p>
+    <p><b>HostEnqueueTimeoutJob(...)</b></p>
+    <p><b>HostEnsureCanCompileStrings(...)</b></p>
+    <p><b>HostFinalizeImportMeta(...)</b></p>
+    <p><b>HostGetImportMetaProperties(...)</b></p>
+    <p><b><ins>HostGetTopLevelAsyncContextMapping(...)</ins></b></p>
+    <p><b>HostGrowSharedArrayBuffer(...)</b></p>
+    <p><b>HostHasSourceTextAvailable(...)</b></p>
+    <p><b>HostLoadImportedModule(...)</b></p>
+    <p><b>HostMakeJobCallback(...)</b></p>
+    <p><b>HostPromiseRejectionTracker(...)</b></p>
+    <p><b>HostResizeArrayBuffer(...)</b></p>
+    <p><b>InitializeHostDefinedRealm(...)</b></p>
+  </emu-annex>
+</emu-annex>
