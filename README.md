@@ -440,10 +440,10 @@ const scheduler = {
   postTask(task, options) {
     // In practice, the task execution may be deferred.
     // Here we simply run the task immediately.
-    return AsyncContext.run({ [asyncVar]: { priority: options.priority } }, task);
+    return AsyncContext.run({ [this.asyncVar]: { priority: options.priority } }, task);
   },
   currentTask() {
-    return AsyncContext.get(asyncVar) ?? { priority: "default" };
+    return AsyncContext.get(this.asyncVar) ?? { priority: "default" };
   },
 };
 
