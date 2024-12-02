@@ -23,8 +23,8 @@ environments.
 The AsyncContext proposal allows associating state implicitly
 with a call stack, such that it propagates across asynchronous tasks and promise
 chains. In a way it is the equivalent of thread-local storage, but for async
-tasks. APIs like this (such as Node.js’s `AsyncLocalStorage`, on which API
-`AsyncContext` is based on) are fundamental for a number of diagnostics tools
+tasks. APIs like this (such as Node.js’s `AsyncLocalStorage`, whose API
+`AsyncContext` is inspired by) are fundamental for a number of diagnostics tools
 such as performance tracers.
 
 This proposal provides `AsyncContext.Variable`, a class whose instances store a
@@ -128,8 +128,8 @@ is needed to confirm exactly how this will be used.
 
 ## General approach to web API semantics with AsyncContext
 
-The AsyncContext API isn’t designed to be used directly by first-party
-JavaScript developers, but rather as an implementation detail of certain
+The AsyncContext API isn’t designed to be used directly by most
+JavaScript application developers, but rather as an implementation detail of certain
 third-party libraries. AsyncContext makes it so users of those libraries don’t
 need to explicitly integrate with it. Instead, the AsyncContext mechanism
 handles implicitly passing contextual data around.
@@ -282,8 +282,7 @@ These APIs register a callback or constructor to be invoked when some action
 runs. They’re also commonly used as a way to associate a newly created class
 instance with some action, such as in worklets or with custom elements.
 
-In cases where the action originates with the browser, or with a user event,
-then there is no dispatch context. Therefore, the only available context is the
+In cases where the action originates due to something happening outside of the web page (such as some user action), there is no dispatch context. Therefore, the only available context is the
 registration context, the one active when the web API is called.
 
 - [`navigator.mediaSession.setActionHandler()`](https://w3c.github.io/mediasession/#dom-mediasession-setactionhandler)
