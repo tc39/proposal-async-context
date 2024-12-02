@@ -20,7 +20,7 @@ environments.
 
 ## Background
 
-AsyncContext is a stage 2 TC39 proposal that allows associating state implicitly
+The AsyncContext proposal allows associating state implicitly
 with a call stack, such that it propagates across asynchronous tasks and promise
 chains. In a way it is the equivalent of thread-local storage, but for async
 tasks. APIs like this (such as Node.js’s `AsyncLocalStorage`, on which API
