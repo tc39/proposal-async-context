@@ -405,14 +405,19 @@ observation was captured. This can be done by exposing an
 ## Events
 
 Events are a single API that is used for a great number of things, including
-cases which have a causal (dispatch) context separate from the registration
-context, and cases which have no dispatch context at all.
+cases which have a causal context (for events, also referred to as the dispatch
+context) separate from the registration context, and cases which have no
+dispatch context at all.
 
 For consistency, event listener callbacks should be called with the dispatch
 context. If that does not exist, the empty context should be used, where all
 `AsyncContext.Variable`s are set to their initial values.
 
-> TODO: Details. Fallback context.
+This use of the empty context, however, clashes with the goal of allowing
+“isolated” regions of code that share an event loop, and being able to trace
+in which region an error originates. A solution to this would be the ability to
+define a fallback context for a region of code. We have a proposal for this
+being fleshed out at issue #107.
 
 ### Design principles for dispatch snapshots
 
