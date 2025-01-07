@@ -417,7 +417,8 @@ This use of the empty context, however, clashes with the goal of allowing
 “isolated” regions of code that share an event loop, and being able to trace
 in which region an error originates. A solution to this would be the ability to
 define a fallback context for a region of code. We have a proposal for this
-being fleshed out at issue #107.
+being fleshed out at issue
+[#107](https://github.com/tc39/proposal-async-context/issues/107).
 
 ### Design principles for dispatch snapshots
 
