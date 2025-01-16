@@ -629,14 +629,20 @@ handwaved (e.g. fetch’s interaction with the HTTP spec, or CSSOM View events).
 In those cases, the context would have to manually tracked in the specs as shown
 in the previous section.
 
-It also might be that the exact data flow of the browser implementation of some
+Now, it might be that the exact data flow of the browser implementation of some
 algorithms might not exactly match the spec’s data flow in all cases. This is
 especially the case in browsers that have a renderer process vs main process
-architecture. Therefore, we propose to limit the exposure of this implicit
-propagation in the initial rollout by treating most events with asynchronous
-dispatches as if they were browser-originated and didn't propagate the context.
-This leaves only a small set of events with known use cases, and for which
-browsers would not need to implement the entire tracking machinery.
+architecture. And in general, this implicit propagation might be hard to
+implement and get right in browser engines.
+
+Most web APIs, in fact, although could be implemented through implicit context
+propagation, can also be implemented by storing the causal context and restoring
+it when the callback gets called. This is not generally the case for events with
+asynchronous dispatches, but it is for some. Therefore, in order to avoid
+needing browser engines to implement the whole implicit context propagation
+machinery in the initial AsyncContext rollout, we propose limiting the set of
+event dispatches that behave as if they were asynchronous dispatches, as
+outlined above.
 
 ## Exposing snapshots to JS code
 
