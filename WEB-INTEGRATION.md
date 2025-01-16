@@ -352,7 +352,7 @@ causes the call to that method. For example:
 
 In general, the context that should be used is the one that matches the data
 flow through the algorithms ([see the section on implicit propagation
-below]((#implicit-context-propagation))).
+below](#implicit-context-propagation)).
 
 > TODO: Piping is largely implementation-defined. We should figure out some
 > context propagation constraints.
