@@ -13,7 +13,7 @@ machinery.
 
 Although this document focuses on the web platform, and on web APIs, it is also
 expected to be relevant to other JavaScript environments and runtimes. This will
-necessarily be the case for [WinterCG](https://wintercg.org)-style runtimes,
+necessarily be the case for [WinterTC](https://wintertc.org)-style runtimes,
 since they will implement web APIs. However, the integration with the web
 platform is also expected to serve as a model for other APIs in other JavaScript
 environments.
@@ -310,21 +310,23 @@ synchronously by a call from userland JS to an API annotated with
 [`[CEReactions]`](https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions).
 However, there are cases where this is not the case:
 
-- Userland JS could call `.click()` on a form reset button when a form-associated
-  custom element is in the form, which would queue a microtask that would call
-  its `formResetCallback` lifecycle hook. The causal context would be the one
-  active when `.click()` was called.
 - If a custom element is contained inside a `<div contenteditable>`, the user
   could remove the element from the tree as part of editing, which would queue a
   microtask to call its `disconnectedCallback` hook. In this case, there would
   be no causal context, and each `AsyncContext.Variable` would be set to its
   initial value.
+- A user clicking a form reset when a form-associated custom element is in the
+  form would queue a microtask to call its `formResetCallback` lifecycle hook,
+  and there would not be a casual context. However, if the `click()` method is
+  called from JS instead, since that method doesn't have the `[CEReactions]`
+  annotation, it would also call that lifecycle hook in a microtask, rather than
+  synchronously. In that case, the causal context would be the one active when
+  `.click()` was called.
 
-In the cases where the registration web API takes a constructor, the methods and
-getters of the returned object (e.g. the `processor` method in web audio
-worklets, or the `attributeChangedCallback` hook of custom elements) also count
-as callbacks that these APIs invoke, and which should preserve the relevant
-context.
+In the cases where the registration web API takes a constructor (such as
+worklets) and the registration context should be used, any getters or methods of
+the constructed object that are called as a result of the registered action
+should also be called with that same registration context.
 
 ### Stream underlying APIs
 
@@ -334,13 +336,13 @@ The underlying [source](https://streams.spec.whatwg.org/#underlying-source-api),
 are callbacks/methods passed during stream construction. The context in which
 the stream is constructed is then the registration context.
 
-That is also the causal context for the `start` method, but for other methods
-there would be a different causal context, depending on what causes the call to
-that method. For example:
+That registration context is also the causal context for the `start` method, but
+for other methods there would be a different causal context, depending on what
+causes the call to that method. For example:
 
-- If `ReadableStreamDefaultReader`’s `read()` method is called, then if the
-  `pull` method is called as a result, then that would be its causal context.
-  This is even if the queue is not empty and the call to `pull` is deferred
+- If `ReadableStreamDefaultReader`’s `read()` method is called and that causes a
+  call to the `pull` method, then that would be its causal context. This would
+  be the case even if the queue is not empty and the call to `pull` is deferred
   until previous invocations resolve.
 - If a `Request` is constructed from a `ReadableStream` body, and that is passed
   to `fetch`, the causal context for the `pull` method invocations should be the
@@ -348,27 +350,16 @@ that method. For example:
   body `ReadableStream` obtained from `fetch` is piped to a `WritableStream`,
   its `write` method’s causal context is the call to `fetch`.
 
-> TODO: Discuss the details after figuring out events.
->
-> - `controller.enqueue` inside a `.run()`
-> 
->    ```js
->    const readable = new ReadableStream({
->      pull(controller) {
->        asyncVar.run(() => {
->          controller.enqueue(42);
->        });
->      }
->    });
->    const writable = new WritableStream({
->      write() {
->        console.log(asyncVar.get());
->      }
->    });
->    readable.pipeTo(writable);
->    ```
->
-> - Transferring streams. Would there be a causal context?
+In general, the context that should be used is the one that matches the data
+flow through the algorithms ([see the section on implicit propagation
+below](#implicit-context-propagation)).
+
+> TODO: Piping is largely implementation-defined. We should figure out some
+> context propagation constraints.
+
+> TODO: If a stream gets transferred to a different agent, any cross-agent
+> interactions will have to use the empty context. What if you round-trip a
+> stream through another agent?
 
 ### Observers
 
@@ -397,52 +388,61 @@ registration context; that is, the context in which the class is constructed.
   [\[REPORTING\]](https://w3c.github.io/reporting/)
 
 In some cases it might be useful to expose the causal context for individual
-observations; for example, the context in which a `PerformanceObserver`
-observation was captured. This can be done by exposing an
-`AsyncContext.Snapshot` property or getter on the observation record (e.g. on
-`PerformanceEntry`).
+observations, by exposing an `AsyncContext.Snapshot` property on the observation
+record. This should be the case for `PerformanceObserver`, where
+`PerformanceEntry` would expose the snapshot as a `resourceContext` property.
 
 ## Events
 
 Events are a single API that is used for a great number of things, including
-cases which have a causal context (for events, also referred to as the dispatch
-context) separate from the registration context, and cases which have no
-dispatch context at all.
+cases which have a causal context (for events, also referred to as the
+**dispatch context**) separate from the registration context, and cases which
+have no dispatch context at all.
 
 For consistency, event listener callbacks should be called with the dispatch
 context. If that does not exist, the empty context should be used, where all
 `AsyncContext.Variable`s are set to their initial values.
 
-This use of the empty context, however, clashes with the goal of allowing
-“isolated” regions of code that share an event loop, and being able to trace
-in which region an error originates. A solution to this would be the ability to
-define a fallback context for a region of code. We have a proposal for this
-being fleshed out at issue
+Event dispatches can be one of the following:
+- **Synchronous dispatches**, where the event dispatch happens synchronously
+  when a web API is called. Examples are `el.click()` which synchronously fires
+  a `click` event, setting `location.hash` which synchronously fires a
+  `popstate` event, or calling an `EventTarget`'s `dispatchEvent()` method. For
+  these dispatches, the TC39 proposal's machinery is enough to track the
+  dispatch context, with no help from web specs or browser engines.
+- **Browser-originated dispatches**, where the event is triggered by browser or
+  user actions, or by cross-agent JS, with no involvement from JS code in the
+  same agent. Such dispatches can't have any dispatch context, so the listener
+  is called with the empty context. (Though see the section on fallback context
+  below.)
+- **Asynchronous dispatches**, where the event originates from JS calling into
+  some web API, but the dispatch happens at a later point. In these cases, the
+  context should be tracked along the data flow of the operation, even across
+  code running in parallel (but not through tasks enqueued on other agents'
+  event loops). [See below on implicit context
+  propagation](#implicit-context-propagation) for how this data flow tracking
+  should happen.
+
+This classification of event dispatches is the way it should be in theory, as
+well as a long-term goal. However, as we describe later in the section on
+implicit context propagation, for the initial rollout we propose treating the
+vast majority of asynchronous dispatches as if they were browser-originated.
+The exceptions would be:
+
+- The `popstate` event
+- The `message` and `messageerror` events
+- All events dispatched on `XMLHttpRequest` or `XMLHttpRequestUpload` objects
+- The `error`, `unhandledrejection` and `rejectionhandled` events on the global
+  object (see below)
+
+### Fallback context
+
+This use of the empty context for browser-originated dispatches, however,
+clashes with the goal of allowing “isolated” regions of code that share an event
+loop, and being able to trace in which region an error originates. A solution to
+this would be the ability to define a fallback context for a region of code. We
+have a proposal for this being fleshed out at issue
 [#107](https://github.com/tc39/proposal-async-context/issues/107).
-
-### Design principles for dispatch snapshots
-
-In some cases, a single event might have multiple async dispatch contexts as its
-possible causes, because the incoming data flow for that event might have
-multiple branches that go back to different script executions. This is
-particularly important when the data flow in implementations is expected to be
-different from the spec in relevant ways.
-
-An example of this is HTML media playback events, where if the user clicks play,
-and in short succession JS code calls `videoEl.load()` and then `videoEl.play()`
-in two different contexts, all three data flow branches will merge, resulting in
-a single `load` event being fired.
-
-If some of those sources are browser-originated and some originate from JS, only
-the latter ones should be considered. Beyond that, each such individual event
-would have to be considered. For media playback events, this merge is caused by
-debouncing (i.e. if a load is already in progress, calling a method that would
-start one will reuse the existing one), and so the dispatch context should be
-that for the earliest web API call that resulted in this event. But other cases
-might have other needs, and their specifics need to be considered.
-
-> TODO: Describe automatic tracking through “queue a task” and “in parallel”
-> algorithms. Also describe rollout for async dispatch contexts.
 
 ## Script errors and unhandled rejections
 
@@ -520,7 +520,8 @@ categories in the [“Writing Promise-Using Specifications”](https://w3ctag.gi
   and the loading of the font). But this is not always the case, as for the
   [`ready`](https://streams.spec.whatwg.org/#default-writer-ready) property of a
   [`WritableStreamDefaultWriter`](https://streams.spec.whatwg.org/#writablestreamdefaultwriter),
-  which could be caused to reject by a different context.
+  which could be caused to reject by a different context. In such cases, the
+  context should be [propagated implicitly](#implicit-context-propagation).
 - More general state transitions are similar to one-time “events” which can be
   reset, and so they should behave in the same way.
 
@@ -537,11 +538,7 @@ empty AsyncContext snapshot, which will be an empty mapping (i.e. every
 When you import a JS module multiple times, it will only be fetched and
 evaluated once. Since module evaluation should not be racy (i.e. it should not
 depend on the order of various imports), the context should be reset so that
-module evaluation always runs with the empty AsyncContext snapshot. Inside of
-`ShadowRealm`s, the AsyncContext snapshot for all module evaluations will be the
-snapshot which was active when the `ShadowRealm` was created.
-
-> TODO: Not the empty context? How does this interact with the fallback context?
+module evaluation always runs with the empty AsyncContext snapshot.
 
 # Editorial aspects of AsyncContext integration in web specifications
 
@@ -590,26 +587,62 @@ steps _steps_, would do the following:
 >    1. Throw _e_.
 > 1. [AsyncContextSwap](https://tc39.es/proposal-async-context/#sec-asynccontextswap)(_previousContext_).
 
-In cases such as events and unhandled promise rejections, tracking the causal
-context is not always easy, because it is not always the case that the web API
-that ultimately ends up dispatching an event or rejecting a promise is related
-to that event or promise.
+For web APIs that use the registration context and take a callback, this should
+be handled in WebIDL by storing the result of `AsyncContextSnapshot()` alongside
+the callback function, and swapping it when the function is called. Since this
+should not happen for every callback, there should be a WebIDL extended
+attribute applied to callback types to control this.
 
-Therefore, we propose that the HTML event loop’s queueing algorithms, such as
+## Implicit context propagation
+
+While tracking contexts along algorithm data flows is straightforward when it
+happens synchronously within a single event loop task, in some cases (such as
+for asynchronously dispatched events, or unhandled promise rejections) the
+context should be tracked through parallel algorithms and through tasks being
+queued into the event loop.
+
+In a number of these cases, in particular for asynchronously dispatched events,
+there is no need for the browser engine to track the data flow, because the
+result is trivial (e.g. XHR events will have the context of the `xhr.send()`
+call that caused them). But in other cases it's not that simple.
+
+We propose that the HTML event loop’s queueing algorithms, such as
 [queue a task](https://html.spec.whatwg.org/multipage/webappapis.html#queue-a-task),
+[queue a microtask](https://html.spec.whatwg.org/multipage/webappapis.html#queue-a-microtask),
 as well as [in parallel](https://html.spec.whatwg.org/multipage/infrastructure.html#in-parallel),
 should propagate the current AsyncContext mapping, even through parallel
-algorithms, so that every event queue task has the right causal context.
+algorithms, so that every event loop task has the right causal context by
+default.
 
-> TODO: Details of how this would be specified and implemented.
+The details of this implementation are still left to figure out, but each set of
+steps running in parallel would have a current snapshot (sort of a thread-local
+variable), which would be a parallel equivalent of an event loop's
+`[[AsyncContextMapping]]` agent field. And whenever the spec says to run a set
+of steps in parallel, or to queue a task/microtask, the current snapshot or
+`[[AsyncContextMapping]]` would be propagated to that parallel algorithm or
+task. Browser-originated tasks or parallel algorithms would have an empty
+current snapshot.
 
 In some cases, this automatic context propagation might not do the right thing,
-particularly in cases where the exact data flow of certain steps is handwaved
-(e.g. fetch’s interaction with the HTTP spec, or CSSOM View events). In those
-cases, the context would have to be manually tracked as shown above. This would
-also be the case for cases where the registration context must be used when
-there is no dispatch context, although this could also be implemented via
-WebIDL.
+however, particularly in cases where the exact data flow of certain steps is
+handwaved (e.g. fetch’s interaction with the HTTP spec, or CSSOM View events).
+In those cases, the context would have to manually tracked in the specs as shown
+in the previous section.
+
+Now, it might be that the exact data flow of the browser implementation of some
+algorithms might not exactly match the spec’s data flow in all cases. This is
+especially the case in browsers that have a renderer process vs main process
+architecture. And in general, this implicit propagation might be hard to
+implement and get right in browser engines.
+
+Most web APIs, in fact, although could be implemented through implicit context
+propagation, can also be implemented by storing the causal context and restoring
+it when the callback gets called. This is not generally the case for events with
+asynchronous dispatches, but it is for some. Therefore, in order to avoid
+needing browser engines to implement the whole implicit context propagation
+machinery in the initial AsyncContext rollout, we propose limiting the set of
+event dispatches that behave as if they were asynchronous dispatches, as
+outlined above.
 
 ## Exposing snapshots to JS code
 
