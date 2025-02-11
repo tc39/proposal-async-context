@@ -705,3 +705,16 @@ Error: Call stack
 [domain module postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
 [solution.md]: ./SOLUTION.md
 [scoping.md]: ./SCOPING.md
+
+
+# Polyfills
+
+| Polyfill                                                                         | Repo                                                                                | Status                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------- |
+| **[simple-async-context](https://www.npmjs.com/package/simple-async-context)**   | [iliasbhal/simple-async-context](https://github.com/iliasbhal/simple-async-context) | Beta release available  |
+
+If you're working on a polyfill, please file an issue or PR so we can add yours here.
+
+A [non-production polyfill](https://github.com/tc39/proposal-async-context/tree/master/src) was built to validate this proposal. This polyfill continues to live in this repo, but only for the purposes of running tests and powering the documentation "playground" as described below.
+
+DO NOT use this polyfill in your own projects! Instead, please use a polyfill from the table above.
