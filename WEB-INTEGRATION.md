@@ -18,6 +18,9 @@ since they will implement web APIs. However, the integration with the web
 platform is also expected to serve as a model for other APIs in other JavaScript
 environments.
 
+For details on the memory management aspects of this proposal, see [this
+companion document](./MEMORY-MANAGEMENT.md).
+
 ## Background
 
 The AsyncContext proposal allows associating state implicitly
@@ -387,6 +390,10 @@ registration context; that is, the context in which the class is constructed.
 - [`ReportingObserver`](https://w3c.github.io/reporting/#reportingobserver)
   [\[REPORTING\]](https://w3c.github.io/reporting/)
 
+> TODO: Due to concerns about observers leading to memory leaks, an alternative
+> option is to not use the registration context, and instead call the observer's
+> callback with the empty context. This is still under discussion. 
+
 In some cases it might be useful to expose the causal context for individual
 observations, by exposing an `AsyncContext.Snapshot` property on the observation
 record. This should be the case for `PerformanceObserver`, where
@@ -432,8 +439,14 @@ The exceptions would be:
 - The `popstate` event
 - The `message` and `messageerror` events
 - All events dispatched on `XMLHttpRequest` or `XMLHttpRequestUpload` objects
-- The `error`, `unhandledrejection` and `rejectionhandled` events on the global
-  object (see below)
+- The `unhandledrejection` and `rejectionhandled` events on the global object
+  (see below)
+
+> TODO: The exact principle for which event listeners are included in this list is still under discussion.
+
+The list above is not meant to be hard-coded in the events machinery as a "is this event part of that list?" check. Instead, the spec text and browser code that fires
+each of these individual events would be modified so that it keeps track of the
+context in which these events were scheduled (e.g. the context of `window.postMessage` or `xhr.send()`), and so that that context is restored before firing the event.
 
 ### Fallback context
 
@@ -594,6 +607,11 @@ should not happen for every callback, there should be a WebIDL extended
 attribute applied to callback types to control this.
 
 ## Implicit context propagation
+
+> TODO: This section of the web integration proposal is not as baked as most of
+> the rest. Depending on which / how many asynchronous events we end up
+> propagating, we might not need to add this into the spec, and we could replace
+> it with manual context propagation at a number of places.
 
 While tracking contexts along algorithm data flows is straightforward when it
 happens synchronously within a single event loop task, in some cases (such as
