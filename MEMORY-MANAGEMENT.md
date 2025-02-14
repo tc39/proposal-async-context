@@ -2,10 +2,10 @@
 
 A context (sometimes called a snapshot; or in the spec, "a List of Async Context
 Mapping Records") is an immutable map from `AsyncContext.Variable` instances to
-arbitrary JS values (or possibly also spec-internal values; see ["Using
-AsyncContext from web specs"](#using-asynccontext-from-web-specs) below). Each
-agent will have a `[[AsyncContextMapping]]` field which is a context, which we
-will sometimes refer to as "the current context".
+arbitrary JS values (or possibly also spec-internal values; see "Using
+AsyncContext from web specs" in the main web integration document). Each agent
+will have a `[[AsyncContextMapping]]` field which is a context, which we will
+sometimes refer to as "the current context".
 
 Given a variable `asyncVar`, which is an instance of `AsyncContext.Variable`,
 running `asyncVar.run(value, callback)` will:
