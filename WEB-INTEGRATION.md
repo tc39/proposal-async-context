@@ -442,13 +442,11 @@ The exceptions would be:
 - The `unhandledrejection` and `rejectionhandled` events on the global object
   (see below)
 
-> TODO: The exact list of events is still under discussion.
+> TODO: The exact principle for which event listeners are included in this list is still under discussion.
 
-No spec text or browser code dealing with events would need to keep track of
-the list above. Instead, the spec text and browser code that fires each of these
-individual events would be modified so that it keeps track of the context in
-which these events were scheduled (e.g. the context of `window.postMessage` or
-`xhr.send()`), and so that that context is restored before firing the event.
+The list above is not meant to be hard-coded in the events machinery as a "is this event part of that list?" check. Instead, the spec text and browser code that fires
+each of these individual events would be modified so that it keeps track of the
+context in which these events were scheduled (e.g. the context of `window.postMessage` or `xhr.send()`), and so that that context is restored before firing the event.
 
 ### Fallback context
 
