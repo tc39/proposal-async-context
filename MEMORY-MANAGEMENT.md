@@ -9,11 +9,11 @@ sometimes refer to as "the current context".
 
 Given a variable `asyncVar`, which is an instance of `AsyncContext.Variable`,
 running `asyncVar.run(value, callback)` will:
-    1. Create a new context which is a copy of the current context, except that
-       `asyncVar` maps to `value`.
-    2. Set that new context as the current context.
-    2. Run the callback.
-    3. Restore the current context to the value it had before step 2.
+1. Create a new context which is a copy of the current context, except that
+   `asyncVar` maps to `value`.
+2. Set that new context as the current context.
+3. Run the callback.
+4. Restore the current context to the value it had before step 2.
 
 By itself, this would only allow keeping memory alive implicitly within a call
 stack, which would be no different from local variables from a stack frame being
@@ -73,10 +73,10 @@ call `requestAnimationFrame` again, continuing to propagate the same context.
 
 ## The context as a weak map
 
-The AsyncContext proposal purposefully does not allow JS code to have a list of
+The AsyncContext proposal purposefully does not allow JS code to get a list of
 the entries, or of the `AsyncContext.Variable` keys, in a context. This is so to
-keep encapsulation, but it has the side effect that it allows implementing the
-context as a weak map.
+maintain encapsulation, but it has the side effect that it allows implementing
+the context as a weak map.
 
 If the context was implemented as a weak map, then the `AsyncContext.Variable`
 keys would be weak references, and an entry in the map would be deleted if the
@@ -85,7 +85,8 @@ key becomes unreachable.
 In most uses of AsyncContext, we don't expect `AsyncContext.Variable`s to become
 unreachable while the realm in which it was created remains alive. This is
 because most uses would store it in a (JavaScript) variable at the top level of
-a script or module.
+a script or module, so it will be closed over by any functions in the
+script/module.
 
 However, we do expect a weak map implementation to be useful in cases where a
 cross-realm interaction results in `AsyncContext.Variable` keys and object
