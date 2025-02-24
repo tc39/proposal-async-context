@@ -512,6 +512,10 @@ scheduler.runWhenIdle();
 
 # FAQ
 
+## Are there any prior arts?
+
+Please checkout [prior-arts.md][] for more details.
+
 ## Why take a function in `run`?
 
 The `Variable.prototype.run` and `Snapshot.prototype.run` methods take a
@@ -600,108 +604,10 @@ mechanism:
   clear)
 - no single wrapper method for developers to build bad habits around
 
-# Prior Arts
-
-## zones.js
-
-Zones proposed a `Zone` object, which has the following API:
-
-```typescript
-class Zone {
-  constructor({ name, parent });
-
-  name;
-  get parent();
-
-  fork({ name });
-  run(callback);
-  wrap(callback);
-
-  static get current();
-}
-```
-
-The concept of the _current zone_, reified as `Zone.current`, is crucial. Both
-`run` and `wrap` are designed to manage running the current zone:
-
-- `z.run(callback)` will set the current zone to `z` for the duration of
-  `callback`, resetting it to its previous value afterward. This is how you
-  "enter" a zone.
-- `z.wrap(callback)` produces a new function that essentially performs
-  `z.run(callback)` (passing along arguments and this, of course).
-
-The _current zone_ is the async context that propagates with all our operations.
-In our above example, sites `(1)` through `(6)` would all have the same value of
-`Zone.current`. If a developer had done something like:
-
-```typescript
-const loadZone = Zone.current.fork({ name: "loading zone" });
-window.onload = loadZone.wrap(e => { ... });
-```
-
-then at all those sites, `Zone.current` would be equal to `loadZone`.
-
-## Node.js `domain` module
-
-Domain's global central active domain can be consumed by multiple endpoints and
-be exchanged in any time with synchronous operation (`domain.enter()`). Since it
-is possible that some third party module changed active domain on the fly and
-application owner may unaware of such change, this can introduce unexpected
-implicit behavior and made domain diagnosis hard.
-
-Check out [Domain Module Postmortem][] for more details.
-
-## Node.js `async_hooks`
-
-This is what the proposal evolved from. `async_hooks` in Node.js enabled async
-resources tracking for APM vendors. On which Node.js also implemented
-`AsyncLocalStorage`.
-
-## Chrome Async Stack Tagging API
-
-Frameworks can schedule tasks with their own userland queues. In such case, the
-stack trace originated from the framework scheduling logic tells only part of
-the story.
-
-```console
-Error: Call stack
-  at someTask (example.js)
-  at loop (framework.js)
-```
-
-The Chrome [Async Stack Tagging API][] introduces a new console method named
-`console.createTask()`. The API signature is as follows:
-
-```typescript
-interface Console {
-  createTask(name: string): Task;
-}
-
-interface Task {
-  run<T>(f: () => T): T;
-}
-```
-
-`console.createTask()` snapshots the call stack into a `Task` record. And each
-`Task.run()` restores the saved call stack and append it to newly generated call
-stacks.
-
-```console
-Error: Call stack
-  at someTask (example.js)
-  at loop (framework.js)          // <- Task.run
-  at async someTask               // <- Async stack appended
-  at schedule (framework.js)      // <- console.createTask
-  at businessLogic (example.js)
-```
-
 [`asyncresource.runinasyncscope`]:
   https://nodejs.org/dist/latest-v14.x/docs/api/async_hooks.html#async_hooks_asyncresource_runinasyncscope_fn_thisarg_args
 [#tc39-async-context]: https://matrix.to/#/#tc39-async-context:matrix.org
 [Matrix Guide]: https://github.com/tc39/how-we-work/blob/main/matrix-guide.md
-[async stack traces]: https://v8.dev/docs/stack-trace-api#async-stack-traces
-[async stack tagging api]:
-  https://developer.chrome.com/blog/devtools-modern-web-debugging/#linked-stack-traces
-[domain module postmortem]: https://nodejs.org/en/docs/guides/domain-postmortem/
 [solution.md]: ./SOLUTION.md
 [scoping.md]: ./SCOPING.md
+[prior-arts.md]: ./PRIOR-ARTS.md
