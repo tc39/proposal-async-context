@@ -10,7 +10,9 @@ sometimes refer to as "the current context".
 Given a variable `asyncVar`, which is an instance of `AsyncContext.Variable`,
 running `asyncVar.run(value, callback)` will:
 1. Create a new context which is a copy of the current context, except that
-   `asyncVar` maps to `value`.
+   `asyncVar` maps to `value`. The reference to `value` in the context is
+   strongly held (not a weak reference), but see the
+   [weak map section](#weak-maps) below.
 2. Set that new context as the current context.
 3. Run the callback.
 4. Restore the current context to the value it had before step 2.
@@ -67,26 +69,34 @@ Although this document and the web integration one describe the context
 propagations that must happen due to the browser and JS engine's involvement,
 it is also important to have in mind how authors might propagate contexts
 implicitly. For example, from the browser's perspective, `requestAnimationFrame`
-only keeps the context referenced until the rAF callback is called. However, the
-context is active when the callback is called, and the callback is likely to
-call `requestAnimationFrame` again, continuing to propagate the same context.
+only keeps the context referenced until the rAF callback is called. However, if
+the callback recursively calls `requestAnimationFrame`, which is often the case,
+the context is propagated with the callback in the recursion.
 
-## The context as a weak map
+## The context as a weak map {#weak-maps}
 
-The AsyncContext proposal purposefully does not allow JS code to get a list of
-the entries, or of the `AsyncContext.Variable` keys, in a context. This is so to
-maintain encapsulation, but it has the side effect that it allows implementing
-the context as a weak map.
+Values associated to an `AsyncContext.Variable` must be strongly held (not weak
+references) because you can do `asyncVar.get()` inside that context and get the
+associated value, even if there are no other references to it.
 
-If the context was implemented as a weak map, then the `AsyncContext.Variable`
-keys would be weak references, and an entry in the map would be deleted if the
-key becomes unreachable.
+However, the AsyncContext proposal purposefully has no way for JS code to get a
+list of the entries, or the `AsyncContext.Variable` keys, in a context. This is
+done to maintain encapsulation, but it also has the side effect that it allows
+implementing the context as a weak map.
 
-In most uses of AsyncContext, we don't expect `AsyncContext.Variable`s to become
-unreachable while the realm in which it was created remains alive. This is
-because most uses would store it in a (JavaScript) variable at the top level of
-a script or module, so it will be closed over by any functions in the
-script/module.
+If an `AsyncContext.Variable` key in the context could be GC'd other than
+because it's a key in the context, then there is no way for any JS code to end
+up having that key at any future time. Therefore, that whole entry in the
+context, including its value, could be deleted (or all references could be made
+weak). The context would then be a weak map (similar to the JS built-in
+[`WeakMap`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap)).
+
+In most uses of AsyncContext, we don't expect that `AsyncContext.Variable`s
+could become unreachable (i.e. could be GC'd, context aside) while the realm in
+which it was created remains alive. This is because most uses would store it in
+a (JavaScript) variable at the top level of a script or module, so any exported
+functions in the script/module will have it in its scope, and will keep it
+alive.
 
 However, we do expect a weak map implementation to be useful in cases where a
 cross-realm interaction results in `AsyncContext.Variable` keys and object
