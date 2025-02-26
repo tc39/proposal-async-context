@@ -23,9 +23,9 @@ kept alive while a function is running.
 
 However, the thing that makes AsyncContext AsyncContext is that the context can
 be propagated across asynchronous operations, which eventually cause tasks or
-microtasks to be enqueued. Some of these operations are defined in TC39, such as
-`Promise.prototype.then` and `await`, but most of them are defined in web specs,
-such as `setTimeout` and the many other APIs listed above.
+microtasks to be enqueued. Some of these operations are defined in ECMA-262,
+such as `Promise.prototype.then` and `await`, but most of them are defined in
+web specs, such as `setTimeout` and the many other APIs listed above.
 
 For many of these async operations (such as `setTimeout` and `.then`), a
 callback is run once or multiple times in a task or microtask. In those cases,
@@ -42,20 +42,24 @@ reference to the context when the API is called (e.g. `xhr.send()`), and keeping
 it alive until no events can be fired anymore from that asynchronous operation
 (e.g. until the XHR request finishes, errors out or is aborted).
 
-`addEventListener`, however, would need changes with the fallback context
-proposal[^1]. The initial version of this proposal would allow
-`addEventListener` to associate a context with the listener (only if the current
-context contains a key that is set in a call to the fallback context API).
-However, rather than storing a whole context, a newer iteration of this proposal
-(described in https://github.com/tc39/proposal-async-context/issues/107#issuecomment-2659298381)
-would let the API only store the values of one or more `AsyncContext.Variable`s
-that would need to be passed to the API. This means that in practice, this
-context which would be associated to `addEventListener` would only reference one
-or a few objects.
+`addEventListener`, however, would need changes if we add the
+`EventTarget.captureFallbackContext` API[^1]. With it, the context in which the
+passed callback is called also stores the current values of the given
+`AsyncContext.Variable`s at the time that `captureFallbackContext` is called,
+and any calls to `addEventListener` in that context *will* store those values
+alongside the event listener. This will likely leak the values associated to
+those variables, and we will need outreach to web platform educators to make
+sure that authors understand this, but it's the best solution we've found to
+cover one of the goals of this proposal, since the other options we've
+considered would cause a lot more leaks.
 
-[^1]: This proposal isn't described in any depth in the main web integration
-document because the details are still being worked out. See
-<https://github.com/tc39/proposal-async-context/issues/107>.
+[^1]: This API isn't described in any depth in the main web integration document
+because the details are still being worked out. See
+<https://github.com/tc39/proposal-async-context/issues/107>. Note that this
+document describes the version described in
+[this comment](https://github.com/tc39/proposal-async-context/issues/107#issuecomment-2659298381),
+rather than the one in the OP, which would need storing the whole current
+context.
 
 The web integration document says that observers (such as MutationObserver,
 IntersectionObserver...) would use the registration context for their callbacks;
@@ -111,5 +115,5 @@ The proposed JS spec for AsyncContext does not explicitly mandate that the
 context must be implemented as a weak map, but that is a possible
 implementation. However, garbage collecting weak maps takes a performance hit,
 and some folks have previously argued against it for that reason. If you think
-it's important that the context is a weak map, please let us, as well as the
-various JS engine implementers, know about it.
+it's important that the context is a weak map, please let us know so we can
+discuss it with the various JS engine implementers.
