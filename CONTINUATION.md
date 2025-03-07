@@ -39,7 +39,7 @@ In this model, any modifications are async task local scoped. A subtask
 snapshots the context when they are scheduled and never propagates the
 modification back to its parent async task scope.
 
-> Checkout this example in other languages [gist](https://gist.github.com/jridgewell/ca75e91f78c6fa429af10271451a437d?permalink_comment_id=5077079).
+> Checkout [AsyncContext in other languages](./PRIOR-ARTS.md#asynccontext-in-other-languages)!
 
 Another semantic was proposed to improve traceability on determine the
 continuation "previous" task in a logical asynchronous execution. In this
@@ -470,5 +470,9 @@ regardless of whether the promise was fulfilled or not:
 ## Follow-up
 
 It has been generally agreed that the two type of context variables have their
-own unique use cases and may co-exist. With this AsyncContext proposal advancing,
-`ContinuationFlow` could be reified in a follow-up proposal.
+own unique use cases and may co-exist.
+
+Given that the flow of `AsyncContext.Variable` is widely available in [other languages](./PRIOR-ARTS.md#asynccontext-in-other-languages),
+this proposal will focus on this single type of context variable. With this
+proposal advancing, `ContinuationFlow` could be reified in a follow-up
+proposal.
