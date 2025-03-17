@@ -1,3 +1,5 @@
+> This document contains some abstract examples of `AsyncContext` use cases. See also [./FRAMEWORKS.md](./FRAMEWORKS.md) for concrete use cases that web frameworks have.
+
 Use cases for `AsyncContext` include:
 
 - Annotating logs with information related to an asynchronous callstack.
