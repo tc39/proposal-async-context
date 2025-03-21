@@ -152,7 +152,7 @@ required for special handling async code in such cases.
 This proposal introduces APIs to propagate a value through asynchronous code,
 such as a promise continuation or async callbacks.
 
-Compared to the [Prior Arts](#prior-arts), this proposal identifies the
+Compared to the [Prior Arts][prior-arts.md], this proposal identifies the
 following features as non-goals:
 
 1. Async tasks scheduling and interception.
