@@ -448,14 +448,105 @@ The list above is not meant to be hard-coded in the events machinery as a "is th
 each of these individual events would be modified so that it keeps track of the
 context in which these events were scheduled (e.g. the context of `window.postMessage` or `xhr.send()`), and so that that context is restored before firing the event.
 
-### Fallback context
+### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
 This use of the empty context for browser-originated dispatches, however,
 clashes with the goal of allowing “isolated” regions of code that share an event
 loop, and being able to trace in which region an error originates. A solution to
-this would be the ability to define a fallback context for a region of code. We
-have a proposal for this being fleshed out at issue
-[#107](https://github.com/tc39/proposal-async-context/issues/107).
+this would be the ability to define fallback values for some `AsyncContext.Variable`s
+when the browser runs some JavaScript code due to a browser-originated dispatch.
+
+```javascript
+const widgetID = new AsyncContext.Variable();
+
+widgetID.run("weather-widget", () => {
+  captureFallbackContext(widgetID, () => {
+    renderWeatherWidget();
+  });
+});
+```
+
+In this example, event listeners registered by `renderWeatherWidget` would be guaranteed
+to always run as a consequence of some "widget": if the event is user-dispatched, then
+it defaults to `weather-widget` rather than to `widgetID`'s default value (`undefined`,
+in this case). There isn't a single global valid default value, because a page might have
+multiple widgets that thus need different fallbacks.
+
+<details>
+<summary>Expand this section to read the full example</summary>
+
+This complete example shows that when clicking on a button (thus, without a JavaScript cause
+that could propagate the context), some asynchronus operations start. These operations
+might reject, firing a `unhandledrejection` event on the global object.
+
+If there was no fallback context, the `"click"` event would run with `widgetID` unset, that
+would thus be propagated unset to `unhandledrejection` as well. Thanks to `captureFallbackContext`,
+the user-dispatched `"click"` event will fallback to running with `widgetID` set to
+`"weather-widget"`, which will then be propagated to `unhandledrejection`.
+
+```javascript
+const widgetID = new AsyncContext.Variable();
+
+widgetID.run("weather-widget", () => {
+  captureFallbackContext(widgetID, () => {
+    renderWeatherWidget();
+  });
+});
+
+addEventListener("unhandledrejection", event => {
+  console.error(`Unhandled rejection in widget "${widgetID.get()}"`);
+  // Handle the rejection. For example, disable the widget, or report
+  // the error to a server that can then notify the widget's developers.
+});
+```
+
+```javascript
+function renderWeatherWidget() {
+  let day = Temporal.Now.plainDate();
+
+  const widget = document.createElement("div");
+  widget.innerHTML = `
+    <button id="prev">Previous day</button>
+    <output>...</output>
+    <button id="next">Next day</button>
+  `;
+  document.body.appendChild(widget);
+
+  const load = async () => {
+    const response = await fetch(`/weather/${day}`);
+    widget.querySelector("output").textContent = await response.text();
+  };
+
+  widget.querySelector("#prev").addEventListener("click", async () => {
+    day = day.subtract({ days: 1 });
+    await load();
+  });
+  widget.querySelector("#next").addEventListener("click", async () => {
+    day = day.add({ days: 1 });
+    await load();
+  });
+
+  load();
+}
+```
+
+When the user clicks on one of the buttons and the `fetch` it triggers fails,
+without using `captureFallbackContext` the `unhandledrejection` event listener
+would not know that the failure is coming from the `weather-widget` widget.
+
+Thanks to `captureFallbackContext`, that information is properly propagated.
+
+</details>
+
+This fallback is per-variable and not based on `AsyncContext.Snapshot`, to avoid
+accidentally keeping alive unnecessary objects.
+
+There are still some questions about `captureFallbackContext` that need to be
+answered:
+- should it take just one variable or a list of variables?
+- should it just be for event targets, or for all web APIs that can be triggered
+  by non-JS code?
+  - should it be a global, or a static method of `EventTarget`?
 
 ## Script errors and unhandled rejections
 
