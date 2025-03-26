@@ -49,6 +49,7 @@ Note: **[client]** and **[server]** markers in messages have been added by the p
 >     2. Attempt to compile _all_ async/await code that might appear in a React application to automatically pass through the context. Compiling React code for React is one thing, compiling all user code for React is invasive and a non-starter.
 >
 > That leaves us with needing some built-in way to associate a context across async yield points. Crucially, this is not just a framework concern but something that impacts how users write asynchronous code, since the workarounds are for them to write code differently. We understand that the specific solution here may have performance and/or complexity concerns and are happy to collaborate on alternative implementations if they can provide a similar capability.
+> — <cite>Joseph Savona, React team</cite>
 
 The following is a quote [from the React docs](https://react.dev/reference/react/useTransition#troubleshooting) showing a developer error that is common enough to be included in their documentation, and that would be solved by browsers providing `AsyncContext` support.
 
@@ -78,8 +79,6 @@ The following is a quote [from the React docs](https://react.dev/reference/react
 > ```
 >
 > This is a JavaScript limitation due to React losing the scope of the async context. In the future, when AsyncContext is available, this limitation will be removed.
->
-> — <cite>Joseph Savona, React team</cite>
 
 ## [Solid](https://www.solidjs.com/)
 
