@@ -165,65 +165,61 @@ logically-connected sync/async code execution.
 
 ```typescript
 namespace AsyncContext {
-  class Variable<T> {
-    constructor(options: AsyncVariableOptions<T>);
-    get name(): string;
-    get(): T | undefined;
-    run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
-  }
-  interface AsyncVariableOptions<T> {
-    name?: string;
-    defaultValue?: T;
-  }
+  run<R, A extends any[]>(scope: { [key: string|Symbol]: any }, fn: (...args: A)=> R, ...args: A): R;
+  get(key: string|Symbol): any;
 
   class Snapshot {
     constructor();
-    run<R>(fn: (...args: any[]) => R, ...args: any[]): R;
-    static wrap<T, R>(fn: (this: T, ...args: any[]) => R): (this: T, ...args: any[]) => R;
+    run<R, A extends any[]>(fn: (...args: A) => R, ...args: A): R;
+    get(key: string|Symbol): any;
+    static wrap<T, R, A extends any[]>(fn: (this: T, ...args: A) => R): (this: T, ...args: A) => R;
   }
 }
 ```
 
-## `AsyncContext.Variable`
+## `run` creates scope
 
-`Variable` is a container for a value that is associated with the current
-execution flow. The value is propagated through async execution flows, and
+With `run` it is possible to specify values that are associated with the current
+execution flow. The values are propagated through async execution flows, and
 can be snapshot and restored with `Snapshot`.
 
-`Variable.prototype.run()` and `Variable.prototype.get()` sets and gets
-the current value of an async execution flow.
+Using `get` it is possible to get the current value of a specific field in the execution
+flow.
+
+You can pass in any 
 
 ```typescript
-const asyncVar = new AsyncContext.Variable();
+const asyncVar = Symbol('asyncVar');
+const { get, run } = AsyncContext;
 
 // Sets the current value to 'top', and executes the `main` function.
-asyncVar.run("top", main);
+run({ [asyncVar]: "top" }, main);
 
 function main() {
-  // AsyncContext.Variable is maintained through other platform queueing.
+  // the scope is maintained through other platform queueing.
   setTimeout(() => {
-    console.log(asyncVar.get()); // => 'top'
+    console.log(get(asyncVar)); // => 'top'
 
-    asyncVar.run("A", () => {
-      console.log(asyncVar.get()); // => 'A'
+    run({ [asyncVar]: "A" }, () => {
+      console.log(get(asyncVar)); // => 'A'
 
       setTimeout(() => {
-        console.log(asyncVar.get()); // => 'A'
+        console.log(get(asyncVar)); // => 'A'
       }, randomTimeout());
     });
   }, randomTimeout());
 
-  // AsyncContext.Variable runs can be nested.
-  asyncVar.run("B", () => {
-    console.log(asyncVar.get()); // => 'B'
+  // runs can be nested.
+  run({ [asyncVar]: "B" }, () => {
+    console.log(get(asyncVar)); // => 'B'
 
     setTimeout(() => {
-      console.log(asyncVar.get()); // => 'B'
+      console.log(get(asyncVar)); // => 'B'
     }, randomTimeout());
   });
 
-  // AsyncContext.Variable was restored after the previous run.
-  console.log(asyncVar.get()); // => 'top'
+  // The context was restored after the previous run.
+  console.log(get(asyncVar)); // => 'top'
 }
 
 function randomTimeout() {
@@ -231,8 +227,8 @@ function randomTimeout() {
 }
 ```
 
-> Note: There are controversial thought on the dynamic scoping and
-> `Variable`, checkout [SCOPING.md][] for more details.
+> Note: There are controversial thoughts on the dynamic scoping,
+> checkout [SCOPING.md][] for more details.
 
 Hosts are expected to use the infrastructure in this proposal to allow tracking
 not only asynchronous callstacks, but other ways to schedule jobs on the event
@@ -249,20 +245,22 @@ A detailed example of use cases can be found in the
 and execute a function at a later time as if those values were still the
 current values (a snapshot and restore).
 
-Note that even with `Snapshot`, you can only access the value associated with
+Note that even with `Snapshot`, as long as you use keys it remains only possible to access values associated with the
+variable using you can only access the value associated with
 a `Variable` instance if you have access to that instance.
 
 ```typescript
-const asyncVar = new AsyncContext.Variable();
+const asyncVar = Symbol('asyncVar');
+const { get, run, SnapShot } = AsyncContext;
 
 let snapshot
-asyncVar.run("A", () => {
-  // Captures the state of all AsyncContext.Variable's at this moment.
-  snapshot = new AsyncContext.Snapshot();
+run({ [asyncVar]: "A" }, () => {
+  // Captures the state of the entire context scope at this moment.
+  snapshot = new Snapshot();
 });
 
-asyncVar.run("B", () => {
-  console.log(asyncVar.get()); // => 'B'
+run({ [asyncVar]: "B" }, () => {
+  console.log(get(asyncVar)); // => 'B'
 
   // The snapshot will restore all AsyncContext.Variable to their snapshot
   // state and invoke the wrapped function. We pass a function which it will
@@ -270,7 +268,7 @@ asyncVar.run("B", () => {
   snapshot.run(() => {
     // Despite being lexically nested inside 'B', the snapshot restored us to
     // to the snapshot 'A' state.
-    console.log(asyncVar.get()); // => 'A'
+    console.log(get(asyncVar)); // => 'A'
   });
 });
 ```
@@ -303,20 +301,21 @@ found in [SNAPSHOT.md](./SNAPSHOT.md).
 
 ### `AsyncContext.Snapshot.wrap`
 
-`AsyncContext.Snapshot.wrap` is a helper which captures the current values of all
-`Variable`s and returns a wrapped function. When invoked, this wrapped function
-restores the state of all `Variable`s and executes the inner function.
+`AsyncContext.Snapshot.wrap` is a helper which captures the current scope values
+and returns a wrapped function. When invoked, this wrapped function restores
+the entire state and executes the inner function.
 
 ```typescript
-const asyncVar = new AsyncContext.Variable();
+const asyncVar = Symbol('asyncVar');
+const { get, run } = AsyncContext;
 
 function fn() {
-  return asyncVar.get();
+  return get(asyncVar);
 }
 
 let wrappedFn;
-asyncVar.run("A", () => {
-  // Captures the state of all AsyncContext.Variable's at this moment, returning
+run({ [asyncVar]: "A" }, () => {
+  // Captures the state at this moment, returning
   // wrapped closure that restores that state.
   wrappedFn = AsyncContext.Snapshot.wrap(fn)
 });
@@ -333,19 +332,20 @@ is executed in the correct execution context.
 
 ```typescript
 // User code that uses a legacy library
-const asyncVar = new AsyncContext.Variable();
+const asyncVar = Symbol('asyncVar');
+const { get, run } = AsyncContext;
 
 function fn() {
-    return asyncVar.get();
+    return get(asyncVar);
 }
 
-asyncVar.run("A", () => {
+run({ [asyncVar]: "A" }, () => {
     defer(fn); // setTimeout schedules during "A" context.
 })
-asyncVar.run("B", () => {
+run({ [asyncVar]: "B" }, () => {
     defer(fn); // setTimeout is not called, fn will still see "A" context.
 })
-asyncVar.run("C", () => {
+run({ [asyncVar]: "C" }, () => {
     const wrapped = AsyncContext.Snapshot.wrap(fn);
     defer(wrapped); // wrapped callback captures "C" context.
 })
@@ -373,7 +373,7 @@ function processQueue() {
 
 ## Determine the initiator of a task
 
-Application monitoring tools like OpenTelemetry save their tracing spans in the
+Application monitoring tools like OpenTelemetry save their tracing spans in their the
 `AsyncContext.Variable` and retrieve the span when they need to determine what started
 this chain of interaction.
 
@@ -383,7 +383,8 @@ tracing span doesn't need to be manually passing around by usercodes.
 ```typescript
 // tracer.js
 
-const asyncVar = new AsyncContext.Variable();
+const asyncVar = Symbol('asyncVar');
+
 export function run(cb) {
   // (a)
   const span = {
@@ -391,12 +392,12 @@ export function run(cb) {
     traceId: randomUUID(),
     spanId: randomUUID(),
   };
-  asyncVar.run(span, cb);
+  AsyncContext.run({ [asyncVar]: span }, cb);
 }
 
 export function end() {
   // (b)
-  const span = asyncVar.get();
+  const span = AsyncContext.get(asyncVar);
   span?.endTime = Date.now();
 }
 ```
@@ -432,20 +433,19 @@ concurrent multi-tracking.
 
 ## Transitive task attribution
 
-User tasks can be scheduled with attributions. With `AsyncContext.Variable`, task
-attributions are propagated in the async task flow and sub-tasks can be
-scheduled with the same priority.
+User tasks can be scheduled with attributions. Task attributions are propagated in
+the async task flow and sub-tasks can be scheduled with the same priority.
 
 ```typescript
 const scheduler = {
-  asyncVar: new AsyncContext.Variable(),
+  asyncVar: Symbol('asyncVar'),
   postTask(task, options) {
     // In practice, the task execution may be deferred.
     // Here we simply run the task immediately.
-    return this.asyncVar.run({ priority: options.priority }, task);
+    return AsyncContext.run({ [this.asyncVar]: { priority: options.priority } }, task);
   },
   currentTask() {
-    return this.asyncVar.get() ?? { priority: "default" };
+    return AsyncContext.get(this.asyncVar) ?? { priority: "default" };
   },
 };
 
@@ -470,9 +470,9 @@ async function doStuffs(text) {
 ## User-land queues
 
 User-land queues can be implemented with `AsyncContext.Snapshot` to propagate
-the values of all `AsyncContext.Variable`s without access to any of them. This
+all values of the scope without access to any of them. This
 allows the user-land queue to be implemented in a way that is decoupled from
-consumers of `AsyncContext.Variable`.
+consumers of the values.
 
 ```typescript
 // The scheduler doesn't access to any AsyncContext.Variable.
@@ -495,14 +495,14 @@ const scheduler = {
 
 function userAction() {
   scheduler.postTask(function userTask() {
-    console.log(traceContext.get());
+    console.log(AsyncContext.get(traceContext));
   });
 }
 
 // Tracing libraries can use AsyncContext.Variable to store tracing contexts.
-const traceContext = new AsyncContext.Variable();
-traceContext.run("trace-id-a", userAction);
-traceContext.run("trace-id-b", userAction);
+const traceContext = Symbol('traceContext');
+AsyncContext.run({ [traceContext]: "trace-id-a" }, userAction);
+AsyncContext.run({ [traceContext]: "trace-id-b" }, userAction);
 
 scheduler.runWhenIdle();
 // The userTask will be run with the trace context it was enqueued with.
@@ -525,15 +525,15 @@ must be taken in a sub-graph of an async execution flow, and can not affect
 their parent or sibling scopes.
 
 ```typescript
-const asyncVar = new AsyncContext.Variable();
-asyncVar.run("A", async () => {
-  asyncVar.get(); // => 'A'
+const asyncVar = new Symbol('asyncVar');
+AsyncContext.run({ [asyncVar]: "A" }, async () => {
+  AsyncContext.get(asyncVar); // => 'A'
 
   // ...arbitrary synchronous codes.
   // ...or await-ed asynchronous calls.
 
   // The value can not be modified at this point.
-  asyncVar.get(); // => 'A'
+  AsyncContext.get(asyncVar); // => 'A'
 });
 ```
 
