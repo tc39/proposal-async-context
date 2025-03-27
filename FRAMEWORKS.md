@@ -44,9 +44,9 @@ Note: **[client]** and **[server]** markers in messages have been added by the p
 >
 > For completeness sake, the main theoretical alternatives would be for React to:
 >
->     1. Require developers to explicitly pass through a context object through all of their async code consumed by React. It would be difficult or impractical to lint against proper usage of this approach, making it easy for developers to forget to pass this value.
+> 1. Require developers to explicitly pass through a context object through all of their async code consumed by React. It would be difficult or impractical to lint against proper usage of this approach, making it easy for developers to forget to pass this value.
 >
->     2. Attempt to compile _all_ async/await code that might appear in a React application to automatically pass through the context. Compiling React code for React is one thing, compiling all user code for React is invasive and a non-starter.
+> 2. Attempt to compile _all_ async/await code that might appear in a React application to automatically pass through the context. Compiling React code for React is one thing, compiling all user code for React is invasive and a non-starter.
 >
 > That leaves us with needing some built-in way to associate a context across async yield points. Crucially, this is not just a framework concern but something that impacts how users write asynchronous code, since the workarounds are for them to write code differently. We understand that the specific solution here may have performance and/or complexity concerns and are happy to collaborate on alternative implementations if they can provide a similar capability.
 >
