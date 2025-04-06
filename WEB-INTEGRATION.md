@@ -538,14 +538,16 @@ asyncVar.run("foo", () => {
 - the `"load"` callback thus runs with `asyncVar` set to `"foo"`.
 
 Note that this example uses `await`, but due to the proposed semantics for `.then` and `setTimeout`
-(and similar APIs), the same would hapepn when using other asynchronicity primitives.
+(and similar APIs), the same would happen when using other asynchronicity primitives. Note that most APIs
+dealing with I/O are not actually polyfillable in JavaScript, but you can still emulate/mock them with
+testing data.
 
 </details>
 
 Event listeners for events dispatched **from the browser** rather than as a consequence of some JS action (e.g. a user clicking on a button) will by default run in the root (empty) context. This is the same
 context that the browser uses, for example, for the top-level execution of scripts.
 
-> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave as events dispatched by user interaction.
+> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction.
 
 ### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
@@ -643,9 +645,9 @@ accidentally keeping alive unnecessary objects.
 There are still some questions about `captureFallbackContext` that need to be
 answered:
 - should it take just one variable or a list of variables?
-- should it just be for event targets, or for all web APIs that can be triggered
-  by non-JS code?
-  - should it be a global, or a static method of `EventTarget`?
+- should it just be for event targets, or for all web APIs that take a callback
+  which can run when triggered from outside of JavaScript? (e.g. observers)
+- should it be a global, or a static method of `EventTarget`?
 
 ## Script errors and unhandled rejections
 
