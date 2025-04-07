@@ -547,7 +547,7 @@ testing data.
 Event listeners for events dispatched **from the browser** rather than as a consequence of some JS action (e.g. a user clicking on a button) will by default run in the root (empty) context. This is the same
 context that the browser uses, for example, for the top-level execution of scripts.
 
-> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction.
+> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction. This also applies to events dispatched from cross-origin iframes in the same agent, to avoid exposing the fact that they're in the same agent.
 
 ### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
