@@ -426,36 +426,228 @@ Event dispatches can be one of the following:
   some web API, but the dispatch happens at a later point. In these cases, the
   context should be tracked along the data flow of the operation, even across
   code running in parallel (but not through tasks enqueued on other agents'
-  event loops). [See below on implicit context
-  propagation](#implicit-context-propagation) for how this data flow tracking
-  should happen.
+  event loops).
 
-This classification of event dispatches is the way it should be in theory, as
-well as a long-term goal. However, as we describe later in the section on
-implicit context propagation, for the initial rollout we propose treating the
-vast majority of asynchronous dispatches as if they were browser-originated.
-The exceptions would be:
+For events triggered by JavaScript code (either synchronously or asynchronously),
+the goal is for them to behave equivalently as if they were implemented by a
+JavaScript developer that is not explicitly thinking about AsyncContext propagation:
+listeners for events dispatched either **synchronously** or **asynchronously** from
+JS or from a web API would use the context that API is called with.
 
-- The `popstate` event
-- The `message` and `messageerror` events
-- All events dispatched on `XMLHttpRequest` or `XMLHttpRequestUpload` objects
-- The `unhandledrejection` and `rejectionhandled` events on the global object
-  (see below)
+<details>
+<summary>Expand this section for examples of the equivalece with JS-authored code</summary>
 
-> TODO: The exact principle for which event listeners are included in this list is still under discussion.
+Let's consider a simple approximation of the `EventTarget` interface, authored in JavaScript:
+```javascript
+class EventTarget {
+  #listeners = [];
 
-The list above is not meant to be hard-coded in the events machinery as a "is this event part of that list?" check. Instead, the spec text and browser code that fires
-each of these individual events would be modified so that it keeps track of the
-context in which these events were scheduled (e.g. the context of `window.postMessage` or `xhr.send()`), and so that that context is restored before firing the event.
+  addEventListener(type, listener) {
+    this.#listeners.push({ type, listener });
+  }
 
-### Fallback context
+  dispatchEvent(event) {
+    for (const { type, listener } of this.#listeners) {
+      if (type === event.type) {
+        listener.call(this, event);
+      }
+    }
+  }
+}
+```
+
+An example _synchronous_ event is `AbortSignal`'s `abort` event. A naive approximation
+in JavaScript would look like the following:
+
+```javascript
+class AbortController {
+  constructor() {
+    this.signal = new AbortSignal();
+  }
+
+  abort() {
+    this.signal.aborted = true;
+    this.signal.dispatchEvent(new Event("abort"));
+  }
+}
+```
+
+When calling `abortController.abort()`, there is a current async context active in the agent. All operations that lead to the `abort` event being dispatched are synchronous and do not manually change the current async context: the active async context will remain the same through the whole `.abort()` process,
+including in the event listener callbacks:
+
+```javascript
+const abortController = new AbortController();
+const asyncVar = new AsyncContext.Variable();
+abortController.signal.addEventListener("abort", () => {
+  console.log(asyncVar.get()); // "foo"
+});
+asyncVar.run("foo", () => {
+  abortController.abort();
+});
+```
+
+Let's consider now a more complex case: the asynchronous `"load"` event of `XMLHttpRequest`. Let's try
+to implement `XMLHttpRequest` in JavaScript, on top of fetch:
+
+```javascript
+class XMLHttpRequest extends EventTarget {
+  #method;
+  #url;
+  open(method, url) {
+    this.#method = method;
+    this.#url = url;
+  }
+  send() {
+    (async () => {
+      try {
+        const response = await fetch(this.#url, { method: this.#method });
+        const reader = response.body.getReader();
+        let done;
+        while (!done) {
+          const { done: d, value } = await reader.read();
+          done = d;
+          this.dispatchEvent(new ProgressEvent("progress", { /* ... */ }));
+        }
+        this.dispatchEvent(new Event("load"));
+      } catch (e) {
+        this.dispatchEvent(new Event("error"));
+      }
+    })();
+  }
+}
+```
+
+And lets trace how the context propagates from `.send()` in the following case:
+```javascript
+const asyncVar = new AsyncContext.Variable();
+const xhr = new XMLHttpRequest();
+xhr.open("GET", "https://example.com");
+xhr.addEventListener("load", () => {
+  console.log(asyncVar.get()); // "foo"
+});
+asyncVar.run("foo", () => {
+  xhr.send();
+});
+```
+- when `.send()` is called, the value of `asyncVar` is `"foo"`.
+- it is synchronously propagated up to the `fetch()` call in `.send()`
+- the `await` snapshots the context before pausing, and restores it (to `asyncVar: "foo"`) when the `fetch` completes
+- the `await`s in the reader loop propagate the context as well
+- when `this.dispatchEvent(new Event("load"))`, is called, the current active async context is thus
+  the same one as when `.send()` was called
+- the `"load"` callback thus runs with `asyncVar` set to `"foo"`.
+
+Note that this example uses `await`, but due to the proposed semantics for `.then` and `setTimeout`
+(and similar APIs), the same would happen when using other asynchronicity primitives. Note that most APIs
+dealing with I/O are not actually polyfillable in JavaScript, but you can still emulate/mock them with
+testing data.
+
+</details>
+
+Event listeners for events dispatched **from the browser** rather than as a consequence of some JS action (e.g. a user clicking on a button) will by default run in the root (empty) context. This is the same
+context that the browser uses, for example, for the top-level execution of scripts.
+
+> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction. This also applies to events dispatched from cross-origin iframes in the same agent, to avoid exposing the fact that they're in the same agent.
+
+### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
 This use of the empty context for browser-originated dispatches, however,
 clashes with the goal of allowing “isolated” regions of code that share an event
 loop, and being able to trace in which region an error originates. A solution to
-this would be the ability to define a fallback context for a region of code. We
-have a proposal for this being fleshed out at issue
-[#107](https://github.com/tc39/proposal-async-context/issues/107).
+this would be the ability to define fallback values for some `AsyncContext.Variable`s
+when the browser runs some JavaScript code due to a browser-originated dispatch.
+
+```javascript
+const widgetID = new AsyncContext.Variable();
+
+widgetID.run("weather-widget", () => {
+  captureFallbackContext(widgetID, () => {
+    renderWeatherWidget();
+  });
+});
+```
+
+In this example, event listeners registered by `renderWeatherWidget` would be guaranteed
+to always run as a consequence of some "widget": if the event is user-dispatched, then
+it defaults to `weather-widget` rather than to `widgetID`'s default value (`undefined`,
+in this case). There isn't a single global valid default value, because a page might have
+multiple widgets that thus need different fallbacks.
+
+<details>
+<summary>Expand this section to read the full example</summary>
+
+This complete example shows that when clicking on a button (thus, without a JavaScript cause
+that could propagate the context), some asynchronus operations start. These operations
+might reject, firing a `unhandledrejection` event on the global object.
+
+If there was no fallback context, the `"click"` event would run with `widgetID` unset, that
+would thus be propagated unset to `unhandledrejection` as well. Thanks to `captureFallbackContext`,
+the user-dispatched `"click"` event will fallback to running with `widgetID` set to
+`"weather-widget"`, which will then be propagated to `unhandledrejection`.
+
+```javascript
+const widgetID = new AsyncContext.Variable();
+
+widgetID.run("weather-widget", () => {
+  captureFallbackContext(widgetID, () => {
+    renderWeatherWidget();
+  });
+});
+
+addEventListener("unhandledrejection", event => {
+  console.error(`Unhandled rejection in widget "${widgetID.get()}"`);
+  // Handle the rejection. For example, disable the widget, or report
+  // the error to a server that can then notify the widget's developers.
+});
+```
+
+```javascript
+function renderWeatherWidget() {
+  let day = Temporal.Now.plainDate();
+
+  const widget = document.createElement("div");
+  widget.innerHTML = `
+    <button id="prev">Previous day</button>
+    <output>...</output>
+    <button id="next">Next day</button>
+  `;
+  document.body.appendChild(widget);
+
+  const load = async () => {
+    const response = await fetch(`/weather/${day}`);
+    widget.querySelector("output").textContent = await response.text();
+  };
+
+  widget.querySelector("#prev").addEventListener("click", async () => {
+    day = day.subtract({ days: 1 });
+    await load();
+  });
+  widget.querySelector("#next").addEventListener("click", async () => {
+    day = day.add({ days: 1 });
+    await load();
+  });
+
+  load();
+}
+```
+
+When the user clicks on one of the buttons and the `fetch` it triggers fails,
+without using `captureFallbackContext` the `unhandledrejection` event listener
+would not know that the failure is coming from the `weather-widget` widget.
+
+Thanks to `captureFallbackContext`, that information is properly propagated.
+
+</details>
+
+This fallback is per-variable and not based on `AsyncContext.Snapshot`, to avoid
+accidentally keeping alive unnecessary objects.
+
+There are still some questions about `captureFallbackContext` that need to be
+answered:
+- should it take just one variable or a list of variables?
+- should it just be for event targets, or for all web APIs that take a callback
+  which can run when triggered from outside of JavaScript? (e.g. observers)
+- should it be a global, or a static method of `EventTarget`?
 
 ## Script errors and unhandled rejections
 
