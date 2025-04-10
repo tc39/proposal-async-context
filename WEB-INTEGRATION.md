@@ -359,12 +359,9 @@ In general, the context that should be used is the one that matches the data
 flow through the algorithms ([see the section on implicit propagation
 below](#implicit-context-propagation)).
 
-<!-- Streams are largely defined on top of promises, and can be easily
-reimplemented in userland by copying the spec step-by-step. Likely this
-described propagation already properly comes out of that? -->
-
-> TODO: Piping is largely implementation-defined. We should figure out some
-> context propagation constraints.
+> TODO: Piping is largely implementation-defined. We will need to explicitly
+> define how propagation works there, rather than relying on the streams
+> usage of promises, to ensure interoperability.
 
 > TODO: If a stream gets transferred to a different agent, any cross-agent
 > interactions will have to use the empty context. What if you round-trip a
