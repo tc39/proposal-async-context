@@ -801,7 +801,7 @@ steps _steps_, would do the following:
 >    1. Throw _e_.
 > 1. [AsyncContextSwap](https://tc39.es/proposal-async-context/#sec-asynccontextswap)(_previousContext_).
 
-For web APIs that use that take a callback and eventually call it with the same context as when
+For web APIs that take a callback and eventually call it with the same context as when
 the web API was called, this should be handled in WebIDL by storing the result of `AsyncContextSnapshot()`
 alongside the callback function, and swapping it when the function is called. Since this should not happen
 for every callback, there should be a WebIDL extended attribute applied to callback types to control this.
