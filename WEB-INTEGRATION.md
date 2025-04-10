@@ -128,14 +128,13 @@ Web frameworks such as React may decide to save and restore
 `AsyncContext.Snapshot`s when re-rendering subtrees. More outreach to frameworks
 is needed to confirm exactly how this will be used.
 
-
 ## General approach to web API semantics with AsyncContext
 
 The AsyncContext API isn’t designed to be used directly by most
-JavaScript application developers, but rather as an implementation detail of certain
-third-party libraries. AsyncContext makes it so users of those libraries don’t
-need to explicitly integrate with it. Instead, the AsyncContext mechanism
-handles implicitly passing contextual data around.
+JavaScript application developers, but rather used by certain third-party libraries
+to provide good DX to web developers. AsyncContext makes it so users
+of those libraries don’t need to explicitly integrate with it. Instead, the
+AsyncContext mechanism handles implicitly passing contextual data around.
 
 In general, contexts should propagate along an algorithm’s data flow. If an
 algorithm running in the event loop synchronously calls another algorithm or
