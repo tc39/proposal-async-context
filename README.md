@@ -231,8 +231,9 @@ function randomTimeout() {
 }
 ```
 
-> Note: There are controversial thought on the dynamic scoping and
-> `Variable`, checkout [SCOPING.md][] for more details.
+> [!TIP]
+> There have been long detailed discussions on the dynamic scoping of
+> `AsyncContext.Variable`. Checkout [SCOPING.md][] for more details.
 
 Hosts are expected to use the infrastructure in this proposal to allow tracking
 not only asynchronous callstacks, but other ways to schedule jobs on the event
@@ -241,39 +242,13 @@ describe the needed integration with web platform APIs in the [web integration
 document](./WEB-INTEGRATION.md).
 
 A detailed example of use cases can be found in the
-[Use cases document](./USE-CASES.md).
+[Use Cases](./USE-CASES.md) and [Frameworks](./FRAMEWORKS.md) documents.
 
 ## `AsyncContext.Snapshot`
 
-`Snapshot` allows you to opaquely capture the current values of all `Variable`s
-and execute a function at a later time as if those values were still the
-current values (a snapshot and restore).
-
-Note that even with `Snapshot`, you can only access the value associated with
-a `Variable` instance if you have access to that instance.
-
-```typescript
-const asyncVar = new AsyncContext.Variable();
-
-let snapshot
-asyncVar.run("A", () => {
-  // Captures the state of all AsyncContext.Variable's at this moment.
-  snapshot = new AsyncContext.Snapshot();
-});
-
-asyncVar.run("B", () => {
-  console.log(asyncVar.get()); // => 'B'
-
-  // The snapshot will restore all AsyncContext.Variable to their snapshot
-  // state and invoke the wrapped function. We pass a function which it will
-  // invoke.
-  snapshot.run(() => {
-    // Despite being lexically nested inside 'B', the snapshot restored us to
-    // to the snapshot 'A' state.
-    console.log(asyncVar.get()); // => 'A'
-  });
-});
-```
+`AsyncContext.Snapshot` is an advanced API that allows opaquely capturing
+the current values of all `Variable`s, and execute a function at a later
+time as if those values were still the current values.
 
 `Snapshot` is useful for implementing APIs that logically "schedule" a
 callback, so the callback will be called with the context that it logically
@@ -298,8 +273,39 @@ runWhenIdle(() => {
 });
 ```
 
-A detailed explanation of why `AsyncContext.Snapshot` is a requirement can be
-found in [SNAPSHOT.md](./SNAPSHOT.md).
+Most web developers, even those interacting with `AsyncContext.Variable` directly,
+are not expected to ever need to reach out to `AsyncContext.Snapshot`.
+
+> [!TIP]
+> A detailed explanation of why `AsyncContext.Snapshot` is a requirement can be
+> found in [SNAPSHOT.md](./SNAPSHOT.md).
+
+Note that even with `AsyncContext.Snapshot`, you can only access the value associated with
+a `AsyncContext.Variable` instance if you have access to that instance. There is no way to
+iterate through the entries or the `AsyncContext.Variable`s in the snapshot.
+
+```typescript
+const asyncVar = new AsyncContext.Variable();
+
+let snapshot
+asyncVar.run("A", () => {
+  // Captures the state of all AsyncContext.Variable's at this moment.
+  snapshot = new AsyncContext.Snapshot();
+});
+
+asyncVar.run("B", () => {
+  console.log(asyncVar.get()); // => 'B'
+
+  // The snapshot will restore all AsyncContext.Variable to their snapshot
+  // state and invoke the wrapped function. We pass a function which it will
+  // invoke.
+  snapshot.run(() => {
+    // Despite being lexically nested inside 'B', the snapshot restored us to
+    // to the snapshot 'A' state.
+    console.log(asyncVar.get()); // => 'A'
+  });
+});
+```
 
 ### `AsyncContext.Snapshot.wrap`
 
