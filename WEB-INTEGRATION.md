@@ -327,8 +327,6 @@ context where each `AsyncContext.Variable` is set to its initial value:
   form would queue a microtask to call its `formResetCallback` lifecycle hook,
   and there would not be a causal context.
 
-<!-- Is this still true? -->
-
 In the cases where the registration web API takes a constructor (such as
 worklets) rather than a callback, the registration-time context should be used,
 and any getters or methods of the constructed object that are called as a result
