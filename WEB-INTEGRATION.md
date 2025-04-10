@@ -161,7 +161,6 @@ group them into two categories:
   into a web API so it can be run. For events, this would be the context in
   which `addEventListener` is called or an event handler attribute
   (e.g. `onclick`) is set.
-  
 - The **causal context** (also called the dispatch context, especially in
   reference to events) is the context in which some web API is called that
   ultimately causes the callback to be called. This is usually an API that
@@ -172,6 +171,18 @@ group them into two categories:
   userland JS code in the same agent (e.g. a user-originated `click` event),
   there is no causal context.
 
+We propose that, in general, APIs should call callbacks using the _causal context_.
+Some APIs can be used in multiple different ways (e.g. events), such that the
+causal context is not always available. In that case the **empty context** (where
+every `AsyncContext.Variable` is set to its default value) is used instead, as
+if the callback is invoked as a new top-level operation (like JavaScript code that
+runs when a page is just loaded).
+
+Propagating the causal context matches the behavior you'd get if APIs were implemented
+in JavaScript, internally using only promises and continuation callbacks. This will
+thus match how most userland libraries behave, unless they modify how `AsyncContext`
+flows by manually snapshotting and restoring it.
+
 We propose that, in general, if there is a causal context, that should be the
 context that the callback should be called with; otherwise, the registration
 context should be used. However, if an API is used in multiple different ways
@@ -179,6 +190,11 @@ context should be used. However, if an API is used in multiple different ways
 there are cases where the causal context should be used even though it does not
 exist. In such cases, the **empty context** (where every `AsyncContext.Variable`
 is set to its default value) is used instead.
+
+Note that for some APIs there is no difference between the causal context and
+the registration context: for example, `setTimeout` receives the callback
+(registration context) at the same time as the user is requesting (causal context)
+to schedule it to be run later.
 
 In the rest of this document, we look at various kinds of web platform APIs
 which accept callbacks or otherwise need integration with AsyncContext, and
@@ -198,8 +214,8 @@ These are web APIs whose sole purpose is to take a callback and schedule it in
 the event loop in some way. The callback will run asynchronously at some point,
 when there is no other JS code in the call stack.
 
-For these APIs, the causal context is the same as the registration context – the
-context in which the API is called. After all, that API call starts a background
+For these APIs, the causal context is the same as the context in which the API
+is called. After all, that API call starts a background
 user-agent-internal operation that results in the callback being called.
 Therefore, this is the context the callback should be called with.
 
@@ -285,7 +301,7 @@ These APIs register a callback or constructor to be invoked when some action
 runs. They’re also commonly used as a way to associate a newly created class
 instance with some action, such as in worklets or with custom elements.
 
-In cases where the action originates due to something happening outside of the web page (such as some user action), there is no dispatch context. Therefore, the only available context is the
+In cases where the action originates due to something happening outside of the web page (such as some user action), there is never a dispatch context. Therefore, the only available context is the
 registration context, the one active when the web API is called.
 
 - [`navigator.mediaSession.setActionHandler()`](https://w3c.github.io/mediasession/#dom-mediasession-setactionhandler)
@@ -311,13 +327,12 @@ code, the causal context should be used instead. The main case for this is
 custom elements, where the lifecycle callbacks are almost always triggered
 synchronously by a call from userland JS to an API annotated with
 [`[CEReactions]`](https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions).
-However, there are cases where this is not the case:
+However, there are cases where this is not the case and falls back to the empty
+context where each `AsyncContext.Variable` would be set to its initial value:
 
 - If a custom element is contained inside a `<div contenteditable>`, the user
   could remove the element from the tree as part of editing, which would queue a
-  microtask to call its `disconnectedCallback` hook. In this case, there would
-  be no causal context, and each `AsyncContext.Variable` would be set to its
-  initial value.
+  microtask to call its `disconnectedCallback` hook.
 - A user clicking a form reset when a form-associated custom element is in the
   form would queue a microtask to call its `formResetCallback` lifecycle hook,
   and there would not be a casual context. However, if the `click()` method is
@@ -325,6 +340,8 @@ However, there are cases where this is not the case:
   annotation, it would also call that lifecycle hook in a microtask, rather than
   synchronously. In that case, the causal context would be the one active when
   `.click()` was called.
+
+<!-- Is this still true? -->
 
 In the cases where the registration web API takes a constructor (such as
 worklets) and the registration context should be used, any getters or methods of
@@ -356,6 +373,10 @@ causes the call to that method. For example:
 In general, the context that should be used is the one that matches the data
 flow through the algorithms ([see the section on implicit propagation
 below](#implicit-context-propagation)).
+
+<!-- Streams are laregely defined on top of promises, and can be easily
+reimplemented in userland by copying the spec step-by-step. Likely this
+described propagation already properly comes out of that? -->
 
 > TODO: Piping is largely implementation-defined. We should figure out some
 > context propagation constraints.
@@ -390,14 +411,19 @@ registration context; that is, the context in which the class is constructed.
 - [`ReportingObserver`](https://w3c.github.io/reporting/#reportingobserver)
   [\[REPORTING\]](https://w3c.github.io/reporting/)
 
-> TODO: Due to concerns about observers leading to memory leaks, an alternative
+> [!IMPORTANT]
+> Due to concerns about observers leading to memory leaks, an alternative
 > option is to not use the registration context, and instead call the observer's
-> callback with the empty context. This is still under discussion. 
+> callback with the empty context. This is coherent with the general design direction
+> of using the dispatch context, except that we would say that these observers are always
+> triggered as consequences of browser-internal code.
 
 In some cases it might be useful to expose the causal context for individual
 observations, by exposing an `AsyncContext.Snapshot` property on the observation
 record. This should be the case for `PerformanceObserver`, where
-`PerformanceEntry` would expose the snapshot as a `resourceContext` property.
+`PerformanceEntry` would expose the snapshot as a `resourceContext` property. This
+is not included as part of this initial proposed version, as new properties can
+easily be added as follow-ups in the future.
 
 ## Events
 
@@ -649,7 +675,7 @@ answered:
   which can run when triggered from outside of JavaScript? (e.g. observers)
 - should it be a global, or a static method of `EventTarget`?
 
-## Script errors and unhandled rejections
+### Script errors and unhandled rejections
 
 The `error` event on a window or worker global object is fired whenever a script
 execution throws an uncaught exception. The context in which this exception was
@@ -680,7 +706,7 @@ window.onerror = window.onunhandledrejection = () => {
 };
 ```
 
-### Unhandled rejection details
+#### Unhandled rejection details
 
 The `unhandledrejection` causal context could be unexpected in some cases. For
 example, in the following code sample, developers might expect `asyncVar` to map
@@ -688,7 +714,8 @@ to `"bar"` in that context, since the throw that causes the promise rejection
 takes place inside `a()`. However, the promise that rejects *without having a
 registered rejection handled* is the promise returned by `b()`, which only
 outside of the `asyncVar.run("bar", ...)` returns. Therefore, `asyncVar` would
-map to `"foo"`.
+map to `"foo"`. Effectively this context does not propagate from where the
+first rejection happens, but from where the developer forgot to handle it.
 
 
 ```js
