@@ -281,7 +281,8 @@ are not expected to ever need to reach out to `AsyncContext.Snapshot`.
 > found in [SNAPSHOT.md](./SNAPSHOT.md).
 
 Note that even with `AsyncContext.Snapshot`, you can only access the value associated with
-a `AsyncContext.Variable` instance if you have access to that instance:
+a `AsyncContext.Variable` instance if you have access to that instance. There is no way to
+iterate through the entries or the `AsyncContext.Variable`s in the snapshot.
 
 ```typescript
 const asyncVar = new AsyncContext.Variable();
