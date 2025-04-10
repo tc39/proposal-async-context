@@ -377,9 +377,9 @@ called once per observation. Instead, multiple observations can be batched into
 one single call. This means that there is not always a single JS action that causes
 some work that eventually triggers the observer callback; rather, there might be many.
 
-Given this, for consistency it would be preferable to instead propagate the context that
-was active when the observer callback was registered; that is, the context in which the
-class is constructed.
+Given this, observer callbacks should always run with the empty context. This can be explained
+by saying that layout changes are always considered to be a browser-internal trigger, even if
+they were caused by changes injected into the DOM or styles through JavaScript.
 
 - [`MutationObserver`](https://dom.spec.whatwg.org/#mutationobserver)
   [\[DOM\]](https://dom.spec.whatwg.org/)
@@ -392,12 +392,12 @@ class is constructed.
 - [`ReportingObserver`](https://w3c.github.io/reporting/#reportingobserver)
   [\[REPORTING\]](https://w3c.github.io/reporting/)
 
-> [!IMPORTANT]
-> Due to concerns about observers leading to memory leaks, an alternative
-> option is to not use the context from when the observer was created, and instead call the observer's
-> callback with the empty context. This is coherent with the general design direction
-> of using the dispatch context, except that we would say that these observers are always
-> triggered as consequences of browser-internal code.
+> [!NOTE]
+> An older version of this proposal suggested to capture the context at the time the observer
+> is create, and use it to run the callback. This has been removed due to memory leak concerns.
+>
+> It's under discussion wether observers should use the same mechanism as events (see below)
+> to define a scoped fallback value for some `AsyncContext.Variable`s.
 
 In some cases it might be useful to expose the causal context for individual
 observations, by exposing an `AsyncContext.Snapshot` property on the observation
