@@ -153,52 +153,39 @@ later). Without built-in web platform integration, web developers may need to
 which adds startup cost and scales poorly as new web APIs are added.
 
 In some cases there is more than one incoming data flow, and therefore multiple
-possible `AsyncContext.Snapshot`s that could be restored. To discuss them, we
-group them into two categories:
+possible `AsyncContext.Snapshot`s that could be restored:
+```javascript
+{
+  /* context 1 */
+  giveCallbackToAPI(() => {
+    // What context here?
+  });
+}
+{
+  /* context 2 */
+  callCallbackGivenToAPI();
+}
+```
 
-- A **registration context** is the context in which that callback is passed
-  into a web API so it can be run. For events, this would be the context in
-  which `addEventListener` is called or an event handler attribute
-  (e.g. `onclick`) is set.
-- The **causal context** (also called the dispatch context, especially in
-  reference to events) is the context in which some web API is called that
-  ultimately causes the callback to be called. This is usually an API that
-  starts an async operation which ultimately calls the callback
-  (e.g. `xhr.send()`, which causes the XHR events to be fired), but it can also
-  be an API that calls the callback synchronously (e.g. `htmlEl.click()`, which
-  synchronously fires a `click` event). If the callback is not caused by any
-  userland JS code in the same agent (e.g. a user-originated `click` event),
-  there is no causal context.
+We propose that, in general, APIs should call callbacks using the context from which
+the call to API is effectively caused (`context 2` in the above code snipped).
+This matches the behavior you'd get if web APIs were implemented in JavaScript,
+internally using only promises and continuation callbacks. This will thus match how
+most userland libraries behave, unless they modify how `AsyncContext` flows by manually
+snapshotting and restoring it.
 
-We propose that, in general, APIs should call callbacks using the _causal context_.
-Some APIs can be used in multiple different ways (e.g. events), such that the
-causal context is not always available. In that case the **empty context** (where
-every `AsyncContext.Variable` is set to its default value) is used instead, as
-if the callback is invoked as a new top-level operation (like JavaScript code that
-runs when a page is just loaded).
-
-Propagating the causal context matches the behavior you'd get if APIs were implemented
-in JavaScript, internally using only promises and continuation callbacks. This will
-thus match how most userland libraries behave, unless they modify how `AsyncContext`
-flows by manually snapshotting and restoring it.
-
-We propose that, in general, if there is a causal context, that should be the
-context that the callback should be called with; otherwise, the registration
-context should be used. However, if an API is used in multiple different ways
-(e.g. events), it should stay consistent in all uses of that API. Therefore,
-there are cases where the causal context should be used even though it does not
-exist. In such cases, the **empty context** (where every `AsyncContext.Variable`
-is set to its default value) is used instead.
-
-Note that for some APIs there is no difference between the causal context and
-the registration context: for example, `setTimeout` receives the callback
-(registration context) at the same time as the user is requesting (causal context)
-to schedule it to be run later.
+Some callbacks can be _sometimes_ triggered by some JavaScript code that we can propagate
+the context from, but not always. An example is `.addEventListener`: some events can only
+be triggered by JavaScript code, some only by external causes (e.g. user interactions),
+and some by either (e.g. user clicking on a button or the `.click()` method). In these
+cases, when the action is not triggered by some JavaScript code, the callback will run
+in the **empty context** instead (where every `AsyncContext.Variable` is set to its default
+value). This matches the behavior of JavaScript code running as a top-level operation (like
+JavaScript code that runs when a page is just loaded).
 
 In the rest of this document, we look at various kinds of web platform APIs
 which accept callbacks or otherwise need integration with AsyncContext, and
-examine which context should be used.
-
+examine which context should be propagated.
 
 # Individual analysis of web APIs and AsyncContext
 
@@ -213,10 +200,9 @@ These are web APIs whose sole purpose is to take a callback and schedule it in
 the event loop in some way. The callback will run asynchronously at some point,
 when there is no other JS code in the call stack.
 
-For these APIs, the causal context is the same as the context in which the API
-is called. After all, that API call starts a background
+For these APIs, there is only one possible context to propagate: the one that
+was active when the API was called. After all, that API call starts a background
 user-agent-internal operation that results in the callback being called.
-Therefore, this is the context the callback should be called with.
 
 Examples of scheduler web APIs:
 - [`setTimeout()`](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-settimeout)
@@ -241,11 +227,9 @@ These web APIs start an asynchronous operation, and take callbacks to indicate
 that the operation has completed. These are usually legacy APIs, since modern
 APIs would return a promise instead.
 
-For these APIs, since the async operation starts when the web API is called, the
-dispatch context is the same as the registration context. Therefore, this
-context (the one in which the API is called) should be used for the callback.
-This would also make these callbacks behave the same as they would when passed
-to the `.then()` method of a promise.
+These APIs propagate the context from where the web API is called, which is the point that
+starts the async operation. This would also make these callbacks behave the same as they would
+when passed to the `.then()` method of a promise.
 
 - [`HTMLCanvasElement`](https://html.spec.whatwg.org/multipage/canvas.html#htmlcanvaselement):
   [`toBlob()`](https://html.spec.whatwg.org/multipage/canvas.html#dom-canvas-toblob)
@@ -268,15 +252,13 @@ and then they were changed to return a promise – e.g. `BaseAudioContext`’s
 `decodeAudioData()` method. For those APIs, the callback’s context would behave
 similarly to other async completion callbacks, and the promise rejection context
 would behave similarly to other promise-returning web APIs (see below).
-Similarly, the WebIDL-based callback wrapping is sufficient, and there are no
-meaningful alternatives to consider.
 
-### Callbacks run as part of an async algorithm
+#### Callbacks run as part of an async algorithm
 
 These APIs always invoke the callback to run user code as part of an
 asynchronous operation that they start, and which affects the behavior of the
-operation. Since the background async operation is started by the API that takes
-the callback, the registration and causal contexts are the same.
+operation. These callbacks are also caused by the original call to the web API,
+and thus run in the context that was active at that moment.
 
 This context also matches the way these APIs could be implemented in JS:
 ```js
@@ -294,14 +276,22 @@ async function api(callback) {
   [`request()`](https://w3c.github.io/web-locks/#dom-lockmanager-request) method
   [\[WEB-LOCKS\]](https://w3c.github.io/web-locks/)
 
+> [!TIP]
+> In all these cases actually propagating the context through the internal asynchronous
+> steps of the algorithms gives the same result as capturing the context when the API
+> is called and storing it together with the callback. This applies boths to "completion
+> callbacks" and to "progress callbacks".
+
 ### Action registrations
 
 These APIs register a callback or constructor to be invoked when some action
 runs. They’re also commonly used as a way to associate a newly created class
 instance with some action, such as in worklets or with custom elements.
 
-In cases where the action originates due to something happening outside of the web page (such as some user action), there is never a dispatch context. Therefore, the only available context is the
-registration context, the one active when the web API is called.
+In cases where the action always originates due to something happening outside of
+the web page (such as some user action), there is never a dispatch context. Therefore,
+the only context that these APIs can propagate is the one that was active when the
+callback was registered.
 
 - [`navigator.mediaSession.setActionHandler()`](https://w3c.github.io/mediasession/#dom-mediasession-setactionhandler)
   method [\[MEDIASESSION\]](https://w3c.github.io/mediasession/)
@@ -316,48 +306,44 @@ This is also the case for worklets, where the registering API (e.g.
 for audio worklets [\[WEBAUDIO\]](https://webaudio.github.io/web-audio-api/), or
 [`registerPaint()`](https://drafts.css-houdini.org/css-paint-api-1/#dom-paintworkletglobalscope-registerpaint)
 for paint worklets [\[CSS-PAINT-API\]](https://drafts.css-houdini.org/css-paint-api-1/))
-is the registration context, and the causal context is either empty or
-unobservable (since `AsyncContext.Variable`s from outside the worklet cannot
-cross its boundary, even if they happen to live in the same agent/thread).
-Therefore, the registration context should be used.
+is the "registration-time context", and the context of the JavaScript code that
+actually caused the callback to run is _always_ either empty or unobservable
+(since `AsyncContext.Variable`s from outside the worklet cannot cross its boundary,
+even if they happen to live in the same agent/thread).
 
 For action registrations where the action often originates from userland JS
-code, the causal context should be used instead. The main case for this is
-custom elements, where the lifecycle callbacks are almost always triggered
+code, we should instead follow the main principle of propagating the context from
+the point that started the work that eventually triggered the callback. The main
+case for this is custom elements, where the lifecycle callbacks are almost always triggered
 synchronously by a call from userland JS to an API annotated with
 [`[CEReactions]`](https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions).
 However, there are cases where this is not the case and falls back to the empty
-context where each `AsyncContext.Variable` would be set to its initial value:
+context where each `AsyncContext.Variable` is set to its initial value:
 
 - If a custom element is contained inside a `<div contenteditable>`, the user
   could remove the element from the tree as part of editing, which would queue a
   microtask to call its `disconnectedCallback` hook.
 - A user clicking a form reset when a form-associated custom element is in the
   form would queue a microtask to call its `formResetCallback` lifecycle hook,
-  and there would not be a casual context. However, if the `click()` method is
-  called from JS instead, since that method doesn't have the `[CEReactions]`
-  annotation, it would also call that lifecycle hook in a microtask, rather than
-  synchronously. In that case, the causal context would be the one active when
-  `.click()` was called.
+  and there would not be a causal context.
 
 <!-- Is this still true? -->
 
 In the cases where the registration web API takes a constructor (such as
-worklets) and the registration context should be used, any getters or methods of
-the constructed object that are called as a result of the registered action
-should also be called with that same registration context.
+worklets) rather than a callback, the registration-time context should be used,
+and any getters or methods of the constructed object that are called as a result
+of the registered action should also be called with that same registration-time context.
 
 ### Stream underlying APIs
 
 The underlying [source](https://streams.spec.whatwg.org/#underlying-source-api),
 [sink](https://streams.spec.whatwg.org/#underlying-sink-api) and
 [transform](https://streams.spec.whatwg.org/#transformer-api) APIs for streams
-are callbacks/methods passed during stream construction. The context in which
-the stream is constructed is then the registration context.
+are callbacks/methods passed during stream construction.
 
-That registration context is also the causal context for the `start` method, but
-for other methods there would be a different causal context, depending on what
-causes the call to that method. For example:
+The `start` method runs as a direct consequence of the stream being constructed,
+thus it propagates the context from there. For other methods there would be a
+different causal context, depending on what causes the call to that method. For example:
 
 - If `ReadableStreamDefaultReader`’s `read()` method is called and that causes a
   call to the `pull` method, then that would be its causal context. This would
@@ -373,7 +359,7 @@ In general, the context that should be used is the one that matches the data
 flow through the algorithms ([see the section on implicit propagation
 below](#implicit-context-propagation)).
 
-<!-- Streams are laregely defined on top of promises, and can be easily
+<!-- Streams are largely defined on top of promises, and can be easily
 reimplemented in userland by copying the spec step-by-step. Likely this
 described propagation already properly comes out of that? -->
 
@@ -393,11 +379,12 @@ been made.
 
 Unlike FinalizationRegistry, which works similarly, observer callbacks are not
 called once per observation. Instead, multiple observations can be batched into
-one single call. This means that there is not always a single causal context
-that can be used; rather, there might be many.
+one single call. This means that there is not always a single JS action that causes
+some work that eventually triggers the observer callback; rather, there might be many.
 
-Given this, for consistency it would be preferable to instead use the
-registration context; that is, the context in which the class is constructed.
+Given this, for consistency it would be preferable to instead propagate the context that
+was active when the observer callback was registered; that is, the context in which the
+class is constructed.
 
 - [`MutationObserver`](https://dom.spec.whatwg.org/#mutationobserver)
   [\[DOM\]](https://dom.spec.whatwg.org/)
@@ -412,7 +399,7 @@ registration context; that is, the context in which the class is constructed.
 
 > [!IMPORTANT]
 > Due to concerns about observers leading to memory leaks, an alternative
-> option is to not use the registration context, and instead call the observer's
+> option is to not use the context from when the observer was created, and instead call the observer's
 > callback with the empty context. This is coherent with the general design direction
 > of using the dispatch context, except that we would say that these observers are always
 > triggered as consequences of browser-internal code.
@@ -427,9 +414,8 @@ easily be added as follow-ups in the future.
 ## Events
 
 Events are a single API that is used for a great number of things, including
-cases which have a causal context (for events, also referred to as the
-**dispatch context**) separate from the registration context, and cases which
-have no dispatch context at all.
+cases which have a clear JavaScript-originating cause, and cases which the
+callback is almost always triggered as a consequence of user interaction.
 
 For consistency, event listener callbacks should be called with the dispatch
 context. If that does not exist, the empty context should be used, where all
@@ -454,10 +440,11 @@ Event dispatches can be one of the following:
   event loops).
 
 For events triggered by JavaScript code (either synchronously or asynchronously),
-the goal is for them to behave equivalently as if they were implemented by a
-JavaScript developer that is not explicitly thinking about AsyncContext propagation:
-listeners for events dispatched either **synchronously** or **asynchronously** from
-JS or from a web API would use the context that API is called with.
+the goal is to follow the same principle state above: they should propagate the
+context as if they were implemented by a JavaScript developer that is not explicitly
+thinking about AsyncContext propagation: listeners for events dispatched either
+**synchronously** or **asynchronously** from JS or from a web API would use the context
+that API is called with.
 
 <details>
 <summary>Expand this section for examples of the equivalece with JS-authored code</summary>
@@ -572,7 +559,8 @@ testing data.
 Event listeners for events dispatched **from the browser** rather than as a consequence of some JS action (e.g. a user clicking on a button) will by default run in the root (empty) context. This is the same
 context that the browser uses, for example, for the top-level execution of scripts.
 
-> NOTE: To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction. This also applies to events dispatched from cross-origin iframes in the same agent, to avoid exposing the fact that they're in the same agent.
+> [!WARNING]
+> To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction. This also applies to events dispatched from cross-origin iframes in the same agent, to avoid exposing the fact that they're in the same agent.
 
 ### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
@@ -707,15 +695,15 @@ window.onerror = window.onunhandledrejection = () => {
 
 #### Unhandled rejection details
 
-The `unhandledrejection` causal context could be unexpected in some cases. For
-example, in the following code sample, developers might expect `asyncVar` to map
+The context propagating to a `unhandledrejection` handler could be unexpected
+in some cases. For example, in the following code sample, developers might expect `asyncVar` to map
 to `"bar"` in that context, since the throw that causes the promise rejection
 takes place inside `a()`. However, the promise that rejects *without having a
 registered rejection handled* is the promise returned by `b()`, which only
 outside of the `asyncVar.run("bar", ...)` returns. Therefore, `asyncVar` would
-map to `"foo"`. Effectively this context does not propagate from where the
-first rejection happens, but from where the developer forgot to handle it.
-
+map to `"foo"`. The correct mental model is that the context does not propagate
+from where the first rejection happens, but from the outermost promise that
+the developer forgot to handle.
 
 ```js
 async function a() {
@@ -827,9 +815,8 @@ attribute applied to callback types to control this.
 ## Implicit context propagation
 
 > TODO: This section of the web integration proposal is not as baked as most of
-> the rest. Depending on which / how many asynchronous events we end up
-> propagating, we might not need to add this into the spec, and we could replace
-> it with manual context propagation at a number of places.
+> the rest. Depending on how much "spec noise" manual async context propagation
+> causes, we might not need to add this into the spec.
 
 While tracking contexts along algorithm data flows is straightforward when it
 happens synchronously within a single event loop task, in some cases (such as
