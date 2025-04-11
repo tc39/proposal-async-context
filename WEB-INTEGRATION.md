@@ -282,129 +282,6 @@ async function api(callback) {
 > is called and storing it together with the callback. This applies boths to "completion
 > callbacks" and to "progress callbacks".
 
-### Action registrations
-
-These APIs register a callback or constructor to be invoked when some action
-runs. They’re also commonly used as a way to associate a newly created class
-instance with some action, such as in worklets or with custom elements.
-
-In cases where the action always originates due to something happening outside of
-the web page (such as some user action), there is never a dispatch context. Therefore,
-the only context that these APIs can propagate is the one that was active when the
-callback was registered.
-
-- [`navigator.mediaSession.setActionHandler()`](https://w3c.github.io/mediasession/#dom-mediasession-setactionhandler)
-  method [\[MEDIASESSION\]](https://w3c.github.io/mediasession/)
-- [`navigator.geolocation.watchPosition()`](https://w3c.github.io/geolocation/#dom-geolocation-watchposition)
-  method [\[GEOLOCATION\]](https://w3c.github.io/geolocation/)
-- [`RemotePlayback`](https://w3c.github.io/remote-playback/#dom-remoteplayback):
-  [`watchAvailability()`](https://w3c.github.io/remote-playback/#dom-remoteplayback-watchavailability)
-  method [\[REMOTE-PLAYBACK\]](https://w3c.github.io/remote-playback/)
-
-This is also the case for worklets, where the registering API (e.g.
-[`registerProcessor()`](https://webaudio.github.io/web-audio-api/#dom-audioworkletglobalscope-registerprocessor)
-for audio worklets [\[WEBAUDIO\]](https://webaudio.github.io/web-audio-api/), or
-[`registerPaint()`](https://drafts.css-houdini.org/css-paint-api-1/#dom-paintworkletglobalscope-registerpaint)
-for paint worklets [\[CSS-PAINT-API\]](https://drafts.css-houdini.org/css-paint-api-1/))
-is the "registration-time context", and the context of the JavaScript code that
-actually caused the callback to run is _always_ either empty or unobservable
-(since `AsyncContext.Variable`s from outside the worklet cannot cross its boundary,
-even if they happen to live in the same agent/thread).
-
-For action registrations where the action often originates from userland JS
-code, we should instead follow the main principle of propagating the context from
-the point that started the work that eventually triggered the callback. The main
-case for this is custom elements, where the lifecycle callbacks are almost always triggered
-synchronously by a call from userland JS to an API annotated with
-[`[CEReactions]`](https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions).
-However, there are cases where this is not the case and falls back to the empty
-context where each `AsyncContext.Variable` is set to its initial value:
-
-- If a custom element is contained inside a `<div contenteditable>`, the user
-  could remove the element from the tree as part of editing, which would queue a
-  microtask to call its `disconnectedCallback` hook.
-- A user clicking a form reset when a form-associated custom element is in the
-  form would queue a microtask to call its `formResetCallback` lifecycle hook,
-  and there would not be a causal context.
-
-In the cases where the registration web API takes a constructor (such as
-worklets) rather than a callback, the registration-time context should be used,
-and any getters or methods of the constructed object that are called as a result
-of the registered action should also be called with that same registration-time context.
-
-### Stream underlying APIs
-
-The underlying [source](https://streams.spec.whatwg.org/#underlying-source-api),
-[sink](https://streams.spec.whatwg.org/#underlying-sink-api) and
-[transform](https://streams.spec.whatwg.org/#transformer-api) APIs for streams
-are callbacks/methods passed during stream construction.
-
-The `start` method runs as a direct consequence of the stream being constructed,
-thus it propagates the context from there. For other methods there would be a
-different causal context, depending on what causes the call to that method. For example:
-
-- If `ReadableStreamDefaultReader`’s `read()` method is called and that causes a
-  call to the `pull` method, then that would be its causal context. This would
-  be the case even if the queue is not empty and the call to `pull` is deferred
-  until previous invocations resolve.
-- If a `Request` is constructed from a `ReadableStream` body, and that is passed
-  to `fetch`, the causal context for the `pull` method invocations should be the
-  context active at the time that `fetch` was called. Similarly, if a response
-  body `ReadableStream` obtained from `fetch` is piped to a `WritableStream`,
-  its `write` method’s causal context is the call to `fetch`.
-
-In general, the context that should be used is the one that matches the data
-flow through the algorithms ([see the section on implicit propagation
-below](#implicit-context-propagation)).
-
-> TODO: Piping is largely implementation-defined. We will need to explicitly
-> define how propagation works there, rather than relying on the streams
-> usage of promises, to ensure interoperability.
-
-> TODO: If a stream gets transferred to a different agent, any cross-agent
-> interactions will have to use the empty context. What if you round-trip a
-> stream through another agent?
-
-### Observers
-
-Observers are a kind of web API pattern where the constructor for a class takes
-a callback, the instance’s `observe()` method is called to register things that
-should be observed, and then the callback is called when those observations have
-been made.
-
-Unlike FinalizationRegistry, which works similarly, observer callbacks are not
-called once per observation. Instead, multiple observations can be batched into
-one single call. This means that there is not always a single JS action that causes
-some work that eventually triggers the observer callback; rather, there might be many.
-
-Given this, observer callbacks should always run with the empty context. This can be explained
-by saying that layout changes are always considered to be a browser-internal trigger, even if
-they were caused by changes injected into the DOM or styles through JavaScript.
-
-- [`MutationObserver`](https://dom.spec.whatwg.org/#mutationobserver)
-  [\[DOM\]](https://dom.spec.whatwg.org/)
-- [`ResizeObserver`](https://drafts.csswg.org/resize-observer-1/#resizeobserver)
-  [\[RESIZE-OBSERVER\]](https://wicg.github.io/ResizeObserver/)
-- [`IntersectionObserver`](https://w3c.github.io/IntersectionObserver/#intersectionobserver)
-  [\[INTERSECTION-OBSERVER\]](https://w3c.github.io/IntersectionObserver/)
-- [`PerformanceObserver`](https://w3c.github.io/performance-timeline/#dom-performanceobserver)
-  [\[PERFORMANCE-TIMELINE\]](https://w3c.github.io/performance-timeline/)
-- [`ReportingObserver`](https://w3c.github.io/reporting/#reportingobserver)
-  [\[REPORTING\]](https://w3c.github.io/reporting/)
-
-> [!NOTE]
-> An older version of this proposal suggested to capture the context at the time the observer
-> is create, and use it to run the callback. This has been removed due to memory leak concerns.
->
-> It's under discussion wether observers should use the same mechanism as events (see below)
-> to define a scoped fallback value for some `AsyncContext.Variable`s.
-
-In some cases it might be useful to expose the causal context for individual
-observations, by exposing an `AsyncContext.Snapshot` property on the observation
-record. This should be the case for `PerformanceObserver`, where
-`PerformanceEntry` would expose the snapshot as a `resourceContext` property. This
-is not included as part of this initial proposed version, as new properties can
-easily be added as follow-ups in the future.
 
 ## Events
 
@@ -422,12 +299,13 @@ Event dispatches can be one of the following:
   a `click` event, setting `location.hash` which synchronously fires a
   `popstate` event, or calling an `EventTarget`'s `dispatchEvent()` method. For
   these dispatches, the TC39 proposal's machinery is enough to track the
-  dispatch context, with no help from web specs or browser engines.
+  context from the API that will trigger the event, with no help from web specs
+  or browser engines.
 - **Browser-originated dispatches**, where the event is triggered by browser or
   user actions, or by cross-agent JS, with no involvement from JS code in the
-  same agent. Such dispatches can't have any dispatch context, so the listener
-  is called with the empty context. (Though see the section on fallback context
-  below.)
+  same agent. Such dispatches can't have propagate any context from some non-existing
+  JS code that triggerted them, so the listener is called with the empty context.
+  (Though see the section on fallback context below.)
 - **Asynchronous dispatches**, where the event originates from JS calling into
   some web API, but the dispatch happens at a later point. In these cases, the
   context should be tracked along the data flow of the operation, even across
@@ -657,7 +535,138 @@ answered:
   which can run when triggered from outside of JavaScript? (e.g. observers)
 - should it be a global, or a static method of `EventTarget`?
 
-### Script errors and unhandled rejections
+### Status change listener callbacks
+
+These APIs register a callback or constructor to be invoked when some action
+runs. They’re also commonly used as a way to associate a newly created class
+instance with some action, such as in worklets or with custom elements.
+
+In cases where the action always originates due to something happening outside of
+the web page (such as some user action), there is never some JS code that triggers
+the callback. These would behave like async-completion/progress APIs,
+that propagate the context from the point where the API is called (making, for
+example, `navigator.geolocation.watchPosition(cb)` propagate the same way as
+`navigator.geolocation.getCurrentPosition(cb)`).
+
+- [`navigator.mediaSession.setActionHandler()`](https://w3c.github.io/mediasession/#dom-mediasession-setactionhandler)
+  method [\[MEDIASESSION\]](https://w3c.github.io/mediasession/)
+- [`navigator.geolocation.watchPosition()`](https://w3c.github.io/geolocation/#dom-geolocation-watchposition)
+  method [\[GEOLOCATION\]](https://w3c.github.io/geolocation/)
+- [`RemotePlayback`](https://w3c.github.io/remote-playback/#dom-remoteplayback):
+  [`watchAvailability()`](https://w3c.github.io/remote-playback/#dom-remoteplayback-watchavailability)
+  method [\[REMOTE-PLAYBACK\]](https://w3c.github.io/remote-playback/)
+
+#### Worklets
+
+Worklets work similarly: you provide a class to an API that is called
+_always from outside of the worklet thread_ when there is some work to be done.
+
+- [`registerProcessor()`](https://webaudio.github.io/web-audio-api/#dom-audioworkletglobalscope-registerprocessor)
+- [`registerPaint()`](https://drafts.css-houdini.org/css-paint-api-1/#dom-paintworkletglobalscope-registerpaint)
+
+While in theory there always is only one possible context to propagate to the class methods,
+that is the one when `.register*()` was called (because there is never in-thread JS code actually
+calling those methods), in practice that context will always match the root context of the
+worklet scope (because `register*()` is always called at the top-level). Hence, to simplify
+implementations we propose that Worklet methods always run in the root context.
+
+#### Custom elements
+
+Custom elements are also registered by passing a class to a web API, and this class
+has some methods that are called at different points of the custom element's lifecycle.
+
+However, differently from worklets, lifecycle callbacks are almost always triggered
+synchronously by a call from userland JS to an API annotated with
+[`[CEReactions]`](https://html.spec.whatwg.org/multipage/custom-elements.html#cereactions).
+We thus propose that they behave similarly to events, running in the same context that was
+active when the API that triggers the callback was called.
+
+There are cases where lifecycle callbacks are triggered by user interaction, so there is no
+context to propagate:
+
+- If a custom element is contained inside a `<div contenteditable>`, the user
+  could remove the element from the tree as part of editing, which would queue a
+  microtask to call its `disconnectedCallback` hook.
+- A user clicking a form reset when a form-associated custom element is in the
+  form would queue a microtask to call its `formResetCallback` lifecycle hook,
+  and there would not be a causal context.
+
+Similarly to events, in this case lifecycle callbacks would run in the empty context, with
+the [fallback context mechanism](#fallback-context-107).
+
+
+### Observers
+
+Observers are a kind of web API pattern where the constructor for a class takes
+a callback, the instance’s `observe()` method is called to register things that
+should be observed, and then the callback is called when those observations have
+been made.
+
+Observer callbacks are not called once per observation. Instead, multiple observations
+can be batched into one single call. This means that there is not always a single JS action
+that causes some work that eventually triggers the observer callback; rather, there might be many.
+
+Given this, observer callbacks should always run with the empty context, using the same
+[fallback context mechanism](#fallback-context-107) as for events. This can be explained
+by saying that layout changes are always considered to be a browser-internal trigger, even if
+they were caused by changes injected into the DOM or styles through JavaScript.
+
+- [`MutationObserver`](https://dom.spec.whatwg.org/#mutationobserver)
+  [\[DOM\]](https://dom.spec.whatwg.org/)
+- [`ResizeObserver`](https://drafts.csswg.org/resize-observer-1/#resizeobserver)
+  [\[RESIZE-OBSERVER\]](https://wicg.github.io/ResizeObserver/)
+- [`IntersectionObserver`](https://w3c.github.io/IntersectionObserver/#intersectionobserver)
+  [\[INTERSECTION-OBSERVER\]](https://w3c.github.io/IntersectionObserver/)
+- [`PerformanceObserver`](https://w3c.github.io/performance-timeline/#dom-performanceobserver)
+  [\[PERFORMANCE-TIMELINE\]](https://w3c.github.io/performance-timeline/)
+- [`ReportingObserver`](https://w3c.github.io/reporting/#reportingobserver)
+  [\[REPORTING\]](https://w3c.github.io/reporting/)
+
+> [!NOTE]
+> An older version of this proposal suggested to capture the context at the time the observer
+> is created, and use it to run the callback. This has been removed due to memory leak concerns.
+
+In some cases it might be useful to expose the causal context for individual
+observations, by exposing an `AsyncContext.Snapshot` property on the observation
+record. This should be the case for `PerformanceObserver`, where
+`PerformanceEntry` would expose the snapshot as a `resourceContext` property. This
+is not included as part of this initial proposed version, as new properties can
+easily be added as follow-ups in the future.
+
+### Stream underlying APIs
+
+The underlying [source](https://streams.spec.whatwg.org/#underlying-source-api),
+[sink](https://streams.spec.whatwg.org/#underlying-sink-api) and
+[transform](https://streams.spec.whatwg.org/#transformer-api) APIs for streams
+are callbacks/methods passed during stream construction.
+
+The `start` method runs as a direct consequence of the stream being constructed,
+thus it propagates the context from there. For other methods there would be a
+different causal context, depending on what causes the call to that method. For example:
+
+- If `ReadableStreamDefaultReader`’s `read()` method is called and that causes a
+  call to the `pull` method, then that would be its causal context. This would
+  be the case even if the queue is not empty and the call to `pull` is deferred
+  until previous invocations resolve.
+- If a `Request` is constructed from a `ReadableStream` body, and that is passed
+  to `fetch`, the causal context for the `pull` method invocations should be the
+  context active at the time that `fetch` was called. Similarly, if a response
+  body `ReadableStream` obtained from `fetch` is piped to a `WritableStream`,
+  its `write` method’s causal context is the call to `fetch`.
+
+In general, the context that should be used is the one that matches the data
+flow through the algorithms ([see the section on implicit propagation
+below](#implicit-context-propagation)).
+
+> TODO: Piping is largely implementation-defined. We will need to explicitly
+> define how propagation works there, rather than relying on the streams
+> usage of promises, to ensure interoperability.
+
+> TODO: If a stream gets transferred to a different agent, any cross-agent
+> interactions will have to use the empty context. What if you round-trip a
+> stream through another agent?
+
+## Script errors and unhandled rejections
 
 The `error` event on a window or worker global object is fired whenever a script
 execution throws an uncaught exception. The context in which this exception was
@@ -688,7 +697,7 @@ window.onerror = window.onunhandledrejection = () => {
 };
 ```
 
-#### Unhandled rejection details
+### Unhandled rejection details
 
 The context propagating to a `unhandledrejection` handler could be unexpected
 in some cases. For example, in the following code sample, developers might expect `asyncVar` to map
@@ -719,8 +728,8 @@ asyncVar.run("foo", () => {
 });
 ```
 
-If a promise created by a web API rejects, the `unhandledrejection` event’s
-dispatch context would be track as usual for causal contexts. According to the
+If a promise created by a web API rejects, the `unhandledrejection` event
+handlers context would be tracked following the normal tracking mechanism. According to the
 categories in the [“Writing Promise-Using Specifications”](https://w3ctag.github.io/promises-guide/) guide:
 - For one-and-done operations, the rejection-time context of the returned
   promise should be the context when the web API that returns it was called.
@@ -806,6 +815,8 @@ the web API was called, this should be handled in WebIDL by storing the result o
 alongside the callback function, and swapping it when the function is called. Since this should not happen
 for every callback, there should be a WebIDL extended attribute applied to callback types to control this.
 
+<!--
+
 ## Implicit context propagation
 
 > TODO: This section of the web integration proposal is not as baked as most of
@@ -883,6 +894,8 @@ this.
 Note that for properties of observer entries, implementations may allocate the
 actual `AsyncContext.Snapshot` instance lazily on first access, if they just
 store the internal pointer to the underlying snapshot when the event is created.
+
+-->
 
 ## Using AsyncContext from web specs
 
