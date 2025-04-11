@@ -189,12 +189,10 @@ examine which context should be propagated.
 
 # Individual analysis of web APIs and AsyncContext
 
-## Web APIs that take callbacks
-
 For web APIs that take callbacks, the context in which the callback is run would
 depend on the kind of API:
 
-### Schedulers
+## Schedulers
 
 These are web APIs whose sole purpose is to take a callback and schedule it in
 the event loop in some way. The callback will run asynchronously at some point,
@@ -221,7 +219,7 @@ Examples of scheduler web APIs:
   [`requestVideoFrameCallback()`](https://wicg.github.io/video-rvfc/#dom-htmlvideoelement-requestvideoframecallback)
   method [\[VIDEO-RVFC\]](https://wicg.github.io/video-rvfc/)
 
-### Async completion callbacks
+## Async completion callbacks
 
 These web APIs start an asynchronous operation, and take callbacks to indicate
 that the operation has completed. These are usually legacy APIs, since modern
@@ -253,7 +251,7 @@ and then they were changed to return a promise – e.g. `BaseAudioContext`’s
 similarly to other async completion callbacks, and the promise rejection context
 would behave similarly to other promise-returning web APIs (see below).
 
-#### Callbacks run as part of an async algorithm
+### Callbacks run as part of an async algorithm
 
 These APIs always invoke the callback to run user code as part of an
 asynchronous operation that they start, and which affects the behavior of the
@@ -535,7 +533,7 @@ answered:
   which can run when triggered from outside of JavaScript? (e.g. observers)
 - should it be a global, or a static method of `EventTarget`?
 
-### Status change listener callbacks
+## Status change listener callbacks
 
 These APIs register a callback or constructor to be invoked when some action
 runs. They’re also commonly used as a way to associate a newly created class
@@ -556,7 +554,7 @@ example, `navigator.geolocation.watchPosition(cb)` propagate the same way as
   [`watchAvailability()`](https://w3c.github.io/remote-playback/#dom-remoteplayback-watchavailability)
   method [\[REMOTE-PLAYBACK\]](https://w3c.github.io/remote-playback/)
 
-#### Worklets
+### Worklets
 
 Worklets work similarly: you provide a class to an API that is called
 _always from outside of the worklet thread_ when there is some work to be done.
@@ -570,7 +568,7 @@ calling those methods), in practice that context will always match the root cont
 worklet scope (because `register*()` is always called at the top-level). Hence, to simplify
 implementations we propose that Worklet methods always run in the root context.
 
-#### Custom elements
+### Custom elements
 
 Custom elements are also registered by passing a class to a web API, and this class
 has some methods that are called at different points of the custom element's lifecycle.
@@ -594,8 +592,7 @@ context to propagate:
 Similarly to events, in this case lifecycle callbacks would run in the empty context, with
 the [fallback context mechanism](#fallback-context-107).
 
-
-### Observers
+## Observers
 
 Observers are a kind of web API pattern where the constructor for a class takes
 a callback, the instance’s `observe()` method is called to register things that
@@ -633,7 +630,7 @@ record. This should be the case for `PerformanceObserver`, where
 is not included as part of this initial proposed version, as new properties can
 easily be added as follow-ups in the future.
 
-### Stream underlying APIs
+## Stream underlying APIs
 
 The underlying [source](https://streams.spec.whatwg.org/#underlying-source-api),
 [sink](https://streams.spec.whatwg.org/#underlying-sink-api) and
