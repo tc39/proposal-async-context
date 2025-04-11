@@ -301,7 +301,7 @@ Event dispatches can be one of the following:
   or browser engines.
 - **Browser-originated dispatches**, where the event is triggered by browser or
   user actions, or by cross-agent JS, with no involvement from JS code in the
-  same agent. Such dispatches can't have propagate any context from some non-existing
+  same agent. Such dispatches can't have propagated any context from some non-existing
   JS code that triggerted them, so the listener is called with the empty context.
   (Though see the section on fallback context below.)
 - **Asynchronous dispatches**, where the event originates from JS calling into
