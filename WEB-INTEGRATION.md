@@ -605,7 +605,7 @@ that causes some work that eventually triggers the observer callback; rather, th
 
 Given this, observer callbacks should always run with the empty context, using the same
 [fallback context mechanism](#fallback-context-107) as for events. This can be explained
-by saying that layout changes are always considered to be a browser-internal trigger, even if
+by saying that, e.g. layout changes are always considered to be a browser-internal trigger, even if
 they were caused by changes injected into the DOM or styles through JavaScript.
 
 - [`MutationObserver`](https://dom.spec.whatwg.org/#mutationobserver)
