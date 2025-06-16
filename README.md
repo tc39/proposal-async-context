@@ -58,7 +58,7 @@ function implicit() {
 program();
 ```
 
-Async/await syntax improved in ergonomics of writing asynchronous JS. It allows
+Async/await syntax improved the ergonomics of writing asynchronous JS. It allows
 developers to think of asynchronous code in terms of synchronous code. The
 behavior of the event loop executing the code remains the same as in a promise
 chain. However, passing code through the event loop loses _implicit_ information
