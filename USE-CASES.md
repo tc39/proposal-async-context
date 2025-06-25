@@ -340,3 +340,11 @@ new PerformanceObserver(list => {
 Read more at [opentelemetry/fetch](https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-instrumentation-fetch).
 
 [OpenTelemetry]: https://github.com/open-telemetry/opentelemetry-js
+
+## Use Case: Running servers in service workers
+
+A typical web app has a server-side component and a client-side component. Many web frameworks (Next, Nuxt, SvelteKit etc) are designed in such a way that both halves can be built from a single codebase. 
+
+One request that framework maintainers often receive is for the ability to run the server, or at least part of it, in a service worker. Barring any dependencies on sensitive information that should not be accessible to users, or packages that only run in a server environment, this can be a successful strategy for building low-latency apps that are resilient in the face of poor network conditions.
+
+Many of these frameworks, however, have embraced `AsyncLocalStorage` within their server code, since it unlocks a plethora of use cases and is well supported by various server environments. The lack of an equivalent API _outside_ server environments is thus preventing frameworks from embracing service workers.
