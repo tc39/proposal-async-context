@@ -166,7 +166,7 @@ logically-connected sync/async code execution.
 ```typescript
 namespace AsyncContext {
   class Variable<T> {
-    constructor(options: AsyncVariableOptions<T>);
+    constructor(options?: AsyncVariableOptions<T>);
     get name(): string;
     get(): T | undefined;
     run<R>(value: T, fn: (...args: any[])=> R, ...args: any[]): R;
