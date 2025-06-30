@@ -753,6 +753,12 @@ will be reset such that document load and tasks that directly flow from it
 empty AsyncContext snapshot, which will be an empty mapping (i.e. every
 `AsyncContext.Variable` will be set to its initial value).
 
+## Cross-origin iframes
+
+Cross-origin API calls do not propagate the context from one origin to the other, as if they were happening in different agents/threads. This is also true for APIs that synchronously run cross-origin code, such as calling `.focus()` on a cross-origin iframe's window: the context is explicitly reset to the top-level one.
+
+See [whatwg/html#3506](https://github.com/whatwg/html/issues/3506) for related discussion about `focus()`'s behavior on cross-origin iframes.
+
 ## Module evaluation
 
 When you import a JS module multiple times, it will only be fetched and
