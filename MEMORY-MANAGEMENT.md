@@ -112,7 +112,7 @@ implementation. However, we are aware that garbage collecting weak maps comes at
 performance cost.
 
 We expect that there will be two "kinds" of async context maps:
-- a lot of very short-lived ones, used by frameworks during the renderind process.
+- a lot of very short-lived ones, used by frameworks during the rendering process.
 - a few long-lived ones, used to trace long-running tasks
 
 We also expect that, while there can be a lot of async context maps, they will all contain a very limited number of entries (a single-digit amount in most cases).
