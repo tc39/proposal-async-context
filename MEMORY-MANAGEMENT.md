@@ -84,36 +84,53 @@ references) because you can do `asyncVar.get()` inside that context and get the
 associated value, even if there are no other references to it.
 
 However, the AsyncContext proposal purposefully gives JS code no way to get a
-list of the entries, or the `AsyncContext.Variable` keys, in a context. This is
+list of the entries stored in an async context map. This is
 done to maintain encapsulation, but it also has the side effect that it allows
 implementing the context as a weak map.
 
-If an `AsyncContext.Variable` key in the context could be GC'd other than
-because it's a key in the context, then there is no way for any JS code to be
-able to access that key at any future time. At that point, that whole entry in
-the context, including its value, could be deleted (or all references could be
-made weak). This would be implementing the context as a weak map (see the JS
-[`WeakMap`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap)
+If an `AsyncContext.Variable` used as a key in the context is otherwise unreachable,
+then there is no way for any JS code to read the corresponding async context entry
+at any future time. At that point, that whole entry in the context map (both the key
+and the value), could be deleted. This would be implementing the context as a weak
+map (see the JS [`WeakMap`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap)
 built-in).
 
 In most uses of AsyncContext, we don't expect that `AsyncContext.Variable`s
-could become unreachable (i.e. GC-able) while the realm in which it was created
-remains alive. This is because most uses would store it in a (JavaScript)
-variable at the top level of a script or module, so any exported functions in
-the script/module will have it in its scope, and will keep it alive.
+could become unreachable (i.e. GC-able) while the async context maps that capture
+stay reachable. This is because most uses would store the `AsyncContext.Variable`
+object in a (JavaScript) variable at the top level of a script or module, so any
+exported functions in the script/module will have it in its scope, and will keep
+it alive.
 
 However, we do expect a weak map implementation to be useful in cases where a
-cross-realm interaction results in `AsyncContext.Variable` keys and object
-values of different realms in the same context, since otherwise that could
-result in leaking the realm. After all, we expect that in the general case
-`AsyncContext.Variable` keys from a realm would map to values that only contain
-objects from the same realm. So if the only remaining references to a realm are
-from entries in the context which have keys in the realm, the keys will be
-unreachable, and so the entries will be deleted.
+cross-realm interaction results in capturing `AsyncContext.Variable` keys from a different realm. This capturing happens implicitly through cross-realm function
+calls, and we wouldn't want to accidentally keep a whole realm alive.
 
 The proposed JS spec for AsyncContext does not explicitly mandate that the
 context must be implemented as a weak map, but that is a possible
-implementation. However, garbage collecting weak maps takes a performance hit,
-and some folks have previously argued against it for that reason. If you think
-it's important that the context is a weak map, please let us know so we can
-discuss it with the various JS engine implementers.
+implementation. However, we are aware that garbage collecting weak maps comes at a
+performance cost.
+
+We expect that there will be two "kinds" of async context maps:
+- a lot of very short-lived ones, used by frameworks during the rendering process.
+- a few long-lived ones, used to trace long-running tasks
+
+We also expect that, while there can be a lot of async context maps, they will all contain a very limited number of entries (a single-digit amount in most cases).
+
+For this reason, after consulting with experts in the field, the champions'
+recommendation is to implement a hybrid approach. Async context maps should initially
+be considered to held their entries strongly, and then transition to be weak after a
+while. Deciding exactly what "after a while" means will need in-the-field
+experimentation, but some potential approaches are:
+- async context maps that survive one major CG cycle get marked as weak
+  - or, async context maps that survive X major GC cycles
+- async context maps are marked as weak after a set amount of time
+- for platform that have "young objects" and "old objects" memory spaces, async context maps could become weak once they get moved to the old space.
+
+The goal of these approaches is that when creating async context maps that live
+shorter than a framework's rendering cycle, they would never transition to be
+weak before that the whole map is garbage collected.
+
+Given that weak context maps are not directly exposed to JavaScript, switching between
+weak and strong only requires flipping a bit somewhere that the garbage collector
+references graph traversal logic can check.
