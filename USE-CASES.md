@@ -127,7 +127,7 @@ sync and async execution by keeping track of the context in which we started the
 execution.
 
 ```typescript
-const context = new AsyncContext();
+const context = new AsyncContext.Variable();
 
 export function log() {
   const currentId = context.get();
@@ -158,7 +158,7 @@ doc.addEventListener('click', () => {
   });
 });
 // Some framework code
-const context = new AsyncContext();
+const context = new AsyncContext.Variable();
 function patch(doc, data) {
   doLotsOfWork(doc, data, update);
 }
@@ -237,7 +237,7 @@ doc.addEventListener('click', () => {
   });
 });
 
-const context = new AsyncContext();
+const context = new AsyncContext.Variable();
 function patch(dom, data) {
   doLotsOfWork(dom, data, update);
 }
@@ -343,7 +343,7 @@ Read more at [opentelemetry/fetch](https://github.com/open-telemetry/opentelemet
 
 ## Use Case: Running servers in service workers
 
-A typical web app has a server-side component and a client-side component. Many web frameworks (Next, Nuxt, SvelteKit etc) are designed in such a way that both halves can be built from a single codebase. 
+A typical web app has a server-side component and a client-side component. Many web frameworks (Next, Nuxt, SvelteKit etc) are designed in such a way that both halves can be built from a single codebase.
 
 One request that framework maintainers often receive is for the ability to run the server, or at least part of it, in a service worker. Barring any dependencies on sensitive information that should not be accessible to users, or packages that only run in a server environment, this can be a successful strategy for building low-latency apps that are resilient in the face of poor network conditions.
 
