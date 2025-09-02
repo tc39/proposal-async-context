@@ -12,7 +12,7 @@ running `asyncVar.run(value, callback)` will:
 1. Create a new context which is a copy of the current context, except that
    `asyncVar` maps to `value`. The reference to `value` in the context is
    strongly held (not a weak reference), but see the
-   [weak map section](#weak-maps) below.
+   [weak map section](#the-context-as-a-weak-map) below.
 2. Set that new context as the current context.
 3. Run the callback.
 4. Restore the current context to the value it had before step 2.
@@ -77,7 +77,7 @@ only keeps the context referenced until the rAF callback is called. However, if
 the callback recursively calls `requestAnimationFrame`, which is often the case,
 the context is propagated with the callback in the recursion.
 
-## The context as a weak map {#weak-maps}
+## The context as a weak map
 
 Values associated to an `AsyncContext.Variable` must be strongly held (not weak
 references) because you can do `asyncVar.get()` inside that context and get the
