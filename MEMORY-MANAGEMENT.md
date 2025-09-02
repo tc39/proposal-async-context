@@ -12,7 +12,7 @@ running `asyncVar.run(value, callback)` will:
 1. Create a new context which is a copy of the current context, except that
    `asyncVar` maps to `value`. The reference to `value` in the context is
    strongly held (not a weak reference), but see the
-   [weak map section](#weak-maps) below.
+   [weak map section](#the-context-as-a-weak-map) below.
 2. Set that new context as the current context.
 3. Run the callback.
 4. Restore the current context to the value it had before step 2.
