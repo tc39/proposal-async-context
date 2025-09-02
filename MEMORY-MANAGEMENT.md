@@ -77,7 +77,7 @@ only keeps the context referenced until the rAF callback is called. However, if
 the callback recursively calls `requestAnimationFrame`, which is often the case,
 the context is propagated with the callback in the recursion.
 
-## The context as a weak map {#weak-maps}
+## The context as a weak map
 
 Values associated to an `AsyncContext.Variable` must be strongly held (not weak
 references) because you can do `asyncVar.get()` inside that context and get the
