@@ -128,6 +128,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </tr>
       </table>
     </emu-table>
+
+    <emu-note>
+      <p>The value field [[AsyncContextValue]] in the list [[AsyncContextMapping]] of an Agent Record is only intended to be accessed via an [[AsyncContextKey]] field. The list is not iterable through AsyncContext APIs.</p>
+      <p>The above definition implies that, if a value in the [[AsyncContextKey]] field in an Async Context Mapping Record is not live, then its corresponding value of [[AsyncContextValue]] is not necessarily live either.</p>
+    </emu-note>
   </emu-clause>
 
   <emu-clause id="sec-weakref-processing-model">
