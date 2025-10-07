@@ -568,6 +568,13 @@ calling those methods), in practice that context will always match the root cont
 worklet scope (because `register*()` is always called at the top-level). Hence, to simplify
 implementations we propose that Worklet methods always run in the root context.
 
+According to the HTML spec, creating a worklet global scope always creates a new agent, and
+therefore there can't be any propagation from other context into the worklet and vice versa, even
+if its event loop runs in the same thread as other agents. This isn't always implemented this way –
+in Chromium, for example, the equivalent of an agent is shared among worklets and other agents
+running in the same thread; but since this agent sharing is unobservable, we should not add a
+dependency on it.
+
 ### Custom elements
 
 Custom elements are also registered by passing a class to a web API, and this class
