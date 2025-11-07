@@ -5,155 +5,57 @@ the web platform. In particular, when a callback is run, what values do
 `AsyncContext.Variable`s have? In other words, which `AsyncContext.Snapshot` is
 restored?
 
-In this document we look through various categories of web platform APIs and we
-propose their specific AsyncContext behavior. We also look into how this could
-be implemented, in the initial rollout and over time, as well as consider
-existing or experimental web platform features that could use the AsyncContext
-machinery.
-
-Although this document focuses on the web platform, and on web APIs, it is also
+This document focuses on the web platform, and on web APIs, it is also
 expected to be relevant to other JavaScript environments and runtimes. This will
 necessarily be the case for [WinterTC](https://wintertc.org)-style runtimes,
-since they will implement web APIs. However, the integration with the web
-platform is also expected to serve as a model for other APIs in other JavaScript
-environments.
+since they will implement web APIs.
 
 For details on the memory management aspects of this proposal, see [this
 companion document](./MEMORY-MANAGEMENT.md).
 
 ## Background
 
-The AsyncContext proposal allows associating state implicitly
-with a call stack, such that it propagates across asynchronous tasks and promise
-chains. In a way it is the equivalent of thread-local storage, but for async
-tasks. APIs like this (such as Node.js’s `AsyncLocalStorage`, whose API
-`AsyncContext` is inspired by) are fundamental for a number of diagnostics tools
-such as performance tracers.
+The [AsyncContext proposal](./README.md) introduces the APIs to preserve context
+values across promise handlers, and `async`/`await` boundaries. However, to make
+the proposal successful, the web platform should also integrate with the async
+context propagation at the boundaries of async tasks, so that
+`AsyncContext.Variable`s can be used to track context across all asynchronous
+operations on a web page.
 
-This proposal provides `AsyncContext.Variable`, a class whose instances store a
-JS value. The value after creation can be set from the constructor and is
-`undefined` by default. After initialization, though, the value can only be
-changed through the `.run()` method, which takes a callback and synchronously
-runs it with the changed value. After it returns, the previous value is
-restored.
-
-```js
-const asyncVar = new AsyncContext.Variable();
-
-console.log(asyncVar.get());  // undefined
-
-asyncVar.run("foo", () => {
-  console.log(asyncVar.get());  // "foo"
-  asyncVar.run("bar", () => {
-    console.log(asyncVar.get());  // "bar"
-  });
-  console.log(asyncVar.get());  // "foo"
-});
-
-console.log(asyncVar.get());  // undefined
-```
-
-What makes this equivalent to thread-local storage for async tasks is that the
-value stored for each `AsyncContext.Variable` gets preserved across awaits, and
-across any asynchronous task.
-
-```js
-const asyncVar = new AsyncContext.Variable();
-
-asyncVar.run("foo", async () => {
-  console.log(asyncVar.get());  // "foo"
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  console.log(asyncVar.get());  // "foo"
-});
-
-asyncVar.run("bar", async () => {
-  console.log(asyncVar.get());  // "bar"
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  await asyncVar.run("baz", async () => {
-    console.log(asyncVar.get());  // "baz"
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log(asyncVar.get());  // "baz"
-  });
-  console.log(asyncVar.get());  // "bar"
-});
-```
-
-Note that the above sample can’t be implemented by changing some private state
-of the `asyncVar` object without awareness of `async`/`await`, because the
-promise in foo resolves in the middle of the baz run.
-
-If you have multiple `AsyncContext.Variable` instances active when an `await`
-happens, all of their values must be stored before the `await`, and then
-restored when the promise resolves. The same goes for any other kind of async
-continuation. An alternative way to see this is having a single global
-(per-agent) variable storing a map whose keys are `AsyncContext.Variable`
-instances, which would be replaced by a modified copy at the start of every
-`.run()` call. Before the `await`, a reference would be taken to the current
-map, and after the promise resolves, the current map would be set to the stored
-reference.
-
-Being able to store this map and restore it at some point would also be useful
-in userland to build custom userland schedulers, and `AsyncContext.Snapshot`
-provides this capability. An `AsyncContext.Snapshot` instance represents a value
-of the map, where constructing an instance takes a reference to the current map,
-and calling `.run()` with a callback lets you restore it. Notably, this API does
-not allow iterating through the map or observing its contents directly – you can
-only observe the value associated with an `AsyncContext.Variable` instance if
-you have access to that instance.
-
-```js
-const deferredFunctions = [];
-
-// `deferFunction` is a userland scheduler
-export function deferFunction(cb) {
-  const snapshot = new AsyncContext.Snapshot();
-  deferredFunctions.push({cb, snapshot});
-}
-
-export function callDeferredFunctions() {
-  for (const {cb, snapshot} of deferredFunctions) {
-    snapshot.run(cb);
-  }
-  deferredFunctions = [];
-}
-```
-
-Capturing and restoring `AsyncContext.Snapshot` instances is a very common
-operation, due to its implicit usage in every `await`. For this reason, it is
-expected to be implemented as a simple pointer copy. See the
-[V8 AsyncContext Design Doc](https://docs.google.com/document/d/19gkKY6qC3L5X8WtSAmFq33iNnzeer1mL5495oT1owjY/edit#heading=h.mwad14vicl1e)
-for a concrete implementation design.
-
-Web frameworks such as React may decide to save and restore
-`AsyncContext.Snapshot`s when re-rendering subtrees. More outreach to frameworks
-is needed to confirm exactly how this will be used.
-
-## General approach to web API semantics with AsyncContext
-
-The AsyncContext API isn’t designed to be used directly by most
-JavaScript application developers, but rather used by certain third-party libraries
+The AsyncContext API is primarily designed to be used by certain libraries
 to provide good DX to web developers. AsyncContext makes it so users
-of those libraries don’t need to explicitly integrate with it. Instead, the
+of those libraries don't need to explicitly passing context around. Instead, the
 AsyncContext mechanism handles implicitly passing contextual data around.
-
-In general, contexts should propagate along an algorithm’s data flow. If an
-algorithm running in the event loop synchronously calls another algorithm or
-performs a script execution, that algorithm and script would have the same
-context as the caller’s. This is handled automatically. However, when the data
-flow is asynchronous –such as queuing a task or microtask, running some code in
-parallel, or storing an algorithm somewhere to invoke it later–, the propagation
-must be handled by some additional logic.
 
 To propagate this context without requiring further JavaScript developer
 intervention, web platform APIs which will later run JavaScript callbacks should
 propagate the context from the point where the API was invoked to where the
 callback is run (i.e. save the current `AsyncContext.Snapshot` and restore it
-later). Without built-in web platform integration, web developers may need to
-“monkey-patch” many web APIs in order to save and restore snapshots, a technique
-which adds startup cost and scales poorly as new web APIs are added.
+later).
 
-In some cases there is more than one incoming data flow, and therefore multiple
-possible `AsyncContext.Snapshot`s that could be restored:
+Without built-in web platform integration, web developers may need to
+"monkey-patch" many web APIs in order to save and restore snapshots, which adds
+startup cost and scales poorly as new web APIs been added.
+
+## General approach to web API semantics with AsyncContext
+
+For web APIs that take callbacks, the context of the callback is determined by
+where the callback is effectively caused from. This is usually the point where
+the API was invoked.
+
+```js
+{
+  /* context 1 */
+  callAPIWithCallback(() => {
+    // context 1
+  });
+}
+```
+
+There are various kinds of web platform APIs that accept callbacks and at a later
+point run them. And in some cases there is more than one incoming data flow, and
+therefore multiple possible `AsyncContext.Snapshot`s that could be restored:
+
 ```javascript
 {
   /* context 1 */
@@ -167,12 +69,10 @@ possible `AsyncContext.Snapshot`s that could be restored:
 }
 ```
 
-We propose that, in general, APIs should call callbacks using the context from which
-the call to API is effectively caused (`context 2` in the above code snipped).
-This matches the behavior you'd get if web APIs were implemented in JavaScript,
-internally using only promises and continuation callbacks. This will thus match how
-most userland libraries behave, unless they modify how `AsyncContext` flows by manually
-snapshotting and restoring it.
+APIs should call callbacks using the context from where the API is effectively scheduled
+the task (`context 2` in the above code snippet). This matches the behavior you'd get
+if web APIs were implemented in JavaScript internally using only promises and
+callbacks. This will thus match how most userland libraries behave.
 
 Some callbacks can be _sometimes_ triggered by some JavaScript code that we can propagate
 the context from, but not always. An example is `.addEventListener`: some events can only
@@ -246,8 +146,8 @@ when passed to the `.then()` method of a promise.
   [\[ENTRIES-API\]](https://wicg.github.io/entries-api/)
 
 Some of these APIs started out as legacy APIs that took completion callbacks,
-and then they were changed to return a promise – e.g. `BaseAudioContext`’s
-`decodeAudioData()` method. For those APIs, the callback’s context would behave
+and then they were changed to return a promise – e.g. `BaseAudioContext`'s
+`decodeAudioData()` method. For those APIs, the callback's context would behave
 similarly to other async completion callbacks, and the promise rejection context
 would behave similarly to other promise-returning web APIs (see below).
 
@@ -277,7 +177,7 @@ async function api(callback) {
 > [!TIP]
 > In all these cases actually propagating the context through the internal asynchronous
 > steps of the algorithms gives the same result as capturing the context when the API
-> is called and storing it together with the callback. This applies boths to "completion
+> is called and storing it together with the callback. This applies both to "completion
 > callbacks" and to "progress callbacks".
 
 
@@ -302,7 +202,7 @@ Event dispatches can be one of the following:
 - **Browser-originated dispatches**, where the event is triggered by browser or
   user actions, or by cross-agent JS, with no involvement from JS code in the
   same agent. Such dispatches can't have propagated any context from some non-existing
-  JS code that triggerted them, so the listener is called with the empty context.
+  JS code that triggered them, so the listener is called with the empty context.
   (Though see the section on fallback context below.)
 - **Asynchronous dispatches**, where the event originates from JS calling into
   some web API, but the dispatch happens at a later point. In these cases, the
@@ -318,7 +218,7 @@ thinking about AsyncContext propagation: listeners for events dispatched either
 that API is called with.
 
 <details>
-<summary>Expand this section for examples of the equivalece with JS-authored code</summary>
+<summary>Expand this section for examples of the equivalent JS-authored code</summary>
 
 Let's consider a simple approximation of the `EventTarget` interface, authored in JavaScript:
 ```javascript
@@ -436,7 +336,7 @@ context that the browser uses, for example, for the top-level execution of scrip
 ### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
 
 This use of the empty context for browser-originated dispatches, however,
-clashes with the goal of allowing “isolated” regions of code that share an event
+clashes with the goal of allowing "isolated" regions of code that share an event
 loop, and being able to trace in which region an error originates. A solution to
 this would be the ability to define fallback values for some `AsyncContext.Variable`s
 when the browser runs some JavaScript code due to a browser-originated dispatch.
@@ -461,7 +361,7 @@ multiple widgets that thus need different fallbacks.
 <summary>Expand this section to read the full example</summary>
 
 This complete example shows that when clicking on a button (thus, without a JavaScript cause
-that could propagate the context), some asynchronus operations start. These operations
+that could propagate the context), some asynchronous operations start. These operations
 might reject, firing a `unhandledrejection` event on the global object.
 
 If there was no fallback context, the `"click"` event would run with `widgetID` unset, that
@@ -536,7 +436,7 @@ answered:
 ## Status change listener callbacks
 
 These APIs register a callback or constructor to be invoked when some action
-runs. They’re also commonly used as a way to associate a newly created class
+runs. They're also commonly used as a way to associate a newly created class
 instance with some action, such as in worklets or with custom elements.
 
 In cases where the action always originates due to something happening outside of
@@ -602,7 +502,7 @@ the [fallback context mechanism](#fallback-context-107).
 ## Observers
 
 Observers are a kind of web API pattern where the constructor for a class takes
-a callback, the instance’s `observe()` method is called to register things that
+a callback, the instance's `observe()` method is called to register things that
 should be observed, and then the callback is called when those observations have
 been made.
 
@@ -648,7 +548,7 @@ The `start` method runs as a direct consequence of the stream being constructed,
 thus it propagates the context from there. For other methods there would be a
 different causal context, depending on what causes the call to that method. For example:
 
-- If `ReadableStreamDefaultReader`’s `read()` method is called and that causes a
+- If `ReadableStreamDefaultReader`'s `read()` method is called and that causes a
   call to the `pull` method, then that would be its causal context. This would
   be the case even if the queue is not empty and the call to `pull` is deferred
   until previous invocations resolve.
@@ -656,7 +556,7 @@ different causal context, depending on what causes the call to that method. For 
   to `fetch`, the causal context for the `pull` method invocations should be the
   context active at the time that `fetch` was called. Similarly, if a response
   body `ReadableStream` obtained from `fetch` is piped to a `WritableStream`,
-  its `write` method’s causal context is the call to `fetch`.
+  its `write` method's causal context is the call to `fetch`.
 
 In general, the context that should be used is the one that matches the data
 flow through the algorithms ([see the section on implicit propagation
@@ -674,13 +574,13 @@ below](#implicit-context-propagation)).
 
 The `error` event on a window or worker global object is fired whenever a script
 execution throws an uncaught exception. The context in which this exception was
-thrown is the causal context. Likewise, the `unhandledrejection` is fired
-whenever a promise resolves without a rejection, without a registered rejection
-handler, and the causal context is the one in which the promise was rejected.
+thrown is the causal context where the exception is not handled. Likewise, the
+`unhandledrejection` is fired whenever a promise is rejected without a rejection
+handler, and the causal context is the context where the promise was created.
 
-Having access to the contexts which produced these errors is useful to determine
-which of multiple independent streams of async execution caused this error, and
-therefore how to clean up after it. For example:
+Having access to the contexts which these errors are not handled is useful to
+determine which of multiple independent streams of async execution did not handle
+the errors properly, and therefore how to clean up after it. For example:
 
 ```js
 async function doOperation(i: number, signal: AbortSignal) {
@@ -692,7 +592,7 @@ const controllers: AbortController[] = [];
 
 for (let i = 0; i < 20; i++) {
   controllers[i] = new AbortController();
-  operationNum.run(i, () => doOperation(i, controllers[i].signal));
+  operationNum.run(i, () => setTimeout(() => doOperation(i, controllers[i].signal), 0));
 }
 
 window.onerror = window.onunhandledrejection = () => {
@@ -703,15 +603,11 @@ window.onerror = window.onunhandledrejection = () => {
 
 ### Unhandled rejection details
 
-The context propagating to a `unhandledrejection` handler could be unexpected
-in some cases. For example, in the following code sample, developers might expect `asyncVar` to map
-to `"bar"` in that context, since the throw that causes the promise rejection
-takes place inside `a()`. However, the promise that rejects *without having a
-registered rejection handled* is the promise returned by `b()`, which only
-outside of the `asyncVar.run("bar", ...)` returns. Therefore, `asyncVar` would
-map to `"foo"`. The correct mental model is that the context does not propagate
-from where the first rejection happens, but from the outermost promise that
-the developer forgot to handle.
+In the following example, an `unhandledrejection` event would be fired due to the
+promise returned by `b()` rejecting without a handler. The context propagated to
+the `unhandledrejection` handler would be the one active when `b()` was called,
+which is the outer `asyncVar.run("foo", ...)` call, and thus `asyncVar` would
+map to `"foo"`, rather than `"bar"` where the throw happens.
 
 ```js
 async function a() {
@@ -734,10 +630,10 @@ asyncVar.run("foo", () => {
 
 If a promise created by a web API rejects, the `unhandledrejection` event
 handlers context would be tracked following the normal tracking mechanism. According to the
-categories in the [“Writing Promise-Using Specifications”](https://w3ctag.github.io/promises-guide/) guide:
+categories in the ["Writing Promise-Using Specifications"](https://w3ctag.github.io/promises-guide/) guide:
 - For one-and-done operations, the rejection-time context of the returned
   promise should be the context when the web API that returns it was called.
-- For one-time “events”, the rejection context would be the context in which the
+- For one-time "events", the rejection context would be the context in which the
   promise is caused to reject. In many cases, the promise is created at the same
   time as an async operation is started which will eventually resolve it, and so
   the context would flow from creation to rejection (e.g. for the
@@ -749,22 +645,8 @@ categories in the [“Writing Promise-Using Specifications”](https://w3ctag.gi
   [`WritableStreamDefaultWriter`](https://streams.spec.whatwg.org/#writablestreamdefaultwriter),
   which could be caused to reject by a different context. In such cases, the
   context should be [propagated implicitly](#implicit-context-propagation).
-- More general state transitions are similar to one-time “events” which can be
+- More general state transitions are similar to one-time "events" which can be
   reset, and so they should behave in the same way.
-
-## Cross-document navigations
-
-When a cross-document navigation happens, even if it is same-origin, the context
-will be reset such that document load and tasks that directly flow from it
-(including execution of classic scripts found during parsing) run with the
-empty AsyncContext snapshot, which will be an empty mapping (i.e. every
-`AsyncContext.Variable` will be set to its initial value).
-
-## Cross-origin iframes
-
-Cross-origin API calls do not propagate the context from one origin to the other, as if they were happening in different agents/threads. This is also true for APIs that synchronously run cross-origin code, such as calling `.focus()` on a cross-origin iframe's window: the context is explicitly reset to the top-level one.
-
-See [whatwg/html#3506](https://github.com/whatwg/html/issues/3506) for related discussion about `focus()`'s behavior on cross-origin iframes.
 
 ## Module evaluation
 
@@ -772,6 +654,33 @@ When you import a JS module multiple times, it will only be fetched and
 evaluated once. Since module evaluation should not be racy (i.e. it should not
 depend on the order of various imports), the context should be reset so that
 module evaluation always runs with the empty AsyncContext snapshot.
+
+## Security Considerations
+
+The goal of the AsyncContext web integration is to propagate context inside
+a same-origin web page, and not to leak information across origins or agents.
+
+The propagation must not implicitly serialize and deserialize context values
+across agents, and no round-trip propagation. The propagation must not involve
+code execution in other agents.
+
+### Cross-document navigation
+
+When a cross-document navigation happens, even if it is same-origin, the context
+will be reset such that document load and tasks that directly flow from it
+(including execution of classic scripts found during parsing) run with the
+empty AsyncContext snapshot, which will be an empty mapping (i.e. every
+`AsyncContext.Variable` will be set to its initial value).
+
+### Cross-origin iframes
+
+Cross-origin API calls do not propagate the context from one origin to the other,
+as if they were happening in different agents/threads. This is also true for APIs
+that synchronously run cross-origin code, such as calling `.focus()` on a
+cross-origin iframe's window: the context is explicitly reset to the top-level one.
+
+See [whatwg/html#3506](https://github.com/whatwg/html/issues/3506) for related
+discussion about `focus()`'s behavior on cross-origin iframes.
 
 # Editorial aspects of AsyncContext integration in web specifications
 
@@ -781,11 +690,11 @@ set to an HTML-provided initial state, but JS user code can change it in a
 strictly scoped way.
 
 [^1]: The reason this field is agent-wide rather than per-realm is so calling a
-function from a different realm which calls back into you doesn’t lose the
+function from a different realm which calls back into you doesn't lose the
 context, even if the functions are async.
 
 In the current proposal, the only way JS code can modify the current mapping is
-through `AsyncContext.Variable` and `AsyncContext.Snapshot`’s `run()` methods,
+through `AsyncContext.Variable` and `AsyncContext.Snapshot`'s `run()` methods,
 which switch the context before calling a callback and switch it back after it
 synchronously returns or throws. This ensures that for purely synchronous
 execution, the context is automatically propagated along the data flow. It is
@@ -800,7 +709,7 @@ use to store and switch the context:
   sets the current AsyncContext mapping to `context`, and returns the previous
   one. `context` must only be a value returned by one of these two operations.
 
-We propose adding a web spec algorithm “run the AsyncContext Snapshot”, that could be used like this:
+We propose adding a web spec algorithm "run the AsyncContext Snapshot", that could be used like this:
 
 > 1. Let _context_ be
 >    [AsyncContextSnapshot](https://tc39.es/proposal-async-context/#sec-asynccontextsnapshot)().
@@ -824,88 +733,6 @@ For web APIs that take a callback and eventually call it with the same context a
 the web API was called, this should be handled in WebIDL by storing the result of `AsyncContextSnapshot()`
 alongside the callback function, and swapping it when the function is called. Since this should not happen
 for every callback, there should be a WebIDL extended attribute applied to callback types to control this.
-
-<!--
-
-## Implicit context propagation
-
-> TODO: This section of the web integration proposal is not as baked as most of
-> the rest. Depending on how much "spec noise" manual async context propagation
-> causes, we might not need to add this into the spec.
-
-While tracking contexts along algorithm data flows is straightforward when it
-happens synchronously within a single event loop task, in some cases (such as
-for asynchronously dispatched events, or unhandled promise rejections) the
-context should be tracked through parallel algorithms and through tasks being
-queued into the event loop.
-
-In a number of these cases, in particular for asynchronously dispatched events,
-there is no need for the browser engine to track the data flow, because the
-result is trivial (e.g. XHR events will have the context of the `xhr.send()`
-call that caused them). But in other cases it's not that simple.
-
-We propose that the HTML event loop’s queueing algorithms, such as
-[queue a task](https://html.spec.whatwg.org/multipage/webappapis.html#queue-a-task),
-[queue a microtask](https://html.spec.whatwg.org/multipage/webappapis.html#queue-a-microtask),
-as well as [in parallel](https://html.spec.whatwg.org/multipage/infrastructure.html#in-parallel),
-should propagate the current AsyncContext mapping, even through parallel
-algorithms, so that every event loop task has the right causal context by
-default.
-
-The details of this implementation are still left to figure out, but each set of
-steps running in parallel would have a current snapshot (sort of a thread-local
-variable), which would be a parallel equivalent of an event loop's
-`[[AsyncContextMapping]]` agent field. And whenever the spec says to run a set
-of steps in parallel, or to queue a task/microtask, the current snapshot or
-`[[AsyncContextMapping]]` would be propagated to that parallel algorithm or
-task. Browser-originated tasks or parallel algorithms would have an empty
-current snapshot.
-
-In some cases, this automatic context propagation might not do the right thing,
-however, particularly in cases where the exact data flow of certain steps is
-handwaved (e.g. fetch’s interaction with the HTTP spec, or CSSOM View events).
-In those cases, the context would have to manually tracked in the specs as shown
-in the previous section.
-
-Now, it might be that the exact data flow of the browser implementation of some
-algorithms might not exactly match the spec’s data flow in all cases. This is
-especially the case in browsers that have a renderer process vs main process
-architecture. And in general, this implicit propagation might be hard to
-implement and get right in browser engines.
-
-Most web APIs, in fact, although could be implemented through implicit context
-propagation, can also be implemented by storing the causal context and restoring
-it when the callback gets called. This is not generally the case for events with
-asynchronous dispatches, but it is for some. Therefore, in order to avoid
-needing browser engines to implement the whole implicit context propagation
-machinery in the initial AsyncContext rollout, we propose limiting the set of
-event dispatches that behave as if they were asynchronous dispatches, as
-outlined above.
-
-## Exposing snapshots to JS code
-
-Anytime that a web spec needs to expose a context other than the current one
-when some code is run, such as the causal context for observer entries, it
-should be exposed as an `AsyncContext.Snapshot` object. The AsyncContext
-proposal has the
-[`CreateAsyncContextSnapshot()`](https://tc39.es/proposal-async-context/#sec-createasynccontextsnapshot)
-abstract operation for this, which takes a mapping and returns an
-`AsyncContext.Snapshot` instance.
-
-For snapshots exposed as properties of observer entries or other web platform
-objects, `CreateAsyncContextSnapshot()` should be called in the relevant realm
-of that web platform object. If an `AsyncContext.Snapshot` object must created
-in any other case (e.g. to pass as an argument into a callback), this operation
-should be called in the relevant realm of `this` (see
-https://github.com/whatwg/webidl/issues/135). It might therefore make sense to
-instead define an equivalent of that abstract operation in WebIDL, that handles
-this.
-
-Note that for properties of observer entries, implementations may allocate the
-actual `AsyncContext.Snapshot` instance lazily on first access, if they just
-store the internal pointer to the underlying snapshot when the event is created.
-
--->
 
 ## Using AsyncContext from web specs
 
@@ -933,7 +760,7 @@ as parameters. Some of these use cases are:
   is called inside a task enqueued by
   [`scheduler.postTask()`](https://wicg.github.io/scheduling-apis/#dom-scheduler-posttask)
   [\[SCHEDULING-APIS\]](https://wicg.github.io/scheduling-apis/), its `priority`
-  and `signal` arguments will be “inherited” from the call to `postTask`. This
+  and `signal` arguments will be "inherited" from the call to `postTask`. This
   inheritance should propagate across awaits. See
   https://github.com/WICG/scheduling-apis/issues/94.
 
@@ -952,5 +779,5 @@ as parameters. Some of these use cases are:
 
 For each of these use cases, there would need to be an `AsyncContext.Variable`
 instance backing it, which should not be exposed to JS code. We expect that
-algorithms will be added to the TC39 proposed spec text, so that web specs don’t
+algorithms will be added to the TC39 proposed spec text, so that web specs don't
 need to create JS objects.
