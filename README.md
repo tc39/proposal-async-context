@@ -147,6 +147,8 @@ while allowing the developer to write async code largely as they do in cases
 without implicit information. The goal is to reduce the mental burden currently
 required for special handling async code in such cases.
 
+This proposal aims to lower the barrier for developers to instrument production applications to be able to debug real user problems, enabling the use of tracing tools to collect additional performance metrics and information about code flows. This is a widespread approach used in other programming languages, which has so far not been possible on the web due to the asynchronous nature of many web APIs. Front-end frameworks will use this proposal to reduce and automate boilerplate around attributing async code to specific components, which is currently a source of hard to debug issues.
+
 ## Summary
 
 This proposal introduces APIs to propagate a value through asynchronous code,
