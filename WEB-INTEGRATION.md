@@ -203,7 +203,6 @@ Event dispatches can be one of the following:
   user actions, or by cross-agent JS, with no involvement from JS code in the
   same agent. Such dispatches can't have propagated any context from some non-existing
   JS code that triggered them, so the listener is called with the empty context.
-  (Though see the section on fallback context below.)
 - **Asynchronous dispatches**, where the event originates from JS calling into
   some web API, but the dispatch happens at a later point. In these cases, the
   context should be tracked along the data flow of the operation, even across
@@ -333,106 +332,6 @@ context that the browser uses, for example, for the top-level execution of scrip
 > [!WARNING]
 > To keep agents isolated, events dispatched from different agents (e.g. from a worker, or from a cross-origin iframe) will behave like events dispatched by user interaction. This also applies to events dispatched from cross-origin iframes in the same agent, to avoid exposing the fact that they're in the same agent.
 
-### Fallback context ([#107](https://github.com/tc39/proposal-async-context/issues/107))
-
-This use of the empty context for browser-originated dispatches, however,
-clashes with the goal of allowing "isolated" regions of code that share an event
-loop, and being able to trace in which region an error originates. A solution to
-this would be the ability to define fallback values for some `AsyncContext.Variable`s
-when the browser runs some JavaScript code due to a browser-originated dispatch.
-
-```javascript
-const widgetID = new AsyncContext.Variable();
-
-widgetID.run("weather-widget", () => {
-  captureFallbackContext(widgetID, () => {
-    renderWeatherWidget();
-  });
-});
-```
-
-In this example, event listeners registered by `renderWeatherWidget` would be guaranteed
-to always run as a consequence of some "widget": if the event is user-dispatched, then
-it defaults to `weather-widget` rather than to `widgetID`'s default value (`undefined`,
-in this case). There isn't a single global valid default value, because a page might have
-multiple widgets that thus need different fallbacks.
-
-<details>
-<summary>Expand this section to read the full example</summary>
-
-This complete example shows that when clicking on a button (thus, without a JavaScript cause
-that could propagate the context), some asynchronous operations start. These operations
-might reject, firing a `unhandledrejection` event on the global object.
-
-If there was no fallback context, the `"click"` event would run with `widgetID` unset, that
-would thus be propagated unset to `unhandledrejection` as well. Thanks to `captureFallbackContext`,
-the user-dispatched `"click"` event will fallback to running with `widgetID` set to
-`"weather-widget"`, which will then be propagated to `unhandledrejection`.
-
-```javascript
-const widgetID = new AsyncContext.Variable();
-
-widgetID.run("weather-widget", () => {
-  captureFallbackContext(widgetID, () => {
-    renderWeatherWidget();
-  });
-});
-
-addEventListener("unhandledrejection", event => {
-  console.error(`Unhandled rejection in widget "${widgetID.get()}"`);
-  // Handle the rejection. For example, disable the widget, or report
-  // the error to a server that can then notify the widget's developers.
-});
-```
-
-```javascript
-function renderWeatherWidget() {
-  let day = Temporal.Now.plainDate();
-
-  const widget = document.createElement("div");
-  widget.innerHTML = `
-    <button id="prev">Previous day</button>
-    <output>...</output>
-    <button id="next">Next day</button>
-  `;
-  document.body.appendChild(widget);
-
-  const load = async () => {
-    const response = await fetch(`/weather/${day}`);
-    widget.querySelector("output").textContent = await response.text();
-  };
-
-  widget.querySelector("#prev").addEventListener("click", async () => {
-    day = day.subtract({ days: 1 });
-    await load();
-  });
-  widget.querySelector("#next").addEventListener("click", async () => {
-    day = day.add({ days: 1 });
-    await load();
-  });
-
-  load();
-}
-```
-
-When the user clicks on one of the buttons and the `fetch` it triggers fails,
-without using `captureFallbackContext` the `unhandledrejection` event listener
-would not know that the failure is coming from the `weather-widget` widget.
-
-Thanks to `captureFallbackContext`, that information is properly propagated.
-
-</details>
-
-This fallback is per-variable and not based on `AsyncContext.Snapshot`, to avoid
-accidentally keeping alive unnecessary objects.
-
-There are still some questions about `captureFallbackContext` that need to be
-answered:
-- should it take just one variable or a list of variables?
-- should it just be for event targets, or for all web APIs that take a callback
-  which can run when triggered from outside of JavaScript? (e.g. observers)
-- should it be a global, or a static method of `EventTarget`?
-
 ## Status change listener callbacks
 
 These APIs register a callback or constructor to be invoked when some action
@@ -496,8 +395,7 @@ context to propagate:
   form would queue a microtask to call its `formResetCallback` lifecycle hook,
   and there would not be a causal context.
 
-Similarly to events, in this case lifecycle callbacks would run in the empty context, with
-the [fallback context mechanism](#fallback-context-107).
+Similarly to events, in this case lifecycle callbacks would run in the empty context.
 
 ## Observers
 
@@ -510,8 +408,7 @@ Observer callbacks are not called once per observation. Instead, multiple observ
 can be batched into one single call. This means that there is not always a single JS action
 that causes some work that eventually triggers the observer callback; rather, there might be many.
 
-Given this, observer callbacks should always run with the empty context, using the same
-[fallback context mechanism](#fallback-context-107) as for events. This can be explained
+Given this, observer callbacks should always run with the empty context. This can be explained
 by saying that, e.g. layout changes are always considered to be a browser-internal trigger, even if
 they were caused by changes injected into the DOM or styles through JavaScript.
 
