@@ -201,8 +201,12 @@ const asyncVar = new AsyncContext.Variable();
 // Sets the current value to 'top', and executes the `main` function.
 asyncVar.run("top", main);
 
-function main() {
-  // AsyncContext.Variable is maintained through other platform queueing.
+async function main() {
+  // AsyncContext.Variable is propagated on async/await.
+  await Promise.resolve();
+  console.log(asyncVar.get()); // => 'top'
+
+  // AsyncContext.Variable is propagated through platform tasks.
   setTimeout(() => {
     console.log(asyncVar.get()); // => 'top'
 
