@@ -57,6 +57,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </tr>
         </table>
       </emu-table>
+
+      <p>An <dfn id="async-context-mapping">Async Context Mapping</dfn> is a List of Async Context
+      Mapping Records such that every Record in the List contains a unique [[AsyncContextKey]].</p>
     </emu-clause>
     </ins>
   </emu-clause>
@@ -120,10 +123,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>[[AsyncContextMapping]]</ins>
           </td>
           <td>
-            <ins>a List of Async Context Mapping Records</ins>
+            <ins>an Async Context Mapping</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]]. The map is initially empty.</ins>
+            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. The map is initially empty.</ins>
           </td>
         </tr>
       </table>
@@ -366,10 +369,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
                 <ins>[[PromiseAsyncContextMapping]]</ins>
               </td>
               <td>
-                <ins>a List of Async Context Mapping Records</ins>
+                <ins>an Async Context Mapping</ins>
               </td>
               <td>
-                <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. Every Record in the List contains a unique [[AsyncContextKey]].</ins>
+                <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value.</ins>
               </td>
             </tr>
           </table>
@@ -768,7 +771,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontextsnapshot" type="abstract operation">
         <h1>
           AsyncContextSnapshot (
-          ): a List of Async Context Mapping Records
+          ): an Async Context Mapping
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -783,8 +786,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asynccontextswap" type="abstract operation">
         <h1>
           AsyncContextSwap (
-            _snapshotMapping_: a List of Async Context Mapping Records
-          ): a List of Async Context Mapping Records
+            _snapshotMapping_: an Async Context Mapping
+          ): an Async Context Mapping
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -801,12 +804,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-createasynccontextsnapshotobject" type="abstract operation">
         <h1>
           CreateAsyncContextSnapshotObject (
-            _snapshotMapping_: a List of Async Context Mapping Records
+            _snapshotMapping_: an Async Context Mapping
           ): either a normal completion containing an AsyncContext.Snapshot object or a throw completion
         </h1>
         <dl class="header">
           <dt>description</dt>
-          <dd>It is used to obtain an AsyncContext.Snapshot object representing the given List of Async Context Mapping Records.</dd>
+          <dd>It is used to obtain an AsyncContext.Snapshot object representing the given Async Context Mapping.</dd>
         </dl>
         <emu-alg>
           1. Let _asyncSnapshot_ be ? OrdinaryCreateFromConstructor(%AsyncContext.Snapshot%, *"%AsyncContext.Snapshot.prototype%"*, « [[AsyncSnapshotMapping]] »).
@@ -967,7 +970,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               [[AsyncSnapshotMapping]]
             </td>
             <td>
-              a List of Async Context Mapping Records
+              an Async Context Mapping
             </td>
             <td>
               Represents the snapshotted surrounding agent's Agent Record's [[AsyncContextMapping]] of the AsyncContext.Snapshot instance.
@@ -1051,7 +1054,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _asyncVariable_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
           1. Let _previousContextMapping_ be AsyncContextSnapshot().
-          1. Let _asyncContextMapping_ be a new empty List.
+          1. Let _asyncContextMapping_ be a new empty Async Context Mapping.
           1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
             1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *false*, then
               1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
