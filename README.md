@@ -11,7 +11,31 @@ Champions:
 Discuss with the group and join the bi-weekly via [#tc39-async-context][]
 matrix room ([Matrix Guide][]).
 
-# Motivation
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Motivation](#motivation)
+  - [Use cases](./USE-CASES.md) (separate document)
+  - [Framework-specific use cases](./FRAMEWORKS.md) (separate document)
+- [Proposed Solution](#proposed-solution)
+  - [`AsyncContext.Variable`](#asynccontextvariable)
+  - [`AsyncContext.Snapshot`](#asynccontextsnapshot)
+  - [Propagation in web APIs](./WEB-INTEGRATION.md) (separate document)
+- [Examples](#examples)
+- [FAQ](#faq)
+
+## Introduction
+
+This proposal introduces APIs to implicitly propagate a value through asynchronous
+code, such as a promise continuation or async callbacks.
+
+Compared to similar APIs [in other languages][prior-arts.md], this proposal identifies
+the following features as non-goals:
+
+1. Async tasks scheduling and interception.
+1. Error handling & bubbling through async stacks.
+
+## Motivation
 
 When writing synchronous JavaScript code, a reasonable expectation from
 developers is that values are consistently available over the life of the
@@ -149,18 +173,21 @@ required for special handling async code in such cases.
 
 This proposal aims to lower the barrier for developers to instrument production applications to be able to debug real user problems, enabling the use of tracing tools to collect additional performance metrics and information about code flows. This is a widespread approach used in other programming languages, which has so far not been possible on the web due to the asynchronous nature of many web APIs. Front-end frameworks will use this proposal to reduce and automate boilerplate around attributing async code to specific components, which is currently a source of hard to debug issues.
 
-## Summary
+### Use cases
 
-This proposal introduces APIs to propagate a value through asynchronous code,
-such as a promise continuation or async callbacks.
+- For abstract descriptions of use cases, see [USE-CASES.md](./USE-CASES.md).
+- For concrete descriptions of use cases in popular front-end frameworks, see [FRAMEWORKS.md](./FRAMEWORKS.md).
 
-Compared to the [Prior Arts][prior-arts.md], this proposal identifies the
-following features as non-goals:
+## Proposed Solution
 
-1. Async tasks scheduling and interception.
-1. Error handling & bubbling through async stacks.
+This proposal consists of two main parts:
+- the API interface that users interact with, namely the `AsyncContext` object. This
+  will become part of the core ECMAScript specification.
+- propagation across async APIs. While ECMA-262 defines a couple of async APIs (`Promise`
+  and `FinalizationRegistry`), most of those are defined by web specifications. How this
+  propagation should work is described in [./WEB-INTEGRATION.md](./WEB-INTEGRATION.md).
 
-# Proposed Solution
+### `AsyncContext`
 
 `AsyncContext` is designed as a value store for context propagation across
 logically-connected sync/async code execution.
@@ -186,7 +213,7 @@ namespace AsyncContext {
 }
 ```
 
-## `AsyncContext.Variable`
+#### `AsyncContext.Variable`
 
 `Variable` is a container for a value that is associated with the current
 execution flow. The value is propagated through async execution flows, and
@@ -250,7 +277,7 @@ document](./WEB-INTEGRATION.md).
 A detailed example of use cases can be found in the
 [Use Cases](./USE-CASES.md) and [Frameworks](./FRAMEWORKS.md) documents.
 
-## `AsyncContext.Snapshot`
+#### `AsyncContext.Snapshot`
 
 `AsyncContext.Snapshot` is an advanced API that allows opaquely capturing
 the current values of all `Variable`s, and execute a function at a later
@@ -313,7 +340,7 @@ asyncVar.run("B", () => {
 });
 ```
 
-### `AsyncContext.Snapshot.wrap`
+##### `AsyncContext.Snapshot.wrap`
 
 `AsyncContext.Snapshot.wrap` is a helper which captures the current values of all
 `Variable`s and returns a wrapped function. When invoked, this wrapped function
@@ -381,9 +408,9 @@ function processQueue() {
 ```
 
 
-# Examples
+## Examples
 
-## Determine the initiator of a task
+### Determine the initiator of a task
 
 Application monitoring tools like OpenTelemetry save their tracing spans in the
 `AsyncContext.Variable` and retrieve the span when they need to determine what started
@@ -442,7 +469,7 @@ In the example above, `run` and `end` don't share same lexical scope with actual
 code functions, and they are capable of async reentrance thus capable of
 concurrent multi-tracking.
 
-## Transitive task attribution
+### Transitive task attribution
 
 User tasks can be scheduled with attributions. With `AsyncContext.Variable`, task
 attributions are propagated in the async task flow and sub-tasks can be
@@ -479,7 +506,7 @@ async function doStuffs(text) {
 }
 ```
 
-## User-land queues
+### User-land queues
 
 User-land queues can be implemented with `AsyncContext.Snapshot` to propagate
 the values of all `AsyncContext.Variable`s without access to any of them. This
@@ -522,13 +549,13 @@ scheduler.runWhenIdle();
 // => 'trace-id-b'
 ```
 
-# FAQ
+## FAQ
 
-## Are there any prior arts?
+### Are there any prior arts?
 
 Please checkout [prior-arts.md][] for more details.
 
-## Why take a function in `run`?
+### Why take a function in `run`?
 
 The `Variable.prototype.run` and `Snapshot.prototype.run` methods take a
 function to execute because it ensures async context variables
@@ -552,7 +579,7 @@ asyncVar.run("A", async () => {
 This increases the integrity of async context variables, and makes them
 easier to reason about where a value of an async variable comes from.
 
-## How does `AsyncContext` interact with built-in schedulers?
+### How does `AsyncContext` interact with built-in schedulers?
 
 Any time a scheduler (such as `setTimeout`, `addEventListener`, or
 `Promise.prototype.then`) runs a user-provided callback, it must choose which
@@ -585,7 +612,7 @@ will be idempotent when passing callbacks to built-ins, making it both less
 likely for this common practice to begin in the first place, and also less
 harmful when it does happen unnecessarily.
 
-## What if I need access to the snapshot from a more recent cause?
+### What if I need access to the snapshot from a more recent cause?
 
 The downside to registration-time snapshotting is that it's impossible to opt
 _out_ of the snapshot restoration to access whatever the snapshot would have
