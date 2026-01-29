@@ -107,13 +107,13 @@ callbacks. This will thus match how most userland libraries behave. It also matc
 would happen by default if the API was synchronous.
 
 Some callbacks can be _sometimes_ triggered by some JavaScript code that we can propagate
-the context from, but not always. An example is `.addEventListener`: some events can only
-be triggered by JavaScript code, some only by external causes (e.g. user interactions),
-and some by either (e.g. user clicking on a button or the `.click()` method). In these
-cases, when the action is not triggered by some JavaScript code, the callback will run
-in the **empty context** instead (where every `AsyncContext.Variable` is set to its default
-value). This matches the behavior of JavaScript code running as a top-level operation (like
-JavaScript code that runs when a page is just loaded).
+the context from, but not always. An example is event handlers for user interaction
+events (e.g. a `click` event could either be triggered by a `.click()` call, or by the user
+actually clicking somewhere). When an action is not triggered by some JavaScript code, the
+callback will run in the **empty context** (where every `AsyncContext.Variable` is set to its
+default value) instead of propagating the context from somewhere else. This matches the behavior
+of JavaScript code running as a top-level operation (like JavaScript code that runs when a
+page is just loaded).
 
 In the rest of this document, we look at various kinds of web platform APIs
 which accept callbacks or otherwise need integration with AsyncContext, and
@@ -230,18 +230,19 @@ AsyncContext propagation across event-based APIs needs to balance different need
    works without having to learn it on a per-API basis;
 3. it should not be eccesively complex to implement in web engines, for example requiring
    to analyze reachability of JavaScript objects across processes or by causing
-   engines to unnecessarily hold onto objects for too long.
+   engines to unnecessarily hold onto objects for too long;
+4. it should minimize the risk of needing potentially breaking changes in the future.
 
 #### Events by dispatch timing
 
 Event dispatches can be split in three categories:
 - **Synchronous dispatches**, where the event dispatch happens synchronously
   when a web API is called.
-- **Asynchronous dispatches**, where the event originates from JS calling into
-  some web API, but the dispatch happens at a later point.
 - **Externally-caused dispatches**, where the event is triggered by browser or
   user actions, or by cross-agent JS, with no involvement from JS code in the
   same agent.
+- **Asynchronous dispatches**, where the event originates from JS calling into
+  some web API, but the dispatch happens at a later point.
 
 ##### Synchronous event dispatches
 
@@ -249,8 +250,8 @@ Event dispatches can be split in three categories:
 and that will synchronously fire the corresponding event listeners. Some examples are the `.dispatchEvent` method
 itself, but also methods like `HTMLElement.click()`, or setting `location.hash`.
 
-Like for all other synchronous APIs that end up calling a user-provided function, we propose that it does
-not interact with `AsyncContext` at all. Effectively, the context that will be active when the event listeners
+Like for all other synchronous APIs that end up calling a user-provided function, we propose that it is
+transparent to AsyncContext. Effectively, the context that will be active when the event listeners
 are called is the same as the one active when the event is dispatched, as it would happen if somebody was to
 set a global variable before dispatching the event and unsetting it afterwards.
 
@@ -440,8 +441,11 @@ These API synchronusly dispatch events, so the event handlers see the context fr
 
 #### Previously discarded approaches for events
 
+<details>
+<summary>
 Propagation of AsyncContext through events has been redesigned across multiple iterations.
 This section documents some of the previously considered approaches that have been discarded.
+</summary>
 
 ##### Capture the context when the event listener is registered
 
@@ -484,6 +488,8 @@ This allows a safer incremental approach, as:
 We considered two ways that the opt-in toggle could be exposed:
 1. on a per-function-call basis (e.g. `xhr.send({ propagateAsyncContext: true })`). This goes against the tracing goal of letting the tracing library taking care of context propagation, without requiring userland code to be modified (the tracing library would have to patch all built-ins to enable these options for their users).
 2. on a global basis, maybe with a manifest file that lists which API would propagate. This would have global coordination problems, where different libraries might expect different kinds of propagation, as well as being generally more complex to deploy in large applications with multiple parts owned by different teams.
+
+</details>
 
 ### Status change listener callbacks
 
