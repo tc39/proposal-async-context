@@ -258,16 +258,16 @@ More specifically:
 - `.addEventListener` does _not_ take any snapshot, it just stores the callback as it's already doing today;
 - `.dispatchEvent` does _not_ read or set the current active context.
 
-Consumers that want to dispatch events in a different context can do so by running `someVar.run(value, () => target.dispatchEvent(e))` or `someSnapshot.run(() => target.dispatchEvent(e))`. The spec-internal algorithm to dispatch an event _might_ take an optional "context" parameter, if it's editorialy simpler than having some callers do the manual `.run()` dance. It's however semantically equivalent to the above.
+Consumers that want to dispatch events in a different context can do so by running `someVar.run(value, () => target.dispatchEvent(e))` or `someSnapshot.run(() => target.dispatchEvent(e))`. The spec-internal algorithm to dispatch an event _might_ take an optional "context" parameter, if it's editorially simpler than having some callers do the manual `.run()` dance. It's however semantically equivalent to the above.
 
 ##### Externally-caused event dispatches
 
 These events are triggered either by user action, or by causes external to the current JS agent. Some examples are:
 - a user clicks on a button, causing a `click` event to be dispatched on it
-- a worker `postMessages`s to the main thread, causing a `message` event to be dispatched on the `Worker` object
-- the browser looses access to the network, causing an `offline` event to be dispatched on the `window` object
+- a worker `postMessage`s to the main thread, causing a `message` event to be dispatched on the `Worker` object
+- the browser loses access to the network, causing an `offline` event to be dispatched on the `window` object
 
-JavaScript code reacting to these events is not running as a clear consequence of some other JavaScript code: it is
+JavaScript code reacting to these events is not running as a clear consequence of some other JavaScript code in the same agent: it is
 usually starting a new "task", or a new "trace", with no causal/parent task. All these events should be dispatched in
 an empty AsyncContext.
 
@@ -282,7 +282,7 @@ waiting on some I/O operation to progress or complete.  We can further divide th
 
 Asynchronous APIs that fire events as a result of some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context.
 
-This includes all the events that are conceptually similar to promise (e.g. `load`, except for the global page load), for which it's most important that the context is propagated. It excludes events dispatched on singletons, such as `window`/`document`/`document.fonts`, as these singleton do not represent a task but are simply a place where to listen for global events.
+This includes all the events that are conceptually similar to promise (e.g. `load`, except for the global page load), for which it's most important that the context is propagated. It excludes events dispatched on singletons, such as `window`/`document`/`document.fonts`, as these singletons do not represent a task but are simply a place where to listen for global events.
 
 The context would be stored on this "holder object" when the task starts, and used to dispatch events that represent progress/completion of the task. It would be cleared when the task is known to be completed, since further events are known to not be fired anymore (unless the task is re-started, in which case it would capture a new context). Events "emulated" through `.dispatchEvent` would not use this context, as it's the _caller_ of the event-dispatching logic that is responsible for setting it up.
 
@@ -370,12 +370,12 @@ function listen() { // called after run()
 
 When creating/updating these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
 
-In case of event propagation through the DOM, all event handlers run in the context captured by the first element that the event is fired on, as the event dispatching process would be to first set the appropriate context, and then run all the existing event machinery.
+In case of event propagation through the DOM (capturing and bubbling), all event handlers run in the context captured by the target element, as the event dispatching process would be to first set the appropriate context, and then run all the existing event machinery.
 
 ###### Events dispatched on separate objects
 
 Some async APIs allow starting tasks that then will cause events on _other_ objects to be fired. Some examples are:
-- a `DOMTokenList.add()` call to add a CSS class to an HTML element that eventually causes an `animationstart` event to be fired (potentially even on a different element than the one the `DOMTokenList` originaly came from);
+- a `DOMTokenList.add()` call to add a CSS class to an HTML element that eventually causes an `animationstart` event to be fired (potentially even on a different element than the one the `DOMTokenList` originally came from);
 - a `fetch()` call that causes a `securitypolicyviolation` event to be fired on the global object.
 - the various APIs that dispatch events across threads, including `CookieStore`, `IndexedDB` and `LocalStorage`.
 
@@ -383,7 +383,7 @@ We propose that these async event dispatches never propagate the AsyncContext.
 
 Propagation for these cases is generally impossible to do in userland. However, it is also significantly complex to implement natively, as it requres carrying around the pointer to the context through the various internal steps that lead to the event being fired, rather than just storing it somewhere.
 
-The usefulness of propagating the current trace/context in these cases varies a lot. Code that runs as a consequence of these events being fired is not generally a continuation of the task that caused them to be fired, and they would start a new trace. There are two main exceptions for which it would be useful to propagate the context across separte objects:
+The usefulness of propagating the current trace/context in these cases varies a lot. Code that runs as a consequence of these events being fired is not generally a continuation of the task that caused them to be fired, and they would start a new trace. There are two main exceptions for which it would be useful to propagate the context across separate objects:
 - `MessagePort`'s `postMessage` to the corresponding `message` event, which is a common way to implement `setImmediate`-like behavior. All the libraries that use this pattern to perform scheduling will not work by default with `AsyncContext`, unless they are updated to propagate it manually. The manual propagation is not too complex (it's a single call to `AsyncContext.Snapshot.run()`), but it will require all those libraries to update.
 - `ErrorEvent`/`PromiseRejectionEvent` (and `SecurityPolicyViolationEvent`, probably) events fired on the global object. These events are often used to log errors happening in the application, and having the context available would be useful to tracing libraries. However, it is not necessarily useful that the context that the errors where caused in is the one _active_ when running those event handlers, as usually the logging code that will need to read that context is running directly in the event callback and is not a detached consequence of it. For consistency, these events should thus still not propagate the context by default, but they can expose the `AsyncContext.Snapshot` as a special property on the event object (e.g. `event.rejectionContext`).
 
@@ -396,7 +396,7 @@ The usefulness of propagating the current trace/context in these cases varies a 
 5. Some special error-reporting events (`ErrorEvent`, `PromiseRejectionEvent`, `SecurityPolicyViolationEvent`) fall under (3), but will have an extra property on the event object exposing the context of the code that caused the error.
 
 <details>
-<summary>These tables are a (currently incomplete) list of cases that fall in the various cathegories</summary>
+<summary>These tables are a (currently incomplete) list of cases that fall in the various categories</summary>
 
 The following async APIs propagate the context into the events they dispatch:
 
@@ -406,7 +406,7 @@ The following async APIs propagate the context into the events they dispatch:
 | `XMLHttpRequest` | `.send()` | `error`, `load`, `loadend`, `loadstart`, `progress`, `readystatechange`, `timeout` | `loadend` _can_ be triggered synchronously by `.abort()` |
 | `HTMLImageElement` | `.src` setter | `load` | This image is technically loaded not due to setting `.src`, but due to polling for the `.src` attribute in its processing model (https://html.spec.whatwg.org/#images-processing-model)
 | `DBOpenRequest` | returned by `indexedDB.open()` | `success` |
-| `Element` | `.requestFullscreen()` | `fullscreenchange`, `fullscreenerror` | This method _also_ returns a promise, but the tirggered events are used by ancestors thanks to propagation |
+| `Element` | `.requestFullscreen()` | `fullscreenchange`, `fullscreenerror` | This method _also_ returns a promise, but the triggered events are used by ancestors thanks to propagation |
 
 
 These will not because they are on non-`globalThis` singleton instances (TODO: Can we make this propagate, and only keep the non-propagation `globalThis`?):
@@ -456,7 +456,7 @@ element.addEventListener("load", AsyncContext.Snapshot.wrap((event) => {
 
 This approach was discarded because:
 - it is sub-optimal for tracing, since it does not give any information about what caused the event to run
-- it can cause significant memory leaks, since there is no clear point in time when the captured snapshot can be cleaned up unless the whole `EventTarget` is garbage collected
+- it can cause significant memory footprints, since there is no clear point in time when the captured snapshot can be cleaned up unless the whole `EventTarget` is garbage collected
 - for developers that do need it, it's trivial to manually wrap the callback as in the example above
 
 ##### Always propagate from APIs that dispatch events
@@ -479,11 +479,11 @@ We also considered to not propagate by default, but allowing developers to opt-i
 
 This allows a safer incremental approach, as:
 - it guarantees that we can extend propagation to more APIs safely, as it's always opt-in;
-- an optin is more discoverable for developers that knowing wheter an API is implicitly propagating or not.
+- an opt-in is more discoverable for developers than knowing whether an API is implicitly propagating or not.
 
 We considered two ways that the opt-in toggle could be exposed:
 1. on a per-function-call basis (e.g. `xhr.send({ propagateAsyncContext: true })`). This goes against the tracing goal of letting the tracing library taking care of context propagation, without requiring userland code to be modified (the tracing library would have to patch all built-ins to enable these options for their users).
-2. on a global basis, maybe with a manifest file that lists which API would propagate. This would have global coordination problems, where different libraries might expect different kinds of propsagation, as well as being generally more complex to deploy in large applications with multiple parts owned by differe teams.
+2. on a global basis, maybe with a manifest file that lists which API would propagate. This would have global coordination problems, where different libraries might expect different kinds of propagation, as well as being generally more complex to deploy in large applications with multiple parts owned by different teams.
 
 ### Status change listener callbacks
 
@@ -578,7 +578,7 @@ they were caused by changes injected into the DOM or styles through JavaScript.
 
 > [!NOTE]
 > An older version of this proposal suggested to capture the context at the time the observer
-> is created, and use it to run the callback. This has been removed due to memory leak concerns.
+> is created, and use it to run the callback. This has been removed due to memory footprint concerns.
 
 In some cases it might be useful to expose the causal context for individual
 observations, by exposing an `AsyncContext.Snapshot` property on the observation
