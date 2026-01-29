@@ -228,7 +228,7 @@ AsyncContext propagation across event-based APIs needs to balance different need
    applications;
 2. it should be predictable, so that developers can build an intuition of how propagation
    works without having to learn it on a per-API basis;
-3. it should not be eccesively complex to implement in web engines, for example requiring
+3. it should not be excessively complex to implement in web engines, for example requiring
    to analyze reachability of JavaScript objects across processes or by causing
    engines to unnecessarily hold onto objects for too long;
 4. it should minimize the risk of needing potentially breaking changes in the future.
