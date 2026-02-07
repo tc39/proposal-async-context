@@ -224,3 +224,70 @@ Vue currently has a transpiler that, at least for async/await, allows [emulating
 > **[client]** While this works well on the server side, async context is unfortunately not universal. For instance, Pruvious users (developers) cannot reproduce issues in StackBlitz. If async context were supported in browsers, Pruvious could run in the browser just like Nuxt does. In addition to issue reproduction, I believe that running the CMS in the browser would greatly simplify the learning-by-example process for new users.
 >
 > — <cite>Muris Ceman, Pruvious maintainer</cite>
+
+## [Better Auth](https://better-auth.com/)
+
+> Better Auth is a comprehensive authentication library for TypeScript.
+> 
+> We view `AsyncContext` as a critical primitive for ensuring consistent access to request-scoped data across
+> asynchronous operations without the overhead of manual argument propagation.
+>
+> **[server]**
+>
+> Currently, the API design forces developers to explicitly inject the request object (or headers) into every function
+> call to maintain context. This leads to the verbose "prop-drilling" in user code:
+>
+> ```typescript
+> export const handler = (req) => {
+>   const session = auth.api.getSession({
+>     headers: req.headers,
+>   })
+>   // ...
+> }
+> ```
+>
+> **[internal]**
+>
+> This limitation extends to our internal architecture.
+> When composing granular operations—such as getUser, getOrganization, or getTeam,
+> we are forced to re-instantiate context or perform redundant validations for each distinct async call because they
+> cannot implicitly share a compilation scope.
+> Even we moved some logic to `AsyncLocalStorage`, we have to polyfill it for some our server customers because it's not
+> a standard feature.
+>
+> ```typescript
+> // Without AsyncContext, these operate in isolation
+> const session = await auth.api.getSession({
+>   headers: req.headers,
+> });
+> const user = await getUser({
+>   body: {
+>     getUserId: user.id,
+>   },
+>   headers: req.headers, 
+> });
+> const organization = await getOrganization({
+>   body: {
+>     organizationId: user.organizationId, 
+>   },
+>   headers: req.headers,
+> });
+> const team = await getTeam({
+>   body: {
+>     teamId: user.teamId,
+>   },
+>   headers: req.headers,
+> });
+> ```
+>
+> With `AsyncContext`, these operations could share a unified execution environment, significantly reducing
+> initialization overhead and code duplication.
+>
+> **[client]**
+> 
+> Our client-side SDKs (supporting React, Vue, Svelte, etc.) also face challenges regarding context loss.
+>
+> We aim to leverage `AsyncContext` to implement precise usage tracking and performance profiling across asynchronous UI
+> transitions, which is currently difficult to achieve reliably.
+>
+> — <cite>Alex Yang, Better Auth maintainer</cite>
