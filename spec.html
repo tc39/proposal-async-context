@@ -133,31 +133,30 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-table>
   </emu-clause>
 
-  <emu-clause id="sec-weakref-processing-model">
-    <h1>Processing Model of WeakRef and FinalizationRegistry Targets</h1>
-
-    <emu-clause id="sec-weakref-host-hooks">
-      <h1>Host Hooks</h1>
-
-      <emu-clause id="sec-host-cleanup-finalization-registry" type="host-defined abstract operation">
-        <h1>
-          HostEnqueueFinalizationRegistryCleanupJob (
-            _finalizationRegistry_: a FinalizationRegistry,
-          ): ~unused~
-        </h1>
-        <dl class="header">
-        </dl>
-        <p>Let _cleanupJob_ be a new Job Abstract Closure with no parameters that captures _finalizationRegistry_ and performs the following steps when called:</p>
-        <emu-alg>
-          1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextMapping]]).</ins>
-          1. Let _cleanupResult_ be Completion(CleanupFinalizationRegistry(_finalizationRegistry_)).
-          1. If _cleanupResult_ is an abrupt completion, perform any host-defined steps for reporting the error.
+  <emu-clause id="sec-cleanup-finalization-registry" type="abstract operation">
+    <h1>
+      CleanupFinalizationRegistry (
+        _finalizationRegistry_: a FinalizationRegistry,
+      ): either a normal completion containing ~unused~ or a throw completion
+    </h1>
+    <dl class="header">
+    </dl>
+    <emu-alg>
+      1. <del>Assert: _finalizationRegistry_ has [[Cells]] and [[CleanupCallback]] internal slots.</del>
+      1. <ins>Assert: _finalizationRegistry_ has [[Cells]], [[CleanupCallback]], and [[FinalizationRegistryAsyncContextMapping]] internal slots.</ins>
+      1. Let _callback_ be _finalizationRegistry_.[[CleanupCallback]].
+      1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_finalizationRegistry_.[[FinalizationRegistryAsyncContextMapping]]).</ins>
+      1. While _finalizationRegistry_.[[Cells]] contains a Record _cell_ such that _cell_.[[WeakRefTarget]] is ~empty~, an implementation may perform the following steps:
+        1. Choose any such _cell_.
+        1. Remove _cell_ from _finalizationRegistry_.[[Cells]].
+        1. <del>Perform ? HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »).</del>
+        1. <ins>Let _result_ be Completion(HostCallJobCallback(_callback_, *undefined*, « _cell_.[[HeldValue]] »)).</ins>
+        1. <ins>If _result_ is a throw completion, then</ins>
           1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
-          1. Return ~unused~.
-        </emu-alg>
-        <p>An implementation of HostEnqueueFinalizationRegistryCleanupJob schedules _cleanupJob_ to be performed at some future time, if possible. It must also conform to the requirements in <emu-xref href="#sec-jobs"></emu-xref>.</p>
-      </emu-clause>
-    </emu-clause>
+          1. <ins>Return ? _result_.</ins>
+      1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
+      1. Return ~unused~.
+    </emu-alg>
   </emu-clause>
 </emu-clause>
 
