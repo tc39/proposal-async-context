@@ -339,9 +339,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. Assert: _capability_ is not present.
               1. Push _moduleContext_ onto the execution context stack; _moduleContext_ is now the running execution context.
               1. Let _result_ be Completion(Evaluation of _module_.[[ECMAScriptCode]]).
-              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
               1. Suspend _moduleContext_ and remove it from the execution context stack.
               1. Resume the context that is now on the top of the execution context stack as the running execution context.
+              1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
               1. If _result_ is an abrupt completion, then
                 1. Return ? _result_.
             1. Else,
