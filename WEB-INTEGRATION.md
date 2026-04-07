@@ -281,7 +281,9 @@ waiting on some I/O operation to progress or complete.  We can further divide th
 
 ###### Objects responsible for one task
 
-Asynchronous APIs that fire events as a result of some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context.
+Asynchronous APIs that fire events as a result of either:
+- some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context;
+- creating a DOM object, or attaching it to the DOM, for which the event is fired on that same DOM object.
 
 This includes all the events that are conceptually similar to promise (e.g. `load`, except for the global page load), for which it's most important that the context is propagated. It excludes events dispatched on singletons, such as `window`/`document`/`document.fonts`, as these singletons do not represent a task but are simply a place where to listen for global events.
 
@@ -369,7 +371,9 @@ function listen() { // called after run()
 }
 ```
 
-When creating/updating these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
+When creating/updating/attaching these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
+
+Some DOM objects can represent multiple "actions" in parallel. For example, a `<link>` element might have it `href` value changed before that the `load` event for the first resource is fired. In this case the second loading process will start while the second one is still completing, thus the `AsyncContext` snapshot of both needs to be kept around.
 
 In case of event propagation through the DOM (capturing and bubbling), all event handlers run in the context captured by the target element, as the event dispatching process would be to first set the appropriate context, and then run all the existing event machinery.
 
