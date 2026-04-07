@@ -283,7 +283,7 @@ waiting on some I/O operation to progress or complete.  We can further divide th
 
 Asynchronous APIs that fire events as a result of either:
 - some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context;
-- creating a DOM object, or attaching it to the DOM, for which the event is fired on that same DOM object.
+- creating a DOM object, attaching it to the DOM, or changing some attribute, for which the event is fired on that same DOM object.
 
 This includes all the events that are conceptually similar to promise (e.g. `load`, except for the global page load), for which it's most important that the context is propagated. It excludes events dispatched on singletons, such as `window`/`document`/`document.fonts`, as these singletons do not represent a task but are simply a place where to listen for global events.
 
