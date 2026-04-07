@@ -373,7 +373,7 @@ function listen() { // called after run()
 
 When creating/updating/attaching these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
 
-Some DOM objects can represent multiple "actions" in parallel. For example, a `<link>` element might have it `href` value changed before that the `load` event for the first resource is fired. In this case the second loading process will start while the second one is still completing, thus the `AsyncContext` snapshot of both needs to be kept around.
+Some DOM objects can represent multiple "actions" in parallel. For example, a `<link>` element might have it `href` value changed before that the `load` event for the first resource is fired. In this case the second loading process will start while the first one is still completing, thus the `AsyncContext` snapshot of both needs to be kept around.
 
 In case of event propagation through the DOM (capturing and bubbling), all event handlers run in the context captured by the target element, as the event dispatching process would be to first set the appropriate context, and then run all the existing event machinery.
 
