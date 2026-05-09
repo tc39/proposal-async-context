@@ -609,5 +609,5 @@ Error: Call stack
 [`AsyncLocalStorage`]: https://nodejs.org/docs/latest/api/async_context.html#class-asynclocalstorage
 [`AsyncLocal`]: https://learn.microsoft.com/en-us/dotnet/api/system.threading.asynclocal-1?view=net-9.0
 [`CallContext`]: https://learn.microsoft.com/en-us/dotnet/api/system.runtime.remoting.messaging.callcontext?view=netframework-4.8.1
-[`ScopedValue`]: https://openjdk.org/jeps/506
+[`ScopedValue`]: https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/ScopedValue.html
 [`zone.js`]: https://github.com/angular/angular/tree/main/packages/zone.js
