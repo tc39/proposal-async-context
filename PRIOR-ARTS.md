@@ -9,6 +9,7 @@ The following table shows a general landscape of how the API behaves in these la
 | dotnet `AsyncLocal`          | No implicit feedback    | In scope mutation     |
 | dotnet `CallContext`         | No implicit feedback    | In scope mutation     |
 | Go `context`                 | No implicit feedback    | In scope mutation     |
+| Java `ScopedValue`           | No implicit feedback    | New scope mutation    |
 | Python `ContextVar`          | Both available          | In scope mutation     |
 | Ruby `Fiber`                 | No implicit feedback    | In scope mutation     |
 | Rust `tokio::task_local`     | No implicit feedback    | New scope mutation    |
@@ -147,6 +148,62 @@ From go's `context` API, we can tell that:
 - `Context` is immutable, and modification creates a new `Context`.
 - Modification in a child task does not propagate to its sibling tasks implicitly.
 - Modification to a `Context` does not propagate to the caller continuation, i.e. caller's context.
+
+### Java
+
+Java 25 finalized [`ScopedValue`][] in [JEP 506](https://openjdk.org/jeps/506).
+It allows a method to share immutable data with its direct and indirect callees
+within a thread, and with child threads, without passing the data through method
+parameters.
+
+> Test it yourself: [Java Playground](https://dev.java/p?id=d70438add16190e4fb6321a1).
+
+```java
+// Setting Scoped Values
+
+ScopedValue<String> MESSAGE = ScopedValue.newInstance();
+
+void anyMethod() {
+    if (MESSAGE.isBound()) {
+        IO.println("   Message = " + MESSAGE.get());
+    } else {
+        IO.println("   Message is not bound");
+    }
+}
+
+void rebindingMethod() {
+    anyMethod();
+    ScopedValue.where(MESSAGE, "I am rebound")
+          .run(() -> anyMethod());
+}
+
+Runnable task = () -> anyMethod();
+Runnable rebindingTask = () -> rebindingMethod();
+IO.println("Running a method without binding");
+task.run();
+IO.println("Running a method with a binding");
+ScopedValue.where(MESSAGE, "I am bound").run(task);
+IO.println("Running a method with a rebinding");
+ScopedValue.where(MESSAGE, "I am bound").run(rebindingTask);
+```
+
+This prints:
+
+```console
+Running a method without binding
+   Message is not bound
+Running a method with a binding
+   Message = I am bound
+Running a method with a rebinding
+   Message = I am bound
+   Message = I am rebound
+```
+
+From the `ScopedValue` API, we can tell that:
+- `ScopedValue` does not provide an unconstrained `set` operation.
+- A value is bound with `ScopedValue.where(...).run(...)`, which creates a bounded dynamic scope.
+- Modification requires creating a nested binding scope, rather than mutating the current one.
+- The binding is destroyed after the scope exits, so it does not propagate to the caller continuation.
 
 ### Python
 
@@ -552,4 +609,5 @@ Error: Call stack
 [`AsyncLocalStorage`]: https://nodejs.org/docs/latest/api/async_context.html#class-asynclocalstorage
 [`AsyncLocal`]: https://learn.microsoft.com/en-us/dotnet/api/system.threading.asynclocal-1?view=net-9.0
 [`CallContext`]: https://learn.microsoft.com/en-us/dotnet/api/system.runtime.remoting.messaging.callcontext?view=netframework-4.8.1
+[`ScopedValue`]: https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/ScopedValue.html
 [`zone.js`]: https://github.com/angular/angular/tree/main/packages/zone.js
