@@ -282,12 +282,14 @@ waiting on some I/O operation to progress or complete.  We can further divide th
 ###### Objects responsible for one task
 
 Asynchronous APIs that fire events as a result of either:
-- some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context;
+- some method/setter call, for which the event is fired either (a) on the object created by the method, or (b) if the instance is not a singleton on the object whose method was called on, would propagate the context;
 - creating a DOM object, attaching it to the DOM, or changing some attribute, for which the event is fired on that same DOM object.
 
 This includes all the events that are conceptually similar to promise (e.g. `load`, except for the global page load), for which it's most important that the context is propagated. It excludes events dispatched on singletons, such as `window`/`document`/`document.fonts`, as these singletons do not represent a task but are simply a place where to listen for global events.
 
 The context would be stored on this "holder object" when the task starts, and used to dispatch events that represent progress/completion of the task. It would be cleared when the task is known to be completed, since further events are known to not be fired anymore (unless the task is re-started, in which case it would capture a new context). Events "emulated" through `.dispatchEvent` would not use this context, as it's the _caller_ of the event-dispatching logic that is responsible for setting it up.
+
+In case where an API has methods to start an action and then methods that can affect it while in-progress without cancelling and re-starting it (for example, calling `.pause()` on a video _may_ cause the browser to suspend loading it, to then restart when calling `.play()`), the AsyncContext that gets propagated is the one that was active when the action was originally started.
 
 An example of an API where this is possible is `XMLHttpRequest`, which if implemented in JavaScript could look like this:
 
@@ -371,11 +373,14 @@ function listen() { // called after run()
 }
 ```
 
-When creating/updating/attaching these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
+When creating/updating these DOM objects (which happens synchronously), the browser will need to read the pointer to the AsyncContext map from the current agent, and store it on those objects. Note that all objects created/updated from a single mutation will reference the same AsyncContext. Chrome implements similar capturing for task attribution, and has not found any relevant performance degradation.
 
 Some DOM objects can represent multiple "actions" in parallel. For example, a `<link>` element might have it `href` value changed before that the `load` event for the first resource is fired. In this case the second loading process will start while the first one is still completing, thus the `AsyncContext` snapshot of both needs to be kept around.
 
 In case of event propagation through the DOM (capturing and bubbling), all event handlers run in the context captured by the target element, as the event dispatching process would be to first set the appropriate context, and then run all the existing event machinery.
+
+> [!NOTE]
+> While this does not automatically cover _adoption_ of DOM nodes that causes resource loading, DOM-caused resource loading is one of the main tracing needs. This principle will need to be expanded to cover adoption other than creation/modification.
 
 ###### Events dispatched on separate objects
 
@@ -396,7 +401,7 @@ The usefulness of propagating the current trace/context in these cases varies a 
 
 1. APIs that dispatch events synchronously do not change the currently active async context, like all other synchronous APIs.
 2. Events fired due to JS-external causes, such as user interaction, run the event handlers in an empty context.
-3. Asynchronous APIs that fire events as a result of some method/setter call, for which the event is fired either (a) on the object returned by the method (either directly or wrapped in a promise), or (b) if the instance is not a singleton on the object whose method was called on, propagate the context.
+3. Asynchronous APIs that fire events as a result of some method/setter call, for which the event is fired either (a) on the object created by the method, or (b) if the instance is not a singleton on the object whose method was called on, propagate the context.
 4. Asynchronous APIs that dispatch events on separate objects do not propagate the context (and run the event handlers in an empty one), regardless of whether they are cross-thread or same-thread.
 5. Some special error-reporting events (`ErrorEvent`, `PromiseRejectionEvent`, `SecurityPolicyViolationEvent`) fall under (3), but will have an extra property on the event object exposing the context of the code that caused the error.
 
