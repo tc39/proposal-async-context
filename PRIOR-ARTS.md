@@ -392,7 +392,7 @@ main foo
 
 From the tokio API, and the result, we can tell that:
 - `task_local` can be only be modified with a `sync_scope` or a `scope`.
-- Modification in a child task does not propagates to its sibling tasks.
+- Modification in a child task does not propagate to its sibling tasks.
 - Modification to a `task_local` does not propagate to the caller continuation, i.e. `await` in caller.
 
 ### Swift
