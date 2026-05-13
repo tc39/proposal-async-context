@@ -13,6 +13,7 @@ The following table shows a general landscape of how the API behaves in these la
 | Python `ContextVar`          | Both available          | In scope mutation     |
 | Ruby `Fiber`                 | No implicit feedback    | In scope mutation     |
 | Rust `tokio::task_local`     | No implicit feedback    | New scope mutation    |
+| Swift `TaskLocal`            | No implicit feedback    | New scope mutation    |
 | Dart `Zone`                  | No implicit feedback    | New scope mutation    |
 | JS `Zone`                    | No implicit feedback    | New scope mutation    |
 | Node.js `AsyncLocalStorage`  | No implicit feedback    | Both available        |
@@ -394,6 +395,57 @@ From the tokio API, and the result, we can tell that:
 - Modification in a child task does not propagates to its sibling tasks.
 - Modification to a `task_local` does not propagate to the caller continuation, i.e. `await` in caller.
 
+### Swift
+
+Swift 5.5 provides [`TaskLocal`][] for declaring values that are implicitly carried
+with a `Task` and inherited by child tasks, such as tasks created by
+`async let` or task groups. The design was introduced in [`SE-0311`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0311-task-locals.md).
+
+Task-local values cannot be set directly. They must be bound with
+`withValue(_:operation:)`, which creates a scope where the bound value is
+available to the current task and child tasks created within that scope.
+
+> Test it yourself: [SwiftFiddle](https://swiftfiddle.com/thbylc3nivfvthmso57s3lma6q).
+
+```swift
+@TaskLocal var traceID: String = "none"
+
+func read(_ label: String) async -> Void {
+  await Task.yield()
+  print("\(label): \(traceID)")
+}
+
+await $traceID.withValue("main") {
+  async let inherited = read("inherited")
+  async let child = $traceID.withValue("child") {
+    await read("child")
+  }
+
+  await (inherited, child)
+  print("parent: \(traceID)")
+}
+
+print("after: \(traceID)")
+```
+
+This prints:
+
+```console
+inherited: main
+child: child
+parent: main
+after: none
+```
+
+From the `TaskLocal` API, and the result, we can tell that:
+- `TaskLocal` declarations use `var`, but the task-local value cannot be
+  modified with direct assignment.
+- `TaskLocal` values can only be rebound with `withValue`, which creates a
+  bounded scope.
+- Modification in a child task does not propagate to its sibling tasks.
+- Modification to a `TaskLocal` does not propagate to the caller continuation,
+  i.e. `await` in caller.
+
 ### Dart
 
 Dart's [Zone](https://api.dart.dev/dart-async/Zone-class.html) provides much more functionality
@@ -610,4 +662,5 @@ Error: Call stack
 [`AsyncLocal`]: https://learn.microsoft.com/en-us/dotnet/api/system.threading.asynclocal-1?view=net-9.0
 [`CallContext`]: https://learn.microsoft.com/en-us/dotnet/api/system.runtime.remoting.messaging.callcontext?view=netframework-4.8.1
 [`ScopedValue`]: https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/ScopedValue.html
+[`TaskLocal`]: https://developer.apple.com/documentation/swift/tasklocal
 [`zone.js`]: https://github.com/angular/angular/tree/main/packages/zone.js
