@@ -6,7 +6,7 @@ To summarize the principles:
 - APIs that dispatch events synchronously do not change the current async context
 - events fired due to JS-external causes (e.g. user interaction) or due to corss-thread JS run in the empty context
 - APIs that asynchronously fire events due to a method/setter call, for which the event is fired either on
-	- the object returned by the method (either directly or wrapped in a promise)
+	- an object created by the method
 	- on the object whose method was called, unless it's a singleton (e.g. `document`)
 	propagate the context from the method/setter call to the event dispatch
 - APIs that react to DOM tree changes (insertion/removal/move of children, ancestors, or attributes) propagate the context from the DOM update to the event fired
