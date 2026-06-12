@@ -4,7 +4,7 @@ This document goes over the detailed consequence of applying the [event propagat
 
 To summarize the principles:
 - APIs that dispatch events synchronously do not change the current async context
-- events fired due to JS-external causes (e.g. user interaction) or due to corss-thread JS run in the empty context
+- events fired due to JS-external causes (e.g. user interaction) or due to cross-thread JS run in the empty context
 - APIs that asynchronously fire events due to a method/setter call, for which the event is fired either on
 	- an object created by the method
 	- on the object whose method was called, unless it's a singleton (e.g. `document`)
