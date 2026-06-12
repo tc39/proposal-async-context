@@ -13,6 +13,15 @@ To summarize the principles:
 - Other API shapes do not propagate the context
 
 Unless otherwise specified by this document, events that are fired synchronously preserve the existing active AsyncContext, while events that are fired with no JavaScript on the stack are fired in the empty context.
+
+> [!IMPORTANT]
+> This document frequently uses wording similar to
+> > When X happens, the user agent must:
+> > - synchronously capture the current AsyncContext, and store it on the object
+> > - use that context to later fire the event triggered by the action
+>
+> It is possible that X happens multiple times synchronously after each other, which causes multiple contexts to be captured. Each of the fired events must then be fired in the corresponding context.
+
 ## Section by section
 ### 4.2.1 - The `style` element
 When [updating a `style` block](https://html.spec.whatwg.org/#the-style-element:update-a-style-block), the user agent must:
