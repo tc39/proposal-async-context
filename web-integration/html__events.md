@@ -22,6 +22,8 @@ Unless otherwise specified by this document, events that are fired synchronously
 > > - use that context to later fire the event triggered by the action
 >
 > It is possible that X happens multiple times synchronously after each other, which causes multiple contexts to be captured. Each of the fired events must then be fired in the corresponding context.
+>
+> In practice, the simpler implementation in many of those cases will be to capture the context in the scheduled task(s), rather than actually on the object itself. Another option is to store multiple contexts on the object, with some information to distinguish them when firing the event.
 
 ## Section by section
 ### 4.2.1 - The `style` element
