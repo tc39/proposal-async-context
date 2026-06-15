@@ -8,9 +8,10 @@ To summarize the principles:
 - APIs that asynchronously fire events due to a method/setter call, for which the event is fired either on
 	- an object created by the method
 	- on the object whose method was called, unless it's a singleton (e.g. `document`)
+
 	propagate the context from the method/setter call to the event dispatch
 - APIs that react to DOM tree changes (insertion/removal/move of children, ancestors, or attributes) propagate the context from the DOM update to the event fired
-- Other API shapes do not propagate the context
+- Other API shapes fire events in the empty context
 
 Unless otherwise specified by this document, events that are fired synchronously preserve the existing active AsyncContext, while events that are fired with no JavaScript on the stack are fired in the empty context.
 
