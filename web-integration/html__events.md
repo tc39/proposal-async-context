@@ -50,6 +50,10 @@ When [processing the `iframe` attributes](https://html.spec.whatwg.org/#process-
    Firefox fires an unspecified `error` event fired: it should be fired in the same context as the `load` event would.
 
 Note that the captured context is not used for events fired inside the `iframe` as a consequence of the navigation.
+
+> [!NOTE]
+> **QUESTION:** Does this actually work? The `load` event is fired for all navigations inside the `iframe`, regardless of how they are triggered (e.g. also if inside the iframe it does `location.href = ...`). Can we distinguish what caused the iframe to navigate when the event is fired?
+
 ### 16.3.2 - Frames
 When [processing the `frame` attributes](https://html.spec.whatwg.org/#process-the-iframe-attributes), which can happen due to changes to its `src` attribute or due to [it being inserted](https://html.spec.whatwg.org/#frames:html-element-insertion-steps), the user agent must:
 - synchronously capture the current AsyncContext, and store it on the `frame` element
