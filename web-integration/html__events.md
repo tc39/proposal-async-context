@@ -89,7 +89,8 @@ State transitions can trigger different events:
 - `error`, when due to an error the source cannot continue loading
 
 While in the `LOADING` state two other events are fired multiple times, `progress` and `stalled`, indicating whether the server is currently sending data or not.
-![[network_states.svg]]
+
+![](./images/network_states.svg)
 
 #### The *ready* states
 They represent how much time of the video has been already loaded, potentially in relation to the current time position of the media element. They are exposed as the `.readyState` attribute of the media element.
@@ -98,8 +99,8 @@ A video initially starts as `NOTHING`, and then as loading proceeded it transiti
 
 As the time duration changes (either due to the media element playing, or due to the user seeking around) the ready state can transition *back* to `FUTURE_DATA` or even to `CURRENT_DATA`, potentially leading to the `canplay` and `canplaytrhough` events being later fired again. The `loadedmetadata` and `loadeddata` events are fired at most once, unless the element is fully reset by loading a different source.
 
+![](./images/ready_states.svg)
 
-![[ready_states.svg]]
 #### The *playback* states
 They represent whether the video is currently playing or paused. These states are not actually exposed as a real enum-based state on the media element, but as separate attributes.
 
@@ -111,7 +112,8 @@ A video can then be paused, either by the user clicking the "Pause" button, by t
 
 When a video reaches the end of the time duration and it's paused, an `ended` event will be fired: this can either happen naturally due to the video playing to its end, or due to seeking to the end.
 
-![[playback_states.svg]]
+![](./images/playback_states.svg)
+
 #### Other actions and events
 
 A user agent can be required to *seek* at a new playback position , either through user action, by calling the `.fastSeek()` method, or by setting the `.currentTime` attribute. When this happens, the media element will fire a `seeking` event, a `timeupdate` event, and a `seeked` event. The playback state will continue as it was before seeking, potentially switching immediately after between `PLAYING` end `WAITING`, between `PAUSED` and `ENDED`, or from `PLAYING`/`WAITING` to `ENDED`. 
