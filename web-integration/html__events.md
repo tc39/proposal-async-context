@@ -49,7 +49,7 @@ When [processing the `iframe` attributes](https://html.spec.whatwg.org/#process-
 > [!WARNING]
    Firefox fires an unspecified `error` event fired: it should be fired in the same context as the `load` event would.
 
-Note that the captured context is not used for events fired inside the `iframe` as a consequence of the navigation.
+Note that the captured context is not used for events fired inside the `iframe` as a consequence of the navigation, and no context is captured by navigations caused inside the `iframe`.
 
 > [!NOTE]
 > **QUESTION:** Does this actually work? The `load` event is fired for all navigations inside the `iframe`, regardless of how they are triggered (e.g. also if inside the iframe it does `location.href = ...`). Can we distinguish what caused the iframe to navigate when the event is fired?
@@ -60,6 +60,7 @@ When [processing the `frame` attributes](https://html.spec.whatwg.org/#process-t
 - use that context to fire the `load` event on the `frame` element
 
 As with `iframe`, the captured context is not used for any event fired *inside* the framed document.
+
 ### 4.8.6 - The `embed` element
 When an `embed` element [becomes potentially active](https://html.spec.whatwg.org/#concept-embed-active) while there is JavaScript on the stack, or it has it's `src`/`type` attributes set/changed/removed, the user agent must:
 - synchronously capture the current AsyncContext, and store it on the `embed` element (and *not* asynchronously in the [`embed` element setup steps](https://html.spec.whatwg.org/#the-embed-element-setup-steps))
