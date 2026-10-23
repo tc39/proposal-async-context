@@ -801,9 +801,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
   </emu-clause>
 
-  <ins class="block">
   <emu-clause id="sec-asynccontext-object">
-    <h1>The AsyncContext Object</h1>
+    <h1><ins>The AsyncContext Object</ins></h1>
     <p>The AsyncContext object:</p>
     <ul>
       <li>is the intrinsic object <dfn>%AsyncContext%</dfn>.</li>
@@ -816,11 +815,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </ul>
 
     <emu-clause id="sec-asynccontext-abstract-operations">
-      <h1>AsyncContext Abstract Operations</h1>
+      <h1><ins>AsyncContext Abstract Operations</ins></h1>
       <emu-clause id="sec-asynccontextsnapshot" type="abstract operation">
         <h1>
-          AsyncContextSnapshot (
-          ): an Async Context Mapping
+          <ins>
+            AsyncContextSnapshot (
+            ): an Async Context Mapping
+          </ins>
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -834,9 +835,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
       <emu-clause id="sec-asynccontextswap" type="abstract operation">
         <h1>
-          AsyncContextSwap (
-            _snapshotMapping_: an Async Context Mapping
-          ): an Async Context Mapping
+          <ins>
+            AsyncContextSwap (
+              _snapshotMapping_: an Async Context Mapping
+            ): an Async Context Mapping
+          </ins>
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -852,9 +855,11 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
       <emu-clause id="sec-createasynccontextsnapshotobject" type="abstract operation">
         <h1>
-          CreateAsyncContextSnapshotObject (
-            _snapshotMapping_: an Async Context Mapping
-          ): either a normal completion containing an AsyncContext.Snapshot object or a throw completion
+          <ins>
+            CreateAsyncContextSnapshotObject (
+              _snapshotMapping_: an Async Context Mapping
+            ): either a normal completion containing an AsyncContext.Snapshot object or a throw completion
+          </ins>
         </h1>
         <dl class="header">
           <dt>description</dt>
@@ -872,24 +877,24 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
 
     <emu-clause id="sec-constructor-properties-of-the-asynccontext-object">
-      <h1>Constructor Properties of the AsyncContext Object</h1>
+      <h1><ins>Constructor Properties of the AsyncContext Object</ins></h1>
 
       <emu-clause id="sec-asynccontext.snapshot">
-        <h1>AsyncContext.Snapshot ( . . . )</h1>
+        <h1><ins>AsyncContext.Snapshot ( . . . )</ins></h1>
         <p>See <emu-xref href="#sec-asynccontext-snapshot-objects"></emu-xref>.</p>
       </emu-clause>
 
       <emu-clause id="sec-asynccontext.variable">
-        <h1>AsyncContext.Variable ( . . . )</h1>
+        <h1><ins>AsyncContext.Variable ( . . . )</ins></h1>
         <p>See <emu-xref href="#sec-asynccontext-variable-objects"></emu-xref>.</p>
       </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-value-properties-of-the-asynccontext-object">
-      <h1>Value Properties of the AsyncContext Object</h1>
+      <h1><ins>Value Properties of the AsyncContext Object</ins></h1>
 
       <emu-clause oldids="sec-asynccontext-@@tostringtag" id="sec-asynccontext-%symbol.tostringtag%">
-        <h1>AsyncContext [ %Symbol.toStringTag% ]</h1>
+        <h1><ins>AsyncContext [ %Symbol.toStringTag% ]</ins></h1>
         <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
@@ -897,10 +902,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 
   <emu-clause id="sec-asynccontext-snapshot-objects">
-    <h1>AsyncContext.Snapshot Objects</h1>
+    <h1><ins>AsyncContext.Snapshot Objects</ins></h1>
 
     <emu-clause id="sec-asynccontext-snapshot-constructor">
-      <h1>The AsyncContext.Snapshot Constructor</h1>
+      <h1><ins>The AsyncContext.Snapshot Constructor</ins></h1>
       <p>The AsyncContext.Snapshot constructor:</p>
       <ul>
         <li>is <dfn>%AsyncContext.Snapshot%</dfn>.</li>
@@ -911,7 +916,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-snapshot">
-        <h1>AsyncContext.Snapshot ( )</h1>
+        <h1><ins>AsyncContext.Snapshot ( )</ins></h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
@@ -925,7 +930,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
 
     <emu-clause id="sec-properties-of-the-asynccontext-snapshot-constructor">
-      <h1>Properties of the AsyncContext.Snapshot Constructor</h1>
+      <h1><ins>Properties of the AsyncContext.Snapshot Constructor</ins></h1>
       <p>The AsyncContext.Snapshot constructor:</p>
       <ul>
         <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
@@ -933,13 +938,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-snapshot.prototype">
-        <h1>AsyncContext.Snapshot.prototype</h1>
+        <h1><ins>AsyncContext.Snapshot.prototype</ins></h1>
         <p>The initial value of `AsyncContext.Snapshot.prototype` is the AsyncContext.Snapshot prototype object.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
       </emu-clause>
 
       <emu-clause id="sec-asynccontext-snapshot.wrap">
-        <h1>AsyncContext.Snapshot.wrap ( _fn_ )</h1>
+        <h1><ins>AsyncContext.Snapshot.wrap ( _fn_ )</ins></h1>
         <p>This function returns a new function which restores the current value of all AsyncContext.Variable values when being invoked.</p>
 
         <emu-alg>
@@ -961,7 +966,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
 
     <emu-clause id="sec-properties-of-the-asynccontext-snapshot-prototype-object">
-      <h1>Properties of the AsyncContext.Snapshot Prototype Object</h1>
+      <h1><ins>Properties of the AsyncContext.Snapshot Prototype Object</ins></h1>
       <p>The <dfn>AsyncContext.Snapshot prototype object</dfn>:</p>
       <ul>
         <li>is <dfn>%AsyncContext.Snapshot.prototype%</dfn>.</li>
@@ -971,12 +976,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-snapshot.prototype.constructor">
-        <h1>AsyncContext.Snapshot.prototype.constructor</h1>
+        <h1><ins>AsyncContext.Snapshot.prototype.constructor</ins></h1>
         <p>The initial value of `AsyncContext.Snapshot.prototype.constructor` is %AsyncContext.Snapshot%.</p>
       </emu-clause>
 
       <emu-clause id="sec-asynccontext-snapshot.prototype.run">
-        <h1>AsyncContext.Snapshot.prototype.run ( _func_, ..._args_ )</h1>
+        <h1><ins>AsyncContext.Snapshot.prototype.run ( _func_, ..._args_ )</ins></h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncSnapshot_ be the *this* value.
@@ -989,14 +994,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
 
       <emu-clause oldids="sec-asynccontext-snapshot.prototype-@@tostringtag" id="sec-asynccontext-snapshot.prototype-%symbol.tostringtag%">
-        <h1>AsyncContext.Snapshot.prototype [ %Symbol.toStringTag% ]</h1>
+        <h1><ins>AsyncContext.Snapshot.prototype [ %Symbol.toStringTag% ]</ins></h1>
         <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext.Snapshot"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-properties-of-asynccontext-snapshot-instances">
-      <h1>Properties of AsyncContext.Snapshot Instances</h1>
+      <h1><ins>Properties of AsyncContext.Snapshot Instances</ins></h1>
       <p>AsyncContext.Snapshot instances are ordinary objects that inherit properties from the AsyncContext.Snapshot prototype object (the intrinsic, %AsyncContext.Snapshot.prototype%). AsyncContext.Snapshot instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-snapshot-instances"></emu-xref>.</p>
 
       <emu-table id="table-internal-slots-of-asynccontext-snapshot-instances" caption="Internal Slots of AsyncContext-Snapshot Instances">
@@ -1029,10 +1034,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
   </emu-clause>
 
   <emu-clause id="sec-asynccontext-variable-objects">
-    <h1>AsyncContext.Variable Objects</h1>
+    <h1><ins>AsyncContext.Variable Objects</ins></h1>
 
     <emu-clause id="sec-asynccontext-variable-constructor">
-      <h1>The AsyncContext.Variable Constructor</h1>
+      <h1><ins>The AsyncContext.Variable Constructor</ins></h1>
       <p>The AsyncContext.Variable constructor:</p>
       <ul>
         <li>is <dfn>%AsyncContext.Variable%</dfn>.</li>
@@ -1043,7 +1048,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-variable">
-        <h1>AsyncContext.Variable ( _options_ )</h1>
+        <h1><ins>AsyncContext.Variable ( _options_ )</ins></h1>
         <p>This function performs the following steps when called:</p>
 
         <emu-alg>
@@ -1065,7 +1070,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
     </emu-clause>
 
     <emu-clause id="sec-properties-of-the-asynccontext-variable-constructor">
-      <h1>Properties of the AsyncContext.Variable Constructor</h1>
+      <h1><ins>Properties of the AsyncContext.Variable Constructor</ins></h1>
       <p>The AsyncContext.Variable constructor:</p>
       <ul>
         <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
@@ -1073,14 +1078,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-variable.prototype">
-        <h1>AsyncContext.Variable.prototype</h1>
+        <h1><ins>AsyncContext.Variable.prototype</ins></h1>
         <p>The initial value of `AsyncContext.Variable.prototype` is the AsyncContext.Variable prototype object.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
       </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-properties-of-the-asynccontext-variable-prototype-object">
-      <h1>Properties of the AsyncContext.Variable Prototype Object</h1>
+      <h1><ins>Properties of the AsyncContext.Variable Prototype Object</ins></h1>
       <p>The <dfn>AsyncContext.Variable prototype object</dfn>:</p>
       <ul>
         <li>is <dfn>%AsyncContext.Variable.prototype%</dfn>.</li>
@@ -1090,12 +1095,12 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </ul>
 
       <emu-clause id="sec-asynccontext-variable.prototype.constructor">
-        <h1>AsyncContext.Variable.prototype.constructor</h1>
+        <h1><ins>AsyncContext.Variable.prototype.constructor</ins></h1>
         <p>The initial value of `AsyncContext.Variable.prototype.constructor` is %AsyncContext.Variable%.</p>
       </emu-clause>
 
       <emu-clause id="sec-asynccontext-variable.prototype.run">
-        <h1>AsyncContext.Variable.prototype.run ( _value_, _func_, ..._args_ )</h1>
+        <h1><ins>AsyncContext.Variable.prototype.run ( _value_, _func_, ..._args_ )</ins></h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncVariable_ be the *this* value.
@@ -1117,7 +1122,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
 
       <emu-clause id="sec-asynccontext-variable.prototype.name">
-        <h1>get AsyncContext.Variable.prototype.name</h1>
+        <h1><ins>get AsyncContext.Variable.prototype.name</ins></h1>
         <p>`AsyncContext.Variable.prototype.name` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncVariable_ be the *this* value.
@@ -1127,7 +1132,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
 
       <emu-clause id="sec-asynccontext-variable.prototype.get">
-        <h1>AsyncContext.Variable.prototype.get ( )</h1>
+        <h1><ins>AsyncContext.Variable.prototype.get ( )</ins></h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _asyncVariable_ be the *this* value.
@@ -1141,14 +1146,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
 
       <emu-clause oldids="sec-asynccontext-variable.prototype-@@tostringtag" id="sec-asynccontext-variable.prototype-%symbol.tostringtag%">
-        <h1>AsyncContext.Variable.prototype [ %Symbol.toStringTag% ]</h1>
+        <h1><ins>AsyncContext.Variable.prototype [ %Symbol.toStringTag% ]</ins></h1>
         <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext.Variable"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-properties-of-asynccontext-variable-instances">
-      <h1>Properties of AsyncContext.Variable Instances</h1>
+      <h1><ins>Properties of AsyncContext.Variable Instances</ins></h1>
       <p>AsyncContext.Variable instances are ordinary objects that inherit properties from the AsyncContext.Variable prototype object (the intrinsic, %AsyncContext.Variable.prototype%). AsyncContext.Variable instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-asynccontext-variable-instances"></emu-xref>.</p>
 
       <emu-table id="table-internal-slots-of-asynccontext-variable-instances" caption="Internal Slots of AsyncContext.Variable Instances">
@@ -1190,7 +1195,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-table>
     </emu-clause>
   </emu-clause>
-  </ins>
 </emu-clause>
 
 <emu-clause id="sec-managing-memory">
