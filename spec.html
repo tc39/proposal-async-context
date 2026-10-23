@@ -73,15 +73,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <p>This proposal adds a new field to the Agent Record as the following table:</p>
     <emu-table id="table-agent-record" caption="Agent Record Fields">
       <table>
-        <tr>
-          <th>Field Name</th>
-          <th>Value</th>
-          <th>Meaning</th>
-        </tr>
+        <thead>
+          <tr>
+            <th>Field Name</th>
+            <th>Value</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
         <tr>
           <td>[[LittleEndian]]</td>
           <td>a Boolean</td>
-          <td>The default value computed for the <em>isLittleEndian</em> parameter when it is needed by the algorithms GetValueFromBuffer and SetValueInBuffer. The choice is implementation-defined and should be the alternative that is most efficient for the implementation. Once the value has been observed it cannot change.</td>
+          <td>The default value computed for the <em>isLittleEndian</em> parameter when it is needed by the algorithms GetValueFromBuffer and SetValueInBuffer. The choice is implementation-defined and should be the alternative that is most efficient for the implementation.</td>
         </tr>
         <tr>
           <td>[[CanBlock]]</td>
@@ -115,8 +117,18 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </tr>
         <tr>
           <td>[[KeptAlive]]</td>
-          <td>a List of Objects</td>
-          <td>Initially a new empty List, representing the list of objects to be kept alive until the end of the current Job</td>
+          <td>a List of either Objects or Symbols</td>
+          <td>Initially a new empty List, representing the list of objects and/or symbols to be kept alive until the end of the current Job</td>
+        </tr>
+        <tr>
+          <td>[[ModuleAsyncEvaluationCount]]</td>
+          <td>an integer</td>
+          <td>Initially 0, used to assign unique incrementing values to the [[AsyncEvaluationOrder]] field of modules that are asynchronous or have asynchronous dependencies.</td>
+        </tr>
+        <tr>
+          <td>[[GlobalSymbolRegistry]]</td>
+          <td>a List of GlobalSymbolRegistry Records</td>
+          <td>Initially a new empty List, representing the list of Symbol values produced by <emu-xref href="#sec-symbol.for">Symbol.for</emu-xref>.</td>
         </tr>
         <tr>
           <td>
@@ -175,9 +187,10 @@ contributors: Chengzhong Wu, Justin Ridgewell
           optional _name_: a property key or a Private Name,
           optional _additionalInternalSlotsList_: a List of names of internal slots,
           optional _realm_: a Realm Record,
-          optional _prototype_: an Object or *null*,
+          optional _proto_: an Object or *null*,
           optional _prefix_: a String,
-        ): a function object
+          optional _async_: a Boolean,
+        ): a built-in function object
       </h1>
       <dl class="header">
         <dt>description</dt>
@@ -186,11 +199,13 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-alg>
         1. <ins>If _additionalInternalSlotsList_ is not present, set _additionalInternalSlotsList_ to a new empty List.</ins>
         1. If _realm_ is not present, set _realm_ to the current Realm Record.
-        1. If _prototype_ is not present, set _prototype_ to _realm_.[[Intrinsics]].[[%Function.prototype%]].
+        1. If _proto_ is not present, set _proto_ to _realm_.[[Intrinsics]].[[%Function.prototype%]].
+        1. If _async_ is not present, set _async_ to *false*.
         1. Let _internalSlotsList_ be a List containing the names of all the internal slots that <emu-xref href="#sec-built-in-function-objects"></emu-xref> requires for the built-in function object that is about to be created.
-        1. Append to _internalSlotsList_ the elements of _additionalInternalSlotsList_.
+        1. Append the elements of _additionalInternalSlotsList_ to _internalSlotsList_.
         1. Let _func_ be a new built-in function object that, when called, performs the action described by _behaviour_ using the provided arguments as the values of the corresponding parameters specified by _behaviour_. The new function object has internal slots whose names are the elements of _internalSlotsList_, and an [[InitialName]] internal slot.
-        1. Set _func_.[[Prototype]] to _prototype_.
+        1. Set _func_.[[Async]] to _async_.
+        1. Set _func_.[[Prototype]] to _proto_.
         1. Set _func_.[[Extensible]] to *true*.
         1. Set _func_.[[Realm]] to _realm_.
         1. Set _func_.[[InitialName]] to *null*.
@@ -243,42 +258,42 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-alg>
       <emu-grammar>YieldExpression : `yield` `*` AssignmentExpression</emu-grammar>
       <emu-alg>
-        1. Let _generatorKind_ be GetGeneratorKind().
-        1. Assert: _generatorKind_ is either ~sync~ or ~async~.
+        1. Let _genKind_ be GetGeneratorKind().
+        1. Assert: _genKind_ is either ~sync~ or ~async~.
         1. Let _exprRef_ be ? Evaluation of |AssignmentExpression|.
         1. Let _value_ be ? GetValue(_exprRef_).
-        1. Let _iteratorRecord_ be ? GetIterator(_value_, _generatorKind_).
+        1. Let _iteratorRecord_ be ? GetIterator(_value_, _genKind_).
         1. Let _iterator_ be _iteratorRecord_.[[Iterator]].
         1. <ins>Let _asyncContextMapping_ be AsyncContextSnapshot().</ins>
         1. Let _received_ be NormalCompletion(*undefined*).
         1. Repeat,
           1. If _received_ is a normal completion, then
             1. Let _innerResult_ be ? Call(_iteratorRecord_.[[NextMethod]], _iteratorRecord_.[[Iterator]], « _received_.[[Value]] »).
-            1. If _generatorKind_ is ~async~, set _innerResult_ to ? Await(_innerResult_).
+            1. If _genKind_ is ~async~, set _innerResult_ to ? Await(_innerResult_).
             1. If _innerResult_ is not an Object, throw a *TypeError* exception.
             1. Let _done_ be ? IteratorComplete(_innerResult_).
             1. If _done_ is *true*, then
               1. Return ? IteratorValue(_innerResult_).
-            1. If _generatorKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerResult_))).
+            1. If _genKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerResult_))).
             1. Else, set _received_ to Completion(GeneratorYield(_innerResult_)).
             1. <ins>Perform AsyncContextSwap(_asyncContextMapping_).</ins>
           1. Else if _received_ is a throw completion, then
             1. Let _throw_ be ? GetMethod(_iterator_, *"throw"*).
             1. If _throw_ is not *undefined*, then
               1. Let _innerResult_ be ? Call(_throw_, _iterator_, « _received_.[[Value]] »).
-              1. If _generatorKind_ is ~async~, set _innerResult_ to ? Await(_innerResult_).
+              1. If _genKind_ is ~async~, set _innerResult_ to ? Await(_innerResult_).
               1. NOTE: Exceptions from the inner iterator `throw` method are propagated. Normal completions from an inner `throw` method are processed similarly to an inner `next`.
               1. If _innerResult_ is not an Object, throw a *TypeError* exception.
               1. Let _done_ be ? IteratorComplete(_innerResult_).
               1. If _done_ is *true*, then
                 1. Return ? IteratorValue(_innerResult_).
-              1. If _generatorKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerResult_))).
+              1. If _genKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerResult_))).
               1. Else, set _received_ to Completion(GeneratorYield(_innerResult_)).
               1. <ins>Perform AsyncContextSwap(_asyncContextMapping_).</ins>
             1. Else,
               1. NOTE: If _iterator_ does not have a `throw` method, this throw is going to terminate the `yield*` loop. But first we need to give _iterator_ a chance to clean up.
               1. Let _closeCompletion_ be NormalCompletion(~empty~).
-              1. If _generatorKind_ is ~async~, perform ? AsyncIteratorClose(_iteratorRecord_, _closeCompletion_).
+              1. If _genKind_ is ~async~, perform ? AsyncIteratorClose(_iteratorRecord_, _closeCompletion_).
               1. Else, perform ? IteratorClose(_iteratorRecord_, _closeCompletion_).
               1. NOTE: The next step throws a *TypeError* to indicate that there was a `yield*` protocol violation: _iterator_ does not have a `throw` method.
               1. Throw a *TypeError* exception.
@@ -286,18 +301,18 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. Assert: _received_ is a return completion.
             1. Let _return_ be ? GetMethod(_iterator_, *"return"*).
             1. If _return_ is *undefined*, then
-              1. Set _value_ to _received_.[[Value]].
-              1. If _generatorKind_ is ~async~, then
-                1. Set _value_ to ? Await(_value_).
-              1. Return ReturnCompletion(_value_).
+              1. Let _receivedValue_ be _received_.[[Value]].
+              1. If _genKind_ is ~async~, then
+                1. Set _receivedValue_ to ? Await(_receivedValue_).
+              1. Return ReturnCompletion(_receivedValue_).
             1. Let _innerReturnResult_ be ? Call(_return_, _iterator_, « _received_.[[Value]] »).
-            1. If _generatorKind_ is ~async~, set _innerReturnResult_ to ? Await(_innerReturnResult_).
+            1. If _genKind_ is ~async~, set _innerReturnResult_ to ? Await(_innerReturnResult_).
             1. If _innerReturnResult_ is not an Object, throw a *TypeError* exception.
             1. Let _done_ be ? IteratorComplete(_innerReturnResult_).
             1. If _done_ is *true*, then
-              1. Set _value_ to ? IteratorValue(_innerReturnResult_).
-              1. Return ReturnCompletion(_value_).
-            1. If _generatorKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerReturnResult_))).
+              1. Let _returnedValue_ be ? IteratorValue(_innerReturnResult_).
+              1. Return ReturnCompletion(_returnedValue_).
+            1. If _genKind_ is ~async~, set _received_ to Completion(AsyncGeneratorYield(? IteratorValue(_innerReturnResult_))).
             1. Else, set _received_ to Completion(GeneratorYield(_innerReturnResult_)).
             1. <ins>Perform AsyncContextSwap(_asyncContextMapping_).</ins>
       </emu-alg>
@@ -328,20 +343,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </dl>
 
           <emu-alg>
-            1. Let _moduleContext_ be a new ECMAScript code execution context.
-            1. Set the Function of _moduleContext_ to *null*.
-            1. Set the Realm of _moduleContext_ to _module_.[[Realm]].
-            1. Set the ScriptOrModule of _moduleContext_ to _module_.
             1. Assert: _module_ has been linked and declarations in its module environment have been instantiated.
-            1. Set the VariableEnvironment of _moduleContext_ to _module_.[[Environment]].
-            1. Set the LexicalEnvironment of _moduleContext_ to _module_.[[Environment]].
-            1. Suspend the running execution context.
+            1. Let _moduleContext_ be _module_.[[Context]].
             1. <ins>Let _moduleContextMapping_ be a new empty list.</ins>
             1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_moduleContextMapping_).</ins>
             1. If _module_.[[HasTLA]] is *false*, then
               1. Assert: _capability_ is not present.
+              1. Let _env_ be _module_.[[Environment]].
+              1. Suspend the running execution context.
               1. Push _moduleContext_ onto the execution context stack; _moduleContext_ is now the running execution context.
               1. Let _result_ be Completion(Evaluation of _module_.[[ECMAScriptCode]]).
+              1. Set _result_ to Completion(DisposeResources(_env_.[[DisposableResourceStack]], _result_)).
               1. Suspend _moduleContext_ and remove it from the execution context stack.
               1. Resume the context that is now on the top of the execution context stack as the running execution context.
               1. <ins>AsyncContextSwap(_previousContextMapping_).</ins>
@@ -370,21 +382,23 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
       <emu-clause id="sec-promisereaction-records">
         <h1>PromiseReaction Records</h1>
-        <p>A <dfn variants="PromiseReaction Records">PromiseReaction Record</dfn> is a Record value used to store information about how a promise should react when it becomes resolved or rejected with a given value. PromiseReaction Records are created by the PerformPromiseThen abstract operation, and are used by the Abstract Closure returned by NewPromiseReactionJob.</p>
+        <p>A <dfn variants="PromiseReaction Records">PromiseReaction Record</dfn> is a Record used to store information about how a promise should react when it becomes resolved or rejected with a given value. PromiseReaction Records are created by the PerformPromiseThen abstract operation, and are used by the Abstract Closure returned by NewPromiseReactionJob.</p>
         <p>PromiseReaction Records have the fields listed in <emu-xref href="#table-promisereaction-record-fields"></emu-xref>.</p>
         <emu-table id="table-promisereaction-record-fields" caption="PromiseReaction Record Fields" oldids="table-58">
           <table>
-            <tr>
-              <th>
-                Field Name
-              </th>
-              <th>
-                Value
-              </th>
-              <th>
-                Meaning
-              </th>
-            </tr>
+            <thead>
+              <tr>
+                <th>
+                  Field Name
+                </th>
+                <th>
+                  Value
+                </th>
+                <th>
+                  Meaning
+                </th>
+              </tr>
+            </thead>
             <tr>
               <td>
                 [[Capability]]
@@ -444,11 +458,22 @@ contributors: Chengzhong Wu, Justin Ridgewell
           <dt>description</dt>
           <dd>It allows host environments to track promise rejections.</dd>
         </dl>
-        <p>An implementation of HostPromiseRejectionTracker must conform to the following requirements:</p>
-        <ul>
-          <li>It must complete normally (i.e. not return an abrupt completion).</li>
-        </ul>
         <p>The default implementation of HostPromiseRejectionTracker is to return ~unused~.</p>
+
+        <emu-note>
+          <p>HostPromiseRejectionTracker is called in two scenarios:</p>
+
+          <ul>
+            <li>When a promise is rejected without any handlers, it is called with its _operation_ argument set to *"reject"*.</li>
+            <li>When a handler is added to a rejected promise for the first time, it is called with its _operation_ argument set to *"handle"*.</li>
+          </ul>
+
+          <p>A typical implementation of HostPromiseRejectionTracker might try to notify developers of unhandled rejections, while also being careful to notify them if such previous notifications are later invalidated by new handlers being attached.</p>
+        </emu-note>
+
+        <emu-note>
+          <p>If _operation_ is *"handle"*, an implementation should not hold a reference to _promise_ in a way that would interfere with garbage collection. An implementation may hold a reference to _promise_ if _operation_ is *"reject"*, since it is expected that rejections will be rare and not on hot code paths.</p>
+        </emu-note>
 
         <ins class="block">
           <emu-note>
@@ -469,7 +494,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <h1>
           NewPromiseReactionJob (
             _reaction_: a PromiseReaction Record,
-            _argument_: an ECMAScript language value,
+            _arg_: an ECMAScript language value,
           ): a Record with fields [[Job]] (a Job Abstract Closure) and [[Realm]] (a Realm Record or *null*)
         </h1>
         <dl class="header">
@@ -477,19 +502,19 @@ contributors: Chengzhong Wu, Justin Ridgewell
           <dd>It returns a new Job Abstract Closure that applies the appropriate handler to the incoming value, and uses the handler's return value to resolve or reject the derived promise associated with that handler.</dd>
         </dl>
         <emu-alg>
-          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _reaction_ and _argument_ and performs the following steps when called:
+          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _reaction_ and _arg_ and performs the following steps when called:
             1. Let _promiseCapability_ be _reaction_.[[Capability]].
             1. Let _type_ be _reaction_.[[Type]].
             1. Let _handler_ be _reaction_.[[Handler]].
             1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_reaction_.[[PromiseAsyncContextMapping]]).</ins>
             1. If _handler_ is ~empty~, then
               1. If _type_ is ~fulfill~, then
-                1. let _handlerResult_ be NormalCompletion(_argument_).
+                1. Let _handlerResult_ be NormalCompletion(_arg_).
               1. Else,
                 1. Assert: _type_ is ~reject~.
-                1. Let _handlerResult_ be ThrowCompletion(_argument_).
+                1. Let _handlerResult_ be ThrowCompletion(_arg_).
             1. Else,
-              1. let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _argument_ »)).
+              1. Let _handlerResult_ be Completion(HostCallJobCallback(_handler_, *undefined*, « _arg_ »)).
             1. If _promiseCapability_ is *undefined*, then
               1. Assert: _handlerResult_ is not an abrupt completion.
               1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
@@ -498,8 +523,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
             1. If _handlerResult_ is an abrupt completion, then
               1. <del>Return ? Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »).</del>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Reject]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
-            1. Else,
-              1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
+            1. <del>Return ? Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »).</del>
+            1. <ins>Else,</ins>
               1. <ins>Let _resolvingFunctionResult_ be Completion(Call(_promiseCapability_.[[Resolve]], *undefined*, « _handlerResult_.[[Value]] »)).</ins>
             1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
             1. <ins>Return _resolvingFunctionResult_.</ins>
@@ -525,17 +550,17 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </dl>
         <emu-alg>
           1. <ins>Let _mapping_ be AsyncContextSnapshot().</ins>
-          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, _then_, <ins>and _mapping_</ins> and performs the following steps when called:
-            1. Let _resolvingFunctions_ be CreateResolvingFunctions(_promiseToResolve_).
+          1. Let _job_ be a new Job Abstract Closure with no parameters that captures _promiseToResolve_, _thenable_, <del>and</del> _then_<ins>, and _mapping_</ins> and performs the following steps when called:
+            1. Let _resolvingFuncs_ be CreateResolvingFunctions(_promiseToResolve_).
             1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_mapping_).</ins>
-            1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFunctions_.[[Resolve]], _resolvingFunctions_.[[Reject]] »)).
+            1. Let _thenCallResult_ be Completion(HostCallJobCallback(_then_, _thenable_, « _resolvingFuncs_.[[Resolve]], _resolvingFuncs_.[[Reject]] »)).
             1. If _thenCallResult_ is an abrupt completion, then
-              1. <del>Return ? Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
-              1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFunctions_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
+              1. <del>Return ? Call(_resolvingFuncs_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »).</del>
+              1. <ins>Let _rejectResult_ be Completion(Call(_resolvingFuncs_.[[Reject]], *undefined*, « _thenCallResult_.[[Value]] »)).</ins>
               1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
               1. <ins>Return _rejectResult_.</ins>
             1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
-            1. Return ? _thenCallResult_.
+            1. Return ! _thenCallResult_.
           1. Let _getThenRealmResult_ be Completion(GetFunctionRealm(_then_.[[Callback]])).
           1. If _getThenRealmResult_ is a normal completion, let _thenRealm_ be _getThenRealmResult_.[[Value]].
           1. Else, let _thenRealm_ be the current Realm Record.
@@ -558,14 +583,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <li>does not have a [[PromiseState]] internal slot or any of the other internal slots of Promise instances.</li>
       </ul>
 
-      <emu-clause id="sec-promise.prototype.then">
+      <emu-clause id="sec-promise.prototype.then" type="built-in function">
         <h1>Promise.prototype.then ( _onFulfilled_, _onRejected_ )</h1>
         <p>This method performs the following steps when called:</p>
         <emu-alg>
           1. Let _promise_ be the *this* value.
           1. If IsPromise(_promise_) is *false*, throw a *TypeError* exception.
-          1. Let _C_ be ? SpeciesConstructor(_promise_, %Promise%).
-          1. Let _resultCapability_ be ? NewPromiseCapability(_C_).
+          1. Let _ctor_ be ? SpeciesConstructor(_promise_, %Promise%).
+          1. Let _resultCapability_ be ? NewPromiseCapability(_ctor_).
           1. Return PerformPromiseThen(_promise_, _onFulfilled_, _onRejected_, _resultCapability_).
         </emu-alg>
 
@@ -576,7 +601,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               _onFulfilled_: an ECMAScript language value,
               _onRejected_: an ECMAScript language value,
               optional _resultCapability_: a PromiseCapability Record,
-            ): an ECMAScript language value
+            ): an Object or *undefined*
           </h1>
           <dl class="header">
             <dt>description</dt>
@@ -605,16 +630,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. Let _fulfillJob_ be NewPromiseReactionJob(_fulfillReaction_, _value_).
               1. Perform HostEnqueuePromiseJob(_fulfillJob_.[[Job]], _fulfillJob_.[[Realm]]).
             1. Else,
-              1. Assert: The value of _promise_.[[PromiseState]] is ~rejected~.
+              1. Assert: _promise_.[[PromiseState]] is ~rejected~.
               1. Let _reason_ be _promise_.[[PromiseResult]].
               1. If _promise_.[[PromiseIsHandled]] is *false*, perform HostPromiseRejectionTracker(_promise_, *"handle"*).
               1. Let _rejectJob_ be NewPromiseReactionJob(_rejectReaction_, _reason_).
               1. Perform HostEnqueuePromiseJob(_rejectJob_.[[Job]], _rejectJob_.[[Realm]]).
             1. Set _promise_.[[PromiseIsHandled]] to *true*.
-            1. If _resultCapability_ is *undefined*, then
-              1. Return *undefined*.
-            1. Else,
-              1. Return _resultCapability_.[[Promise]].
+            1. If _resultCapability_ is *undefined*, return *undefined*.
+            1. Return _resultCapability_.[[Promise]].
           </emu-alg>
         </emu-clause>
       </emu-clause>
@@ -630,42 +653,44 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-generatorstart" type="abstract operation">
         <h1>
           GeneratorStart (
-            _generator_: a Generator,
-            _generatorBody_: a |FunctionBody| Parse Node or an Abstract Closure with no parameters,
+            _gen_: a Generator,
+            _genBody_: a |FunctionBody| Parse Node or an Abstract Closure with no parameters,
           ): ~unused~
         </h1>
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Assert: The value of _generator_.[[GeneratorState]] is *undefined*.
+          1. Assert: _gen_.[[GeneratorState]] is ~suspended-start~.
           1. Let _genContext_ be the running execution context.
-          1. Set the Generator component of _genContext_ to _generator_.
-          1. <ins>Let _generatorAsyncContextMapping_ be AsyncContextSnapshot().</ins>
-          1. Let _closure_ be a new Abstract Closure with no parameters that captures _generatorBody_ <ins>and _generatorAsyncContextMapping_,</ins> and performs the following steps when called:
+          1. Set the Generator component of _genContext_ to _gen_.
+          1. <ins>Let _genAsyncContextMapping_ be AsyncContextSnapshot().</ins>
+          1. Let _closure_ be a new Abstract Closure with no parameters that captures _genBody_ <ins>and _genAsyncContextMapping_</ins> and performs the following steps when called:
             1. Let _acGenContext_ be the running execution context.
-            1. Let _acGenerator_ be the Generator component of _acGenContext_.
-            1. If _generatorBody_ is a Parse Node, then
-              1. <ins>Let _callerAsyncContextMapping_ be AsyncContextSwap(_generatorAsyncContextMapping_).</ins>
-              1. Let _result_ be Completion(Evaluation of _generatorBody_).
+            1. Let _acGen_ be the Generator component of _acGenContext_.
+            1. If _genBody_ is a Parse Node, then
+              1. <ins>Let _callerAsyncContextMapping_ be AsyncContextSwap(_genAsyncContextMapping_).</ins>
+              1. Let _result_ be Completion(Evaluation of _genBody_).
               1. <ins>Perform AsyncContextSwap(_callerAsyncContextMapping_).</ins>
             1. Else,
-              1. Assert: _generatorBody_ is an Abstract Closure with no parameters.
-              1. Let _result_ be _generatorBody_().
+              1. Assert: _genBody_ is an Abstract Closure with no parameters.
+              1. Let _result_ be Completion(_genBody_()).
             1. Assert: If we return here, the generator either threw an exception or performed either an implicit or explicit return.
             1. Remove _acGenContext_ from the execution context stack and restore the execution context that is at the top of the execution context stack as the running execution context.
-            1. Set _acGenerator_.[[GeneratorState]] to ~completed~.
-            1. NOTE: Once a generator enters the ~completed~ state it never leaves it and its associated execution context is never resumed. Any execution state associated with _acGenerator_ can be discarded at this point.
-            1. If _result_.[[Type]] is ~normal~, then
-              1. Let _resultValue_ be *undefined*.
-            1. Else if _result_.[[Type]] is ~return~, then
-              1. Let _resultValue_ be _result_.[[Value]].
+            1. Set _acGen_.[[GeneratorState]] to ~completed~.
+            1. NOTE: Once a generator enters the ~completed~ state it never leaves it and its associated execution context is never resumed. Any execution state associated with _acGen_ can be discarded at this point.
+            1. If _result_ is a throw completion, then
+              1. Let _resumption_ be _result_.
             1. Else,
-              1. Assert: _result_.[[Type]] is ~throw~.
-              1. Return ? _result_.
-            1. Return CreateIteratorResultObject(_resultValue_, *true*).
+              1. If _result_ is a normal completion, then
+                1. Let _resultValue_ be *undefined*.
+              1. Else if _result_ is a return completion, then
+                1. Let _resultValue_ be _result_.[[Value]].
+              1. Let _resumption_ be NormalCompletion(CreateIteratorResultObject(_resultValue_, *true*)).
+            1. Let _callerContext_ be the running execution context.
+            1. Resume _callerContext_, passing _resumption_.
+            1. Assert: This step is never reached.
           1. Set the code evaluation state of _genContext_ such that when evaluation is resumed for that execution context, _closure_ will be called with no arguments.
-          1. Set _generator_.[[GeneratorContext]] to _genContext_.
-          1. Set _generator_.[[GeneratorState]] to ~suspended-start~.
+          1. Set _gen_.[[GeneratorContext]] to _genContext_.
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -673,61 +698,55 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-generatorresume" type="abstract operation">
         <h1>
           GeneratorResume (
-            _generator_: an ECMAScript language value,
+            _gen_: an ECMAScript language value,
             _value_: an ECMAScript language value or ~empty~,
-            _generatorBrand_: a String or ~empty~,
+            _genBrand_: a String or ~empty~,
           ): either a normal completion containing an ECMAScript language value or a throw completion
         </h1>
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Let _state_ be ? GeneratorValidate(_generator_, _generatorBrand_).
+          1. Let _state_ be ? GeneratorValidate(_gen_, _genBrand_).
           1. If _state_ is ~completed~, return CreateIteratorResultObject(*undefined*, *true*).
           1. Assert: _state_ is either ~suspended-start~ or ~suspended-yield~.
-          1. Let _genContext_ be _generator_.[[GeneratorContext]].
-          1. Let _methodContext_ be the running execution context.
-          1. Suspend _methodContext_.
-          1. Set _generator_.[[GeneratorState]] to ~executing~.
+          1. Let _genContext_ be _gen_.[[GeneratorContext]].
+          1. Set _gen_.[[GeneratorState]] to ~executing~.
           1. <ins>Let _previousContextMapping_ be AsyncContextSnapshot().</ins>
-          1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
-          1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using NormalCompletion(_value_) as the result of the operation that suspended it. Let _result_ be the value returned by the resumed computation.
-          1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
+          1. <del>Return ? RunSuspendedContext(_genContext_, NormalCompletion(_value_)).</del>
+          1. <ins>Let _result_ be Completion(RunSuspendedContext(_genContext_, NormalCompletion(_value_))).</ins>
           1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
-          1. Return ? _result_.
+          1. <ins>Return ? _result_.</ins>
         </emu-alg>
       </emu-clause>
 
       <emu-clause id="sec-generatorresumeabrupt" type="abstract operation">
         <h1>
           GeneratorResumeAbrupt (
-            _generator_: an ECMAScript language value,
+            _gen_: an ECMAScript language value,
             _abruptCompletion_: a return completion or a throw completion,
-            _generatorBrand_: a String or ~empty~,
+            _genBrand_: a String or ~empty~,
           ): either a normal completion containing an ECMAScript language value or a throw completion
         </h1>
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Let _state_ be ? GeneratorValidate(_generator_, _generatorBrand_).
+          1. Let _state_ be ? GeneratorValidate(_gen_, _genBrand_).
           1. If _state_ is ~suspended-start~, then
-            1. Set _generator_.[[GeneratorState]] to ~completed~.
-            1. NOTE: Once a generator enters the ~completed~ state it never leaves it and its associated execution context is never resumed. Any execution state associated with _generator_ can be discarded at this point.
+            1. Set _gen_.[[GeneratorState]] to ~completed~.
+            1. NOTE: Once a generator enters the ~completed~ state it never leaves it and its associated execution context is never resumed. Any execution state associated with _gen_ can be discarded at this point.
             1. Set _state_ to ~completed~.
           1. If _state_ is ~completed~, then
-            1. If _abruptCompletion_.[[Type]] is ~return~, then
+            1. If _abruptCompletion_ is a return completion, then
               1. Return CreateIteratorResultObject(_abruptCompletion_.[[Value]], *true*).
             1. Return ? _abruptCompletion_.
           1. Assert: _state_ is ~suspended-yield~.
-          1. Let _genContext_ be _generator_.[[GeneratorContext]].
-          1. Let _methodContext_ be the running execution context.
-          1. Suspend _methodContext_.
-          1. Set _generator_.[[GeneratorState]] to ~executing~.
+          1. Let _genContext_ be _gen_.[[GeneratorContext]].
+          1. Set _gen_.[[GeneratorState]] to ~executing~.
           1. <ins>Let _previousContextMapping_ be AsyncContextSnapshot().</ins>
-          1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
-          1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _abruptCompletion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
-          1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _methodContext_ is the currently running execution context.
+          1. <del>Return ? RunSuspendedContext(_genContext_, _abruptCompletion_).</del>
+          1. <ins>Let _result_ be Completion(RunSuspendedContext(_genContext_, _abruptCompletion_)).</ins>
           1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
-          1. Return ? _result_.
+          1. <ins>Return ? _result_.</ins>
         </emu-alg>
       </emu-clause>
     </emu-clause>
@@ -742,39 +761,40 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asyncgeneratorstart" type="abstract operation">
         <h1>
           AsyncGeneratorStart (
-            _generator_: an AsyncGenerator,
-            _generatorBody_: a |FunctionBody| Parse Node or an Abstract Closure with no parameters,
+            _gen_: an AsyncGenerator,
+            _genBody_: a |FunctionBody| Parse Node or an Abstract Closure with no parameters,
           ): ~unused~
         </h1>
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Assert: _generator_.[[AsyncGeneratorState]] is *undefined*.
+          1. Assert: _gen_.[[AsyncGeneratorState]] is ~suspended-start~.
           1. Let _genContext_ be the running execution context.
-          1. Set the Generator component of _genContext_ to _generator_.
-          1. <ins>Let _generatorAsyncContextMapping_ be AsyncContextSnapshot().</ins>
-          1. Let _closure_ be a new Abstract Closure with no parameters that captures _generatorBody_ <ins>and _generatorAsyncContextMapping_,</ins> and performs the following steps when called:
+          1. Set the Generator component of _genContext_ to _gen_.
+          1. <ins>Let _genAsyncContextMapping_ be AsyncContextSnapshot().</ins>
+          1. Let _closure_ be a new Abstract Closure with no parameters that captures _genBody_ <ins>and _genAsyncContextMapping_</ins> and performs the following steps when called:
             1. Let _acGenContext_ be the running execution context.
-            1. Let _acGenerator_ be the Generator component of _acGenContext_.
-            1. If _generatorBody_ is a Parse Node, then
-              1. <ins>Let _callerAsyncContextMapping_ be AsyncContextSwap(_generatorAsyncContextMapping_).</ins>
-              1. Let _result_ be Completion(Evaluation of _generatorBody_).
+            1. Let _acGen_ be the Generator component of _acGenContext_.
+            1. If _genBody_ is a Parse Node, then
+              1. <ins>Let _callerAsyncContextMapping_ be AsyncContextSwap(_genAsyncContextMapping_).</ins>
+              1. Let _result_ be Completion(Evaluation of _genBody_).
               1. <ins>Perform AsyncContextSwap(_callerAsyncContextMapping_).</ins>
             1. Else,
-              1. Assert: _generatorBody_ is an Abstract Closure with no parameters.
-              1. Let _result_ be Completion(_generatorBody_()).
+              1. Assert: _genBody_ is an Abstract Closure with no parameters.
+              1. Let _result_ be Completion(_genBody_()).
             1. Assert: If we return here, the async generator either threw an exception or performed either an implicit or explicit return.
             1. Remove _acGenContext_ from the execution context stack and restore the execution context that is at the top of the execution context stack as the running execution context.
-            1. Set _acGenerator_.[[AsyncGeneratorState]] to ~completed~.
-            1. If _result_.[[Type]] is ~normal~, set _result_ to NormalCompletion(*undefined*).
-            1. If _result_.[[Type]] is ~return~, set _result_ to NormalCompletion(_result_.[[Value]]).
-            1. Perform AsyncGeneratorCompleteStep(_acGenerator_, _result_, *true*).
-            1. Perform AsyncGeneratorDrainQueue(_acGenerator_).
-            1. Return *undefined*.
+            1. Set _acGen_.[[AsyncGeneratorState]] to ~draining-queue~.
+            1. If _result_ is a normal completion, set _result_ to NormalCompletion(*undefined*).
+            1. If _result_ is a return completion, set _result_ to NormalCompletion(_result_.[[Value]]).
+            1. Perform AsyncGeneratorCompleteStep(_acGen_, _result_, *true*).
+            1. Perform AsyncGeneratorDrainQueue(_acGen_).
+            1. Let _callerContext_ be the running execution context.
+            1. Resume _callerContext_, passing NormalCompletion(*undefined*).
+            1. Assert: This step is never reached.
           1. Set the code evaluation state of _genContext_ such that when evaluation is resumed for that execution context, _closure_ will be called with no arguments.
-          1. Set _generator_.[[AsyncGeneratorContext]] to _genContext_.
-          1. Set _generator_.[[AsyncGeneratorState]] to ~suspended-start~.
-          1. Set _generator_.[[AsyncGeneratorQueue]] to a new empty List.
+          1. Set _gen_.[[AsyncGeneratorContext]] to _genContext_.
+          1. Set _gen_.[[AsyncGeneratorQueue]] to a new empty List.
           1. Return ~unused~.
         </emu-alg>
       </emu-clause>
@@ -782,23 +802,18 @@ contributors: Chengzhong Wu, Justin Ridgewell
       <emu-clause id="sec-asyncgeneratorresume" type="abstract operation">
         <h1>
           AsyncGeneratorResume (
-            _generator_: an AsyncGenerator,
+            _gen_: an AsyncGenerator,
             _completion_: a Completion Record,
           ): ~unused~
         </h1>
         <dl class="header">
         </dl>
         <emu-alg>
-          1. Assert: _generator_.[[AsyncGeneratorState]] is either ~suspended-start~ or ~suspended-yield~.
-          1. Let _genContext_ be _generator_.[[AsyncGeneratorContext]].
-          1. Let _callerContext_ be the running execution context.
-          1. Suspend _callerContext_.
-          1. Set _generator_.[[AsyncGeneratorState]] to ~executing~.
-          1. <ins>Let _previousContextMapping_ be AsyncContextSwap(_generator_.[[AsyncGeneratorAsyncContextMapping]]).</ins>
-          1. Push _genContext_ onto the execution context stack; _genContext_ is now the running execution context.
-          1. <emu-meta effects="user-code">Resume the suspended evaluation of _genContext_</emu-meta> using _completion_ as the result of the operation that suspended it. Let _result_ be the Completion Record returned by the resumed computation.
-          1. Assert: _result_ is never an abrupt completion.
-          1. Assert: When we return here, _genContext_ has already been removed from the execution context stack and _callerContext_ is the currently running execution context.
+          1. Assert: _gen_.[[AsyncGeneratorState]] is either ~suspended-start~ or ~suspended-yield~.
+          1. Let _genContext_ be _gen_.[[AsyncGeneratorContext]].
+          1. Set _gen_.[[AsyncGeneratorState]] to ~executing~.
+          1. <ins>Let _previousContextMapping_ be AsyncContextSnapshot().</ins>
+          1. Perform ! RunSuspendedContext(_genContext_, _completion_).
           1. <ins>Perform AsyncContextSwap(_previousContextMapping_).</ins>
           1. Return ~unused~.
         </emu-alg>
@@ -893,9 +908,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <emu-clause id="sec-value-properties-of-the-asynccontext-object">
       <h1>Value Properties of the AsyncContext Object</h1>
 
-      <emu-clause id="sec-asynccontext-@@tostringtag">
-        <h1>AsyncContext [ @@toStringTag ]</h1>
-        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext"*.</p>
+      <emu-clause oldids="sec-asynccontext-@@tostringtag" id="sec-asynccontext-%symbol.tostringtag%">
+        <h1>AsyncContext [ %Symbol.toStringTag% ]</h1>
+        <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
@@ -995,9 +1010,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynccontext-snapshot.prototype-@@tostringtag">
-        <h1>AsyncContext.Snapshot.prototype [ @@toStringTag ]</h1>
-        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext.Snapshot"*.</p>
+      <emu-clause oldids="sec-asynccontext-snapshot.prototype-@@tostringtag" id="sec-asynccontext-snapshot.prototype-%symbol.tostringtag%">
+        <h1>AsyncContext.Snapshot.prototype [ %Symbol.toStringTag% ]</h1>
+        <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext.Snapshot"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
@@ -1147,9 +1162,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
         </emu-alg>
       </emu-clause>
 
-      <emu-clause id="sec-asynccontext-variable.prototype-@@tostringtag">
-        <h1>AsyncContext.Variable.prototype [ @@toStringTag ]</h1>
-        <p>The initial value of the @@toStringTag property is the String value *"AsyncContext.Variable"*.</p>
+      <emu-clause oldids="sec-asynccontext-variable.prototype-@@tostringtag" id="sec-asynccontext-variable.prototype-%symbol.tostringtag%">
+        <h1>AsyncContext.Variable.prototype [ %Symbol.toStringTag% ]</h1>
+        <p>The initial value of the %Symbol.toStringTag% property is the String value *"AsyncContext.Variable"*.</p>
         <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
       </emu-clause>
     </emu-clause>
@@ -1222,19 +1237,19 @@ contributors: Chengzhong Wu, Justin Ridgewell
           is not intended to be called as a function and will throw an exception when called in that manner.
         </li>
         <li>
-          may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `FinalizationRegistry` behaviour must include a `super` call to the `FinalizationRegistry` constructor to create and initialize the subclass instance with the internal state necessary to support the `FinalizationRegistry.prototype` built-in methods.
+          may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified `FinalizationRegistry` behaviour must include a `super` call to the `FinalizationRegistry` constructor to create and initialize the subclass instance with the internal state necessary to support the built-in methods of `FinalizationRegistry.prototype`.
         </li>
       </ul>
 
-      <emu-clause id="sec-finalization-registry-cleanup-callback">
+      <emu-clause id="sec-finalization-registry-cleanup-callback" type="built-in function">
         <h1>FinalizationRegistry ( _cleanupCallback_ )</h1>
         <p>This function performs the following steps when called:</p>
         <emu-alg>
           1. If NewTarget is *undefined*, throw a *TypeError* exception.
           1. If IsCallable(_cleanupCallback_) is *false*, throw a *TypeError* exception.
-          1. Let _finalizationRegistry_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%FinalizationRegistry.prototype%"*, « [[Realm]], [[CleanupCallback]], [[Cells]], [[FinalizationRegistryAsyncContextMapping]] »).
-          1. Let _fn_ be the active function object.
-          1. Set _finalizationRegistry_.[[Realm]] to _fn_.[[Realm]].
+          1. Let _finalizationRegistry_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%FinalizationRegistry.prototype%"*, « [[Realm]], [[CleanupCallback]], [[Cells]]<ins>, [[FinalizationRegistryAsyncContextMapping]]</ins> »).
+          1. Let _activeFunc_ be the active function object.
+          1. Set _finalizationRegistry_.[[Realm]] to _activeFunc_.[[Realm]].
           1. Set _finalizationRegistry_.[[CleanupCallback]] to HostMakeJobCallback(_cleanupCallback_).
           1. Set _finalizationRegistry_.[[Cells]] to a new empty List.
           1. <ins>Set _finalizationRegistry_.[[FinalizationRegistryAsyncContextMapping]] to AsyncContextSnapshot().</ins>
