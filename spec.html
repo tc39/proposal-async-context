@@ -420,11 +420,57 @@ contributors: Chengzhong Wu, Justin Ridgewell
                 <ins>an Async Context Mapping</ins>
               </td>
               <td>
-                <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value.</ins>
+                <ins>The Async Context Mapping that was active when the promise reaction was registered.</ins>
               </td>
             </tr>
           </table>
         </emu-table>
+      </emu-clause>
+
+      <emu-clause id="sec-fulfillpromise" type="abstract operation">
+        <h1>
+          FulfillPromise (
+            _promise_: a Promise,
+            _value_: an ECMAScript language value,
+          ): ~unused~
+        </h1>
+        <dl class="header">
+        </dl>
+        <emu-alg>
+          1. Assert: _promise_.[[PromiseState]] is ~pending~.
+          1. Let _reactions_ be _promise_.[[PromiseFulfillReactions]].
+          1. Set _promise_.[[PromiseResult]] to _value_.
+          1. Set _promise_.[[PromiseFulfillReactions]] to *undefined*.
+          1. Set _promise_.[[PromiseRejectReactions]] to *undefined*.
+          1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
+          1. Set _promise_.[[PromiseState]] to ~fulfilled~.
+          1. Perform TriggerPromiseReactions(_reactions_, _value_).
+          1. Return ~unused~.
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-rejectpromise" type="abstract operation">
+        <h1>
+          RejectPromise (
+            _promise_: a Promise,
+            _reason_: an ECMAScript language value,
+          ): ~unused~
+        </h1>
+        <dl class="header">
+        </dl>
+        <emu-alg>
+          1. Assert: _promise_.[[PromiseState]] is ~pending~.
+          1. Let _reactions_ be _promise_.[[PromiseRejectReactions]].
+          1. <ins>Let _mapping_ be _promise_.[[PromiseCreationAsyncContextMapping]].</ins>
+          1. Set _promise_.[[PromiseResult]] to _reason_.
+          1. Set _promise_.[[PromiseFulfillReactions]] to *undefined*.
+          1. Set _promise_.[[PromiseRejectReactions]] to *undefined*.
+          1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
+          1. Set _promise_.[[PromiseState]] to ~rejected~.
+          1. If _promise_.[[PromiseIsHandled]] is *false*, perform HostPromiseRejectionTracker(_promise_, *"reject"*<ins>, _mapping_</ins>).
+          1. Perform TriggerPromiseReactions(_reactions_, _reason_).
+          1. Return ~unused~.
+        </emu-alg>
       </emu-clause>
 
       <emu-clause id="sec-host-promise-rejection-tracker" type="host-defined abstract operation">
@@ -432,6 +478,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           HostPromiseRejectionTracker (
             _promise_: a Promise,
             _operation_: *"reject"* or *"handle"*,
+            <ins>optional _creationAsyncContextMapping_: an Async Context Mapping,</ins>
           ): ~unused~
         </h1>
         <dl class="header">
@@ -444,7 +491,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           <p>HostPromiseRejectionTracker is called in two scenarios:</p>
 
           <ul>
-            <li>When a promise is rejected without any handlers, it is called with its _operation_ argument set to *"reject"*.</li>
+            <li>When a promise is rejected without any handlers, it is called with its _operation_ argument set to *"reject"*<ins> and its _creationAsyncContextMapping_ argument set to the Async Context Mapping that was current when _promise_ was created</ins>.</li>
             <li>When a handler is added to a rejected promise for the first time, it is called with its _operation_ argument set to *"handle"*.</li>
           </ul>
 
@@ -454,17 +501,6 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-note>
           <p>If _operation_ is *"handle"*, an implementation should not hold a reference to _promise_ in a way that would interfere with garbage collection. An implementation may hold a reference to _promise_ if _operation_ is *"reject"*, since it is expected that rejections will be rare and not on hot code paths.</p>
         </emu-note>
-
-        <ins class="block">
-          <emu-note>
-            <p>An implementation of HostPromiseRejectionTracker that delays notifying developers of unhandled rejections must conform to the following requirements</p>
-            <ul>
-              <li>It must perform AsyncContextSnapshot() at the call of HostPromiseRejectionTracker,</li>
-              <li>It must perform AsyncContextSwap before the event notification, with the result of the AsyncContextSnapshot operation,</li>
-              <li>It must perform AsyncContextSwap after the event notification, with the result of the earlier AsyncContextSwap operation.</li>
-            </ul>
-          </emu-note>
-        </ins>
       </emu-clause>
     </emu-clause>
 
@@ -553,6 +589,45 @@ contributors: Chengzhong Wu, Justin Ridgewell
       </emu-clause>
     </emu-clause>
 
+    <emu-clause id="sec-promise-constructor">
+      <h1>The Promise Constructor</h1>
+      <p>The Promise constructor:</p>
+      <ul>
+        <li>is <dfn>%Promise%</dfn>.</li>
+        <li>is the initial value of the *"Promise"* property of the global object.</li>
+        <li>creates and initializes a new Promise when called as a constructor.</li>
+        <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
+        <li>may be used as the value in an `extends` clause of a class definition. Subclass constructors that intend to inherit the specified Promise behaviour must include a `super` call to the Promise constructor to create and initialize the subclass instance with the internal state necessary to support the built-in methods of `Promise` and `Promise.prototype`.</li>
+      </ul>
+
+      <emu-clause id="sec-promise-executor" type="built-in function">
+        <h1>Promise ( _executor_ )</h1>
+        <p>This function performs the following steps when called:</p>
+        <emu-alg>
+          1. If NewTarget is *undefined*, throw a *TypeError* exception.
+          1. If IsCallable(_executor_) is *false*, throw a *TypeError* exception.
+          1. Let _promise_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Promise.prototype%"*, « [[PromiseState]], [[PromiseResult]], [[PromiseFulfillReactions]], [[PromiseRejectReactions]], [[PromiseIsHandled]]<ins>, [[PromiseCreationAsyncContextMapping]]</ins> »).
+          1. Set _promise_.[[PromiseState]] to ~pending~.
+          1. Set _promise_.[[PromiseResult]] to ~empty~.
+          1. Set _promise_.[[PromiseFulfillReactions]] to a new empty List.
+          1. Set _promise_.[[PromiseRejectReactions]] to a new empty List.
+          1. Set _promise_.[[PromiseIsHandled]] to *false*.
+          1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to AsyncContextSnapshot().</ins>
+          1. Let _resolvingFuncs_ be CreateResolvingFunctions(_promise_).
+          1. Let _completion_ be Completion(Call(_executor_, *undefined*, « _resolvingFuncs_.[[Resolve]], _resolvingFuncs_.[[Reject]] »)).
+          1. If _completion_ is an abrupt completion, then
+            1. Perform ? Call(_resolvingFuncs_.[[Reject]], *undefined*, « _completion_.[[Value]] »).
+          1. Return _promise_.
+        </emu-alg>
+        <emu-note>
+          <p>The _executor_ argument must be a function object. It is called for initiating and reporting completion of the possibly deferred action represented by this Promise. The executor is called with two arguments: _resolve_ and _reject_. These are functions that may be used by the _executor_ function to report eventual completion or failure of the deferred computation. Returning from the executor function does not mean that the deferred action has been completed but only that the request to eventually perform the deferred action has been accepted.</p>
+          <p>The _resolve_ function that is passed to an _executor_ function accepts a single argument. The _executor_ code may eventually call the _resolve_ function to indicate that it wishes to resolve the associated Promise. The argument passed to the _resolve_ function represents the eventual value of the deferred action and can be either the actual fulfillment value or another promise which will provide the value if it is fulfilled.</p>
+          <p>The _reject_ function that is passed to an _executor_ function accepts a single argument. The _executor_ code may eventually call the _reject_ function to indicate that the associated Promise is rejected and will never be fulfilled. The argument passed to the _reject_ function is used as the rejection value of the promise. Typically it will be an Error object.</p>
+          <p>The resolve and reject functions passed to an _executor_ function by the Promise constructor have the capability to actually resolve and reject the associated promise. Subclasses may have different constructor behaviour that passes in customized values for resolve and reject.</p>
+        </emu-note>
+      </emu-clause>
+    </emu-clause>
+
     <emu-clause id="sec-properties-of-the-promise-prototype-object">
       <h1>Properties of the Promise Prototype Object</h1>
       <p>The <dfn>Promise prototype object</dfn>:</p>
@@ -621,6 +696,94 @@ contributors: Chengzhong Wu, Justin Ridgewell
           </emu-alg>
         </emu-clause>
       </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-properties-of-promise-instances">
+      <h1>Properties of Promise Instances</h1>
+      <p>Promise instances are ordinary objects that inherit properties from the Promise prototype object (the intrinsic, %Promise.prototype%). Promise instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-promise-instances"></emu-xref>.</p>
+      <emu-table id="table-internal-slots-of-promise-instances" caption="Internal Slots of Promise Instances" oldids="table-59">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                Internal Slot
+              </th>
+              <th>
+                Type
+              </th>
+              <th>
+                Description
+              </th>
+            </tr>
+          </thead>
+          <tr>
+            <td>
+              [[PromiseState]]
+            </td>
+            <td>
+              ~pending~, ~fulfilled~, or ~rejected~
+            </td>
+            <td>
+              Governs how a promise will react to incoming calls to its `then` method.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[PromiseResult]]
+            </td>
+            <td>
+              an ECMAScript language value or ~empty~
+            </td>
+            <td>
+              The value with which the promise has been fulfilled or rejected, if any. ~empty~ if and only if the [[PromiseState]] is ~pending~.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[PromiseFulfillReactions]]
+            </td>
+            <td>
+              a List of PromiseReaction Records
+            </td>
+            <td>
+              Records to be processed when/if the promise transitions from the ~pending~ state to the ~fulfilled~ state.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[PromiseRejectReactions]]
+            </td>
+            <td>
+              a List of PromiseReaction Records
+            </td>
+            <td>
+              Records to be processed when/if the promise transitions from the ~pending~ state to the ~rejected~ state.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[PromiseIsHandled]]
+            </td>
+            <td>
+              a Boolean
+            </td>
+            <td>
+              Indicates whether the promise has ever had a fulfillment or rejection handler; used in unhandled rejection tracking.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <ins>[[PromiseCreationAsyncContextMapping]]</ins>
+            </td>
+            <td>
+              <ins>an Async Context Mapping or ~empty~</ins>
+            </td>
+            <td>
+              <ins>While the promise is pending, the Async Context Mapping that was current when the promise was created. Once the promise settles it's set to ~empty~.</ins>
+            </td>
+          </tr>
+        </table>
+      </emu-table>
     </emu-clause>
   </emu-clause>
 
