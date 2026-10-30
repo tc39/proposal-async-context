@@ -51,9 +51,6 @@ When [processing the `iframe` attributes](https://html.spec.whatwg.org/#process-
 
 Note that the captured context is not used for events fired inside the `iframe` as a consequence of the navigation, and no context is captured by navigations caused inside the `iframe`.
 
-> [!NOTE]
-> **QUESTION:** Does this actually work? The `load` event is fired for all navigations inside the `iframe`, regardless of how they are triggered (e.g. also if inside the iframe it does `location.href = ...`). Can we distinguish what caused the iframe to navigate when the event is fired?
-
 ### 16.3.2 - Frames
 When [processing the `frame` attributes](https://html.spec.whatwg.org/#process-the-iframe-attributes), which can happen due to changes to its `src` attribute or due to [it being inserted](https://html.spec.whatwg.org/#frames:html-element-insertion-steps), the user agent must:
 - synchronously capture the current AsyncContext, and store it on the `frame` element
@@ -134,9 +131,7 @@ Some the events fired on media elements are part of long-lived processes (e.g. l
 
 There are two possible approaches when it comes to the events fired as part of long-lived processes: one that involves sharing a single AsyncContext snapshot across all of them, and one that separates loading from playing.
 
-> [!NOTE]
-> **TODO:** We need to get more feedback from users and browser developers to pick one
-##### Option 1: Separate long-lived AsyncContext snapshots
+##### Long-lived AsyncContext snapshots
 The media element has two slots for storing long-lived AsyncContext snapshots:
 - the one for *loading* events, used for:
 	- the events related to *network* states (`abort`, `emptied`, `loadstart`, `suspend`, `error`, `progress`, `stalled`)
@@ -152,8 +147,6 @@ When running the [media element load algorithm](https://html.spec.whatwg.org/#me
 - [inserting a `<source>`](https://html.spec.whatwg.org/#the-source-element:html-element-insertion-steps) as a child of the media element
 -  [calling `.pause()` on a media element whose network status is `EMPTY`](https://html.spec.whatwg.org/#dom-media-pause)
 the user agent must synchronously capture the current AsyncContext and store it on the media element as the context for *loading* events.
-> [!NOTE]
-> **QUESTION:** Should the `emptied` and `abort` events fire in the new or old loading context?
 
 When running the [`.play()`](https://html.spec.whatwg.org/#dom-media-play) method of media elements, the user agent must synchronously capture the current AsyncContext and store in on the media element as the context for *playing* events.
 
@@ -166,8 +159,7 @@ When the *ready* state of an element eligible for autoplay [transitions to `ENOU
 > [!NOTE]
 > **tip:** - When setting a new context for *loading* events, the user agent can unobservably clear all the other contexts stored on the media element.
 > - When the media element gets paused, the user agent can unobservably clear the context for *playing* events.
-##### Option 2: Single long-lived AsyncContext snapshot
-On the media element there is a slot, that we can call *principal AsyncContext snapshot*, which stores an AsyncContext snapshot shared both by events related to *loading* and to *playing*. It behaves the same way as in the [Separate long-lived AsyncContext snapshots](#TODO: Link) section, but the context for *loading* events and the one for *playing* events live share the same slot, overwriting each other following a last-wins approach.
+
 ##### Occasional actions
 Each occasional action stores its own AsyncContext snapshot on the media element, which can be cleared once the corresponding events are fired.
 
@@ -315,9 +307,6 @@ When [preparing the script element](https://html.spec.whatwg.org/#prepare-the-sc
 > [!NOTE]
 > **TODO:** ECMAScript modules un run in the empty context, to avoid exposing which of the importers actually caused its execution. Classic scripts do not have the same "raciness": it's do be settled whether we should hide the context, or just let it be present. For synchronous scripts it would be present by default, but we'd need to wire it through for async/deferred ones.
 
-### 4.12 - Custom elements
-
-> [!TODO]
 ### 6.1 - The `hidden` attribute
 The `beforematch` event fired by the [ancestor revealing algorithm](https://html.spec.whatwg.org/#ancestor-revealing-algorithm) is transparent to AsyncContext, because it's fired on separate objects from the one that caused it to happen, thus:
 - runs in the empty context when fired due to user interaction, such us through [find-in-page](https://html.spec.whatwg.org/#find-in-page) or clicking on a link to a fragment
@@ -377,12 +366,10 @@ When [reporting an exception](https://html.spec.whatwg.org/#report-an-exception)
 
 When [notifying about rejected promises](https://html.spec.whatwg.org/#notify-about-rejected-promises), the user agent must fire the `unhandledrejection` event in the empty context.
 
-When running the [`HostPromiseRejectionTracker`](https://html.spec.whatwg.org/#the-hostpromiserejectiontracker-implementation) algorithm, the user agent must fire the `rejectionhandled` event in the empty context.
-
-> [!NOTE]
-> **TODO:** Which context is the most useful on errors is still under discussion, but it will likely not be the one that is available by default. The plan is to expose it as a property of the `ErrorEvent` and `PromiseRejectionEvent` interfaces.
+When running the [`HostPromiseRejectionTracker`](https://html.spec.whatwg.org/#the-hostpromiserejectiontracker-implementation) algorithm, the user agent must fire the `rejectionhandled` event in the empty context. The `ErrorEvent` and `PromiseRejectionEvent` interfaces get an extra property (`uncaughtContext` and `rejectionContext` respectively) that stores the `AsyncContext.Snapshot()` from when the error was last uncaught or the rejected promise was created.
 
 Unless otherwise specified, the user agent must fire events fired by the [window event loop](https://html.spec.whatwg.org/#event-loop-processing-model:window-event-loop-3) (such us `contextlost` and `contextrestored` on canvases) in the empty context.
+
 ### 8.9.2 - Printing
 
 The [printing steps](https://html.spec.whatwg.org/#printing-steps) are transparent to AsyncContext when firing `beforeprint` or `afterprint` events, as `window` is a global singleton. This means that:
@@ -392,6 +379,7 @@ The [printing steps](https://html.spec.whatwg.org/#printing-steps) are transpare
 
 > [!NOTE]
 > **QUESTION:** We might want to make an exception here, and make `window.print()` always propagate so that it is internally consistent?
+
 ### 8.10 - System state and capabilities
 All events fired in this section (`languagechange`, `offline`, `online`) are fired due to external causes on the `window` object. The user agent must fire then in the empty context.
 ### 9.2 - Server-sent events
@@ -405,6 +393,7 @@ When [dispatching a `MessageEvent` event](https://html.spec.whatwg.org/#event-lo
 > **TODO:** There are two other alternatives to explore:
 > - the context is only preserved for the initial `open`/`error` events, as connection drops and re-connections are due to external circumstances and not caused by the constructor itself; this would allow not keeping the context alive for the whole lifetime of the `EventSource` object.
 > - the context is propagated to _all_ events on `EventSource`, even those caused by server-sent events
+
 ### 9.3 - Cross-document messaging
 When running the [window post message steps](https://html.spec.whatwg.org/#event-loop-processing-model:window-event-loop-3), the user agent must fire `message` and `messageerror` events in the empty context.
 ### 9.4 - Channel messaging
