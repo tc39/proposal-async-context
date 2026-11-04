@@ -467,6 +467,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Set _promise_.[[PromiseState]] to ~rejected~.
           1. If _promise_.[[PromiseIsHandled]] is *false*, then
             1. <ins>Let _mapping_ be _promise_.[[PromiseCreationAsyncContextMapping]].</ins>
+            1. <ins>Assert: _mapping_ is not ~empty~.</ins>
             1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
             1. Perform HostPromiseRejectionTracker(_promise_, *"reject"*<ins>, _mapping_</ins>).
           1. Perform TriggerPromiseReactions(_reactions_, _reason_).
