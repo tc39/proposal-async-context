@@ -461,13 +461,14 @@ contributors: Chengzhong Wu, Justin Ridgewell
         <emu-alg>
           1. Assert: _promise_.[[PromiseState]] is ~pending~.
           1. Let _reactions_ be _promise_.[[PromiseRejectReactions]].
-          1. <ins>Let _mapping_ be _promise_.[[PromiseCreationAsyncContextMapping]].</ins>
           1. Set _promise_.[[PromiseResult]] to _reason_.
           1. Set _promise_.[[PromiseFulfillReactions]] to *undefined*.
           1. Set _promise_.[[PromiseRejectReactions]] to *undefined*.
-          1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
           1. Set _promise_.[[PromiseState]] to ~rejected~.
-          1. If _promise_.[[PromiseIsHandled]] is *false*, perform HostPromiseRejectionTracker(_promise_, *"reject"*<ins>, _mapping_</ins>).
+          1. If _promise_.[[PromiseIsHandled]] is *false*, then
+            1. <ins>Let _mapping_ be _promise_.[[PromiseCreationAsyncContextMapping]].</ins>
+            1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
+            1. Perform HostPromiseRejectionTracker(_promise_, *"reject"*<ins>, _mapping_</ins>).
           1. Perform TriggerPromiseReactions(_reactions_, _reason_).
           1. Return ~unused~.
         </emu-alg>
@@ -691,6 +692,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
               1. Let _rejectJob_ be NewPromiseReactionJob(_rejectReaction_, _reason_).
               1. Perform HostEnqueuePromiseJob(_rejectJob_.[[Job]], _rejectJob_.[[Realm]]).
             1. Set _promise_.[[PromiseIsHandled]] to *true*.
+            1. <ins>Set _promise_.[[PromiseCreationAsyncContextMapping]] to ~empty~.</ins>
             1. If _resultCapability_ is *undefined*, return *undefined*.
             1. Return _resultCapability_.[[Promise]].
           </emu-alg>
