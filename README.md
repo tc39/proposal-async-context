@@ -1,12 +1,15 @@
 # Async Context for JavaScript
 
-Status: Stage 2
+Status:
+- TC39: Stage 2
+- WHATWG: Stage 1
 
 Champions:
 
 - Andreu Botella ([@andreubotella](https://github.com/andreubotella))
 - Chengzhong Wu ([@legendecas](https://github.com/legendecas))
 - Justin Ridgewell ([@jridgewell](https://github.com/jridgewell))
+- Nicolò Ribaudo ([@nicolo-ribaudo](https://github.com/nicolo-ribaudo))
 
 Discuss with the group and join the bi-weekly via [#tc39-async-context][]
 matrix room ([Matrix Guide][]).
