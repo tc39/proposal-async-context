@@ -281,21 +281,11 @@ Unhandled rejection events are tasks that is scheduled when
 [HostPromiseRejectionTracker](https://tc39.es/ecma262/#sec-host-promise-rejection-tracker)
 is invoked.
 
-The `PromiseRejectionEvent` instances of unhandled rejection events are emitted
-with the following properties:
+The web integration of the proposal extends `PromiseRejectionEvent` objects with a new property,
+`rejectedContext`, which is a snapshot taken when the unhandled promise has been created (and
+thus where it should have been handled).
 
-- `promise`: the promise which has no handler,
-- `reason`: the exception value.
-
-Intuitively, the context of the event should be relevant to the promise
-instance attached to the `PromiseRejectionEvent` instance.
-
-Or alternatively, a new `PromiseRejectionEvent` property can be defined as:
-
-- `asyncSnapshot`: the context relevant to the promise that being rejected.
-
-For a promise created with the `PromiseConstructor` or `Promise.withResolvers`,
-the promise can be rejected in a different context:
+Under a continuation flow model, the `rejectedContext` would instead be a snapshot of the context where the promise was rejected, as the `unhandledrejection` event handler is the continuation of the `reject()` call for the unhandled promise:
 
 ```js
 let reject
@@ -309,56 +299,16 @@ valueStore.run('reject', () => { // (2)
 })
 
 addEventListener('unhandledrejection', (event) => {
-  event.asyncSnapshot.run(() => {
+  event.rejectedContext.run(() => {
     valueStore.get() // site (3)
   })
 })
 ```
-
-In this case, the `unhandledrejection` event will be dispatched with the promise
-instance `p1` and a string of `'error message'`, and the event is scheduled in
-the context of `'reject'`.
 
 For the two type of context variables with `unhandledrejection` event of `p1`
 at site (3):
 
-- For `AsyncContext.Variable`, the context is `'reject'`, where `p1` was rejected.
-- For `ContinuationFlow`, the context is `'reject'`, where `p1` was rejected.
-
----
-
-However, if this promise was handled, and the new promise didn't have a proper
-handler:
-
-```js
-let reject
-let p1
-valueStore.run('init', () => { // (1)
-  ;({ p1, reject } = Promise.withResolvers())
-  const p2 = p1 // p1 is not settled yet
-    .then(undefined, undefined)
-})
-
-valueStore.run('reject', () => { // (2)
-  reject('error message')
-})
-
-addEventListener('unhandledrejection', (event) => {
-  event.asyncSnapshot.run(() => {
-    valueStore.get() // site (3)
-  })
-})
-```
-
-The `unhandledrejection` event will be dispatched with the promise
-instance `p2` with a string of `'error message'`. In this case, the event is
-scheduled in a new microtask which was scheduled in the context of `'reject'`.
-
-For the two type of context variables, the value at site (3) with
-`unhandledrejection` event of `p2`:
-
-- For `AsyncContext.Variable`, the context is `'init'`, where `p2`
-  attaches the promise handlers to `p1`.
+- For `AsyncContext.Variable`, the context is `'init'`, where `p1` was created.
 - For `ContinuationFlow`, the context is `'reject'`, where `p1` was rejected.
 
 ---
@@ -384,7 +334,7 @@ addEventListener('unhandledrejection', (event) => {
 ```
 
 In this case, the `unhandledrejection` event is scheduled in the context where
-`.then` is called, that is `'init'`.
+`.then` is called (`'init'`), as it's the context that rejects the newly-created promise.
 
 > By saying "the `unhandledrejection` event is scheduled" above, it is
 > referring to [HostPromiseRejectionTracker](https://html.spec.whatwg.org/#the-hostpromiserejectiontracker-implementation).
@@ -395,8 +345,8 @@ For the two type of context variables, the value at site (3) with
 `unhandledrejection` event of `p2`:
 
 - For `AsyncContext.Variable`, the context is `'init'`, where `p2`
-  attaches the promise handlers to `p1`.
-- For `ContinuationFlow`, the context is `'reject'`, where `p1` was rejected.
+  is created.
+- For `ContinuationFlow`, the context is also `'init'`, where `p2` was rejected.
 
 ### Fulfilled promises
 
