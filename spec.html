@@ -15,51 +15,67 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <h1>ECMAScript Specification Types</h1>
 
     <ins class="block">
-    <emu-clause id="sec-asynccontext-mapping-record-specification-type">
-      <h1>The Async Context Mapping Record Specification Type</h1>
-      <p>The <dfn variants="Async Context Mapping Records">Async Context Mapping Record</dfn> type is used to represent an AsyncContext.Variable value mapping in the surrounding Agent's [[AsyncContextMapping]].</p>
-      <p>An Async Context Mapping Record's fields are defined by <emu-xref href="#table-asynccontext-mapping-record-fields"></emu-xref>.</p>
+    <emu-clause id="sec-asynccontext-mapping-specification-type">
+      <h1>The Async Context Mapping Specification Type</h1>
 
-      <emu-table id="table-asynccontext-mapping-record-fields" caption="Async Context Mapping Record Fields">
-        <table>
-          <tr>
-            <th>
-              Field Name
-            </th>
-            <th>
-              Value
-            </th>
-            <th>
-              Meaning
-            </th>
-          </tr>
-          <tr>
-            <td>
-              [[AsyncContextKey]]
-            </td>
-            <td>
-              an AsyncContext.Variable instance
-            </td>
-            <td>
-              The AsyncContext.Variable instance as the key in the mapping.
-            </td>
-          </tr>
-          <tr>
-            <td>
-              [[AsyncContextValue]]
-            </td>
-            <td>
-              an ECMAScript language value
-            </td>
-            <td>
-              The value of the AsyncContext.Variable instance in the mapping.
-            </td>
-          </tr>
-        </table>
-      </emu-table>
+      <p>An <dfn id="async-context-mapping" variants="Async Context Mappings">Async Context Mapping</dfn> is a List of Records with fields [[Key]] (an AsyncContext.Variable object) and [[Value]] (an ECMAScript language value). It is used to associate AsyncContext.Variable objects with their corresponding value within a given execution context.</p>
 
-      <p>An <dfn id="async-context-mapping">Async Context Mapping</dfn> is a List of Async Context
-      Mapping Records such that every Record in the List contains a unique [[AsyncContextKey]].</p>
+      <p>Async Context Mappings are only manipulated by the AsyncContextMappingCreate, AsyncContextMappingGet, and AsyncContextMappingUpdate abstract operations, which ensure the uniqueness of the [[Key]] fields in each record.</p>
+
+      <emu-clause id="sec-AsyncContextMappingCreate" type="abstract operation">
+        <h1>
+          AsyncContextMappingCreate ( ): an Async Context Mapping
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It creates a new empty Async Context Mapping.</dd>
+        </dl>
+        <emu-alg>
+          1. Return a new empty List.
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-AsyncContextMappingGet" type="abstract operation">
+        <h1>
+          AsyncContextMappingGet (
+            _mapping_: an Async Context Mapping,
+            _key_: an AsyncContext.Variable object,
+          ): an ECMAScript language value
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It returns the value associated with _key_ in _mapping_, or its default value if no such mapping exists.</dd>
+        </dl>
+        <emu-alg>
+          1. For each Record _r_ of _mapping_, do
+            1. If SameValue(_r_.[[Key]], _key_) is *true*, then
+              1. Assert: _r_.[[Value]] is not ~empty~.
+              1. Return _r_.[[Value]].
+          1. Return _key_.[[AsyncVariableDefaultValue]].
+        </emu-alg>
+      </emu-clause>
+
+      <emu-clause id="sec-AsyncContextMappingUpdate" type="abstract operation">
+        <h1>
+          AsyncContextMappingUpdate (
+            _mapping_: an Async Context Mapping,
+            _key_: an AsyncContext.Variable object,
+            _value_: an ECMAScript language value
+          ): an Async Context Mapping
+        </h1>
+        <dl class="header">
+          <dt>description</dt>
+          <dd>It creates a new Async Context Mapping where all the variables have the same value as in _mapping_, except for _key_ which gets updated to _value_.</dd>
+        </dl>
+        <emu-alg>
+          1. Let _newMapping_ be a new empty List.
+          1. For each Record _r_ of _mapping_, do
+            1. If SameValue(_r_.[[Key]], _key_) is *false*, then
+              1. Append _r_ to _newMapping_.
+          1. Append the Record { [[Key]]: _key_, [[Value]]: _value_ } to _newMapping_.
+          1. Return _newMapping_.
+        </emu-alg>
+      </emu-clause>
     </emu-clause>
     </ins>
   </emu-clause>
@@ -138,7 +154,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
             <ins>an Async Context Mapping</ins>
           </td>
           <td>
-            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. The map is initially empty.</ins>
+            <ins>A map from the AsyncContext.Variable instances to the saved ECMAScript language value. The map is initialized with the return value of AsyncContextMappingCreate() at agent creation time.</ins>
           </td>
         </tr>
       </table>
@@ -1272,15 +1288,8 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Let _asyncVariable_ be the *this* value.
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableName]]).
           1. Let _previousContextMapping_ be AsyncContextSnapshot().
-          1. Let _asyncContextMapping_ be a new empty Async Context Mapping.
-          1. For each Async Context Mapping Record _p_ of _previousContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *false*, then
-              1. Let _q_ be the Async Context Mapping Record { [[AsyncContextKey]]: _p_.[[AsyncContextKey]], [[AsyncContextValue]]: _p_.[[AsyncContextValue]] }.
-              1. Append _q_ to _asyncContextMapping_.
-          1. Assert: _asyncContextMapping_ does not contain an Async Context Mapping Record whose [[AsyncContextKey]] is _asyncVariable_.
-          1. Let _p_ be the Async Context Mapping Record { [[AsyncContextKey]]: _asyncVariable_, [[AsyncContextValue]]: _value_ }.
-          1. Append _p_ to _asyncContextMapping_.
-          1. AsyncContextSwap(_asyncContextMapping_).
+          1. Let _newContextMapping_ be AsyncContextMappingUpdate(_previousContextMapping_, _asyncVariable_, _value_).
+          1. AsyncContextSwap(_newContextMapping_).
           1. Let _result_ be Completion(Call(_func_, *undefined*, _args_)).
           1. AsyncContextSwap(_previousContextMapping_).
           1. Return _result_.
@@ -1305,9 +1314,7 @@ contributors: Chengzhong Wu, Justin Ridgewell
           1. Perform ? RequireInternalSlot(_asyncVariable_, [[AsyncVariableDefaultValue]]).
           1. Let _agentRecord_ be the surrounding agent's Agent Record.
           1. Let _asyncContextMapping_ be _agentRecord_.[[AsyncContextMapping]].
-          1. For each Async Context Mapping Record _p_ of _asyncContextMapping_, do
-            1. If SameValueZero(_p_.[[AsyncContextKey]], _asyncVariable_) is *true*, return _p_.[[AsyncContextValue]].
-          1. Return _asyncVariable_.[[AsyncVariableDefaultValue]].
+          1. Return AsyncContextMappingGet(_asyncContextMapping_, _asyncVariable_).
         </emu-alg>
       </emu-clause>
 
