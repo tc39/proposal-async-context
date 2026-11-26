@@ -18,9 +18,9 @@ contributors: Chengzhong Wu, Justin Ridgewell
     <emu-clause id="sec-asynccontext-mapping-specification-type">
       <h1>The Async Context Mapping Specification Type</h1>
 
-      <p>An <dfn id="async-context-mapping" variants="Async Context Mappings">Async Context Mapping</dfn> is a List of Records with fields [[Key]] (an AsyncContext.Variable object) and [[Value]] (an ECMAScript language value). It is used to associate AsyncContext.Variable objects with their corresponding value within a given execution context.</p>
+      <p>An <dfn id="async-context-mapping" variants="Async Context Mappings">Async Context Mapping</dfn> is a List of Records with fields [[Key]] (an AsyncContext.Variable object or ~empty~) and [[Value]] (an ECMAScript language value or ~empty~). It is used to associate AsyncContext.Variable objects with their corresponding value within a given execution context.</p>
 
-      <p>Async Context Mappings are only manipulated by the AsyncContextMappingCreate, AsyncContextMappingGet, and AsyncContextMappingUpdate abstract operations, which ensure the uniqueness of the [[Key]] fields in each record.</p>
+      <p>Async Context Mappings are only manipulated by the AsyncContextMappingCreate, AsyncContextMappingGet, and AsyncContextMappingUpdate abstract operations, and by section <emu-xref href="#sec-weakref-execution"></emu-xref> which ensure the uniqueness of the AsyncContext.Variable objects in the [[Key]] fields of each record.</p>
 
       <emu-clause id="sec-AsyncContextMappingCreate" type="abstract operation">
         <h1>
@@ -163,6 +163,45 @@ contributors: Chengzhong Wu, Justin Ridgewell
 
   <emu-clause id="sec-weakref-processing-model">
     <h1>Processing Model of WeakRef and FinalizationRegistry Targets</h1>
+
+    <emu-clause id="sec-weakref-execution">
+      <h1>Execution</h1>
+
+      <p>At any time, if a set of objects and/or symbols _objSet_ is not live, an ECMAScript implementation may perform the following steps atomically:</p>
+
+      <emu-alg>
+        1. For each element _value_ of _objSet_, do
+          1. For each WeakRef _ref_ such that _ref_.[[WeakRefTarget]] is _value_, do
+            1. Set _ref_.[[WeakRefTarget]] to ~empty~.
+          1. For each FinalizationRegistry _finalizationRegistry_ such that _finalizationRegistry_.[[Cells]] contains a Record _cell_ such that _cell_.[[WeakRefTarget]] is _value_, do
+            1. Set _cell_.[[WeakRefTarget]] to ~empty~.
+            1. Let _enqueueCleanup_ be an implementation-defined choice of either *true* or *false*.
+            1. If _enqueueCleanup_ is *true*, perform HostEnqueueFinalizationRegistryCleanupJob(_finalizationRegistry_).
+          1. For each WeakMap _map_ such that _map_.[[WeakMapData]] contains a Record _entry_ such that _entry_.[[Key]] is _value_, do
+            1. Set _entry_.[[Key]] to ~empty~.
+            1. Set _entry_.[[Value]] to ~empty~.
+          1. For each WeakSet _set_ such that _set_.[[WeakSetData]] contains _value_, do
+            1. Replace the element of _set_.[[WeakSetData]] whose value is _value_ with an element whose value is ~empty~.
+          1. <ins>For each Async Context Mapping _asyncContextMapping_ that contains a Record _acEntry_ such that _acEntry_.[[Key]] is _value_, do</ins>
+            1. <ins>Set _acEntry_.[[Key]] to ~empty~.</ins>
+            1. <ins>Set _acEntry_.[[Value]] to ~empty~.</ins>
+      </emu-alg>
+
+      <emu-note>
+        <p>Together with the definition of liveness, this clause prescribes optimizations that an implementation may apply regarding WeakRefs.</p>
+
+        <p>It is possible to access an object without observing its identity. Optimizations such as dead variable elimination and scalar replacement on properties of non-escaping objects whose identity is not observed are allowed. These optimizations are thus allowed to observably empty WeakRefs that point to such objects.</p>
+
+        <p>On the other hand, if an object's identity is observable, and that object is in the [[WeakRefTarget]] internal slot of a WeakRef, optimizations such as rematerialization that observably empty the WeakRef are prohibited.</p>
+
+        <p>Because calling HostEnqueueFinalizationRegistryCleanupJob is optional, registered objects in a FinalizationRegistry do not necessarily hold that FinalizationRegistry live. Implementations may omit FinalizationRegistry callbacks for any reason, e.g., if the FinalizationRegistry itself becomes dead, or if the application is shutting down.</p>
+      </emu-note>
+      <emu-note>
+        <p>Implementations are not obligated to empty WeakRefs for maximal sets of non-live objects or symbols.</p>
+        <p>If an implementation chooses a non-live set _objSet_ in which to empty WeakRefs, this definition requires that it empties WeakRefs for all values in _objSet_ simultaneously. In other words, it is not conformant for an implementation to empty a WeakRef pointing to a value _v_ without emptying out other WeakRefs that, if not emptied, could result in an execution that observes the value of _v_.</p>
+        <p><ins>This definition does not require implementations to also empty all WeakMaps, WeakSets, or Async Context Mappings for the non-live set _objSet_ simultaneously, as once all WeakRefs are emptied the values in _objSet_ are no longer observable.</ins></p>
+      </emu-note>
+    </emu-clause>
 
     <emu-clause id="sec-weakref-host-hooks">
       <h1>Host Hooks</h1>
